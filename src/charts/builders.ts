@@ -183,7 +183,16 @@ export function barsChart(opts: {
                 symbol: 'none',
                 silent: true,
                 lineStyle: { color: p.muted, type: 'dashed', width: 1 },
-                label: { ...monoLabel(p), color: p.muted, formatter: () => `prom. ${formatNumber(opts.average ?? 0, decimals)}`, position: 'insideEndTop' },
+                // Fondo del color de la tarjeta: la etiqueta se lee aunque quede sobre una barra
+                label: {
+                  ...monoLabel(p),
+                  color: p.muted,
+                  formatter: () => `prom. ${formatNumber(opts.average ?? 0, decimals)}`,
+                  position: 'insideEndTop',
+                  backgroundColor: withAlpha(p.surface, 0.88),
+                  padding: [1, 4],
+                  borderRadius: 3,
+                },
                 data: [{ yAxis: opts.average }],
               }
             : undefined,
@@ -330,7 +339,7 @@ export function sankeyChart(opts: {
   };
 }
 
-/** Medidor semicircular (FP, carga del transformador) con bandas de estado. */
+/** Medidor semicircular (FP, carga del transformador): bandas de estado, aguja y el valor debajo. */
 export function gaugeChart(opts: {
   value: number;
   max: number;
@@ -349,24 +358,23 @@ export function gaugeChart(opts: {
         max: opts.max,
         startAngle: 200,
         endAngle: -20,
-        radius: '100%',
-        center: ['50%', '62%'],
-        splitNumber: 4,
-        axisLine: { lineStyle: { width: 12, color: opts.bands.map((b) => [b.to / opts.max, b.color]) } },
-        pointer: { length: '58%', width: 5, itemStyle: { color: p.text } },
+        radius: '96%',
+        center: ['50%', '60%'],
+        axisLine: { lineStyle: { width: 14, color: opts.bands.map((b) => [Math.min(1, b.to / opts.max), b.color]) } },
+        pointer: { length: '56%', width: 5, itemStyle: { color: p.text } },
         anchor: { show: true, size: 10, itemStyle: { color: p.text } },
         axisTick: { show: false },
-        splitLine: { length: 12, lineStyle: { color: p.surface, width: 2 } },
-        axisLabel: { distance: 16, ...monoLabel(p), formatter: (v: number) => formatNumber(v, opts.decimals ?? 0) },
+        splitLine: { show: false },
+        axisLabel: { show: false },
         title: { show: false },
         detail: {
           valueAnimation: true,
-          offsetCenter: [0, '32%'],
+          offsetCenter: [0, '44%'],
           fontFamily: MONO,
-          fontSize: 20,
+          fontSize: 22,
           fontWeight: 600,
           color: p.text,
-          formatter: (v: number) => `${formatNumber(v, opts.decimals ?? 0)} ${opts.unit}`,
+          formatter: (v: number) => `${formatNumber(v, opts.decimals ?? 0)}${opts.unit ? ` ${opts.unit}` : ''}`,
         },
         data: [{ value: opts.value }],
       },
@@ -405,6 +413,55 @@ export function bubbleChart(opts: {
           itemStyle: { color: withAlpha(pt.color, 0.75), borderColor: pt.color, borderWidth: 1.5 },
           label: { show: true, position: 'top', formatter: pt.label, fontFamily: MONO, fontSize: 10, color: p.text },
         })),
+      },
+    ],
+  };
+}
+
+/**
+ * Barra de lo que hay (con el color de su estado) y una marca vertical en lo que se requiere, por fila:
+ * capacidad de los aires frente a la carga térmica, iluminancia frente a la requerida…
+ * La cifra de cada fila va en una columna a la derecha, para no chocar con la marca.
+ */
+export function bulletChart(opts: {
+  items: { label: string; value: number; target: number; color: string; note?: string }[];
+  unit: string;
+  valueName: string;
+  targetName: string;
+  decimals?: number;
+  dark: boolean;
+}): ChartOption {
+  const p = chartPalette(opts.dark);
+  const decimals = opts.decimals ?? 0;
+  const notes = opts.items.map((item) => item.note ?? (item.target ? formatPercent(item.value / item.target, 0) : ''));
+  const category = { type: 'category', inverse: true, axisTick: { show: false } };
+  return {
+    animationDuration: 500,
+    grid: { left: 8, right: 8, top: 30, bottom: 4, containLabel: true },
+    legend: { ...legend(p, true), data: [opts.valueName, opts.targetName] },
+    ...narrowLegend([opts.valueName, opts.targetName]),
+    tooltip: { ...tooltip(p, opts.unit, decimals), trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: withAlpha(p.axis, 0.12) } } },
+    xAxis: { type: 'value', splitNumber: 3, axisLabel: { show: false }, splitLine: { lineStyle: { color: p.grid } } },
+    yAxis: [
+      { ...category, data: opts.items.map((i) => i.label), axisLine: { lineStyle: { color: p.line } }, axisLabel: { color: p.text, fontFamily: SANS, fontSize: 12 } },
+      { ...category, position: 'right', data: notes, axisLine: { show: false }, axisLabel: { ...monoLabel(p), color: p.muted } },
+    ],
+    series: [
+      {
+        type: 'bar',
+        name: opts.valueName,
+        barMaxWidth: 14,
+        itemStyle: { color: p.series[0] },
+        data: opts.items.map((item) => ({ value: item.value, itemStyle: { color: item.color, borderRadius: [0, 4, 4, 0] } })),
+      },
+      {
+        type: 'scatter',
+        name: opts.targetName,
+        symbol: 'rect',
+        symbolSize: [3, 22],
+        z: 3,
+        itemStyle: { color: p.text },
+        data: opts.items.map((item, index) => [item.target, index]),
       },
     ],
   };

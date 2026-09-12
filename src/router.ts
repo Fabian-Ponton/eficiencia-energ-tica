@@ -11,6 +11,7 @@ const STEP_VIEWS = {
   facturacion: () => import('@/views/project/steps/BillingView.vue'),
   comportamiento: () => import('@/views/project/steps/BehaviorView.vue'),
   balance: () => import('@/views/project/steps/BalanceView.vue'),
+  dimensionamiento: () => import('@/views/project/steps/SizingView.vue'),
 };
 const comingSoon = () => import('@/views/project/ComingSoon.vue');
 

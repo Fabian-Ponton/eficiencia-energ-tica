@@ -1,5 +1,6 @@
 import {
   IconAirConditioning,
+  IconAirConditioningDisabled,
   IconAlertOctagon,
   IconAlertTriangle,
   IconBulb,
@@ -12,7 +13,9 @@ import {
 } from '@tabler/icons-vue';
 import { h, type Component, type FunctionalComponent } from 'vue';
 import ElectricalIcon from '@/components/icons/ElectricalIcon.vue';
+import type { LoadingLevel } from '@/domain/calc/sizing/capacity';
 import type { LightingStatus } from '@/domain/calc/sizing/lighting';
+import type { CoolingStatus } from '@/domain/sizing';
 import type { ImbalanceLevel } from '@/domain/measurements';
 import type { Condition, ElectricalKind, EndUseCategory } from '@/domain/types';
 
@@ -61,6 +64,19 @@ export const LIGHTING_STATUS: Record<LightingStatus, StatusStyle> = {
   insuficiente: { tone: 'serious', icon: IconAlertTriangle, label: 'Iluminación baja' },
   adecuada: { tone: 'good', icon: IconCircleCheck, label: 'Iluminación adecuada' },
   excesiva: { tone: 'warning', icon: IconAlertTriangle, label: 'Iluminación excesiva' },
+};
+
+export const COOLING_STATUS: Record<CoolingStatus, StatusStyle> = {
+  subdimensionado: { tone: 'serious', icon: IconAlertTriangle, label: 'Capacidad insuficiente' },
+  adecuado: { tone: 'good', icon: IconCircleCheck, label: 'Capacidad adecuada' },
+  sobredimensionado: { tone: 'warning', icon: IconAlertTriangle, label: 'Sobredimensionado' },
+  'sin-aire': { tone: 'neutral', icon: IconAirConditioningDisabled, label: 'Sin aire asignado' },
+};
+
+export const LOADING_STATUS: Record<LoadingLevel, StatusStyle> = {
+  normal: { tone: 'good', icon: IconCircleCheck, label: 'Carga normal' },
+  alta: { tone: 'warning', icon: IconAlertTriangle, label: 'Carga alta' },
+  critica: { tone: 'critical', icon: IconAlertOctagon, label: 'Carga crítica' },
 };
 
 export const IMBALANCE_STATUS: Record<ImbalanceLevel, StatusStyle> = {

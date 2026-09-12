@@ -23,16 +23,57 @@ const TARIFF = 850;
 /** Horario de 24 h a partir de rangos [desde, hasta). */
 const on = (...ranges: [number, number][]) => Array.from({ length: 24 }, (_, h) => ranges.some(([from, to]) => h >= from && h < to));
 
-type EquipmentSeed = [name: string, category: EndUseCategory, powerKw: number, quantity: number, hoursPerDay: number, useFactor: number, daysPerMonth: number, extra?: Partial<Equipment>];
+/** Dónde está cada equipo: espacio (por nombre) y tablero o circuito que lo alimenta. */
+type PanelKey = 'hvac' | 'floor1' | 'floor2' | 'labs' | 'caa1' | 'caa2';
+type Placement = { area?: string; panel?: PanelKey };
+type EquipmentSeed = [
+  name: string,
+  category: EndUseCategory,
+  powerKw: number,
+  quantity: number,
+  hoursPerDay: number,
+  useFactor: number,
+  daysPerMonth: number,
+  extra?: Partial<Equipment> & Placement,
+];
+
+const AULAS = ['Aula 601', 'Aula 602', 'Aula 603', 'Aula 604'];
+const MINI_SPLIT = { capacityBtuH: 18000, eer: 10.9, condition: 'regular' as const, activeHours: on([8, 16]) };
+const T8 = { lampType: 'T8', lumens: 5200, activeHours: on([7, 11], [14, 18]) };
+const LED_PANEL = { lampType: 'LED', lumens: 4000, activeHours: on([7, 15]) };
+const PC_HOURS = on([7, 11], [13, 17]);
+const PROJECTOR_HOURS = on([8, 11], [14, 17]);
 
 const EQUIPMENT: EquipmentSeed[] = [
-  ['Aire acondicionado mini-split 18.000 BTU/h', 'climatizacion', 1.65, 38, 8, 0.6, 22, { capacityBtuH: 18000, eer: 10.9, condition: 'regular', activeHours: on([8, 16]) }],
-  ['Aire acondicionado central 60.000 BTU/h', 'climatizacion', 5.5, 2, 10, 0.75, 22, { capacityBtuH: 60000, eer: 10.9, activeHours: on([7, 17]) }],
-  ['Luminaria fluorescente 2×32 W T8', 'iluminacion', 0.07, 206, 8, 1, 22, { lampType: 'T8', lumens: 5200, activeHours: on([7, 11], [14, 18]) }],
-  ['Panel LED 40 W', 'iluminacion', 0.04, 36, 8, 1, 22, { lampType: 'LED', lumens: 4000, activeHours: on([7, 15]) }],
-  ['Computador de escritorio', 'ti', 0.12, 96, 8, 0.6, 22, { activeHours: on([7, 11], [13, 17]) }],
-  ['Videoproyector', 'ti', 0.3, 14, 6, 0.8, 22, { activeHours: on([8, 11], [14, 17]) }],
+  ...AULAS.map(
+    (area, i): EquipmentSeed => [
+      'Aire acondicionado mini-split 18.000 BTU/h',
+      'climatizacion',
+      1.65,
+      i === 3 ? 1 : 2,
+      8,
+      0.6,
+      22,
+      { ...MINI_SPLIT, area, panel: i === 0 ? 'caa1' : 'hvac', code: `AC-A${601 + i}`, notes: i === 3 ? 'Una de las dos unidades está fuera de servicio.' : undefined },
+    ],
+  ),
+  ['Aire acondicionado mini-split 24.000 BTU/h', 'climatizacion', 2.2, 1, 9, 0.6, 22, { capacityBtuH: 24000, eer: 10.9, activeHours: on([8, 17]), area: 'Coordinación académica', panel: 'hvac', code: 'AC-COORD' }],
+  ['Aire acondicionado mini-split 18.000 BTU/h', 'climatizacion', 1.65, 31, 8, 0.6, 22, { ...MINI_SPLIT, panel: 'hvac', notes: 'Unidades de los demás espacios del bloque.' }],
+  ['Aire acondicionado central 60.000 BTU/h', 'climatizacion', 5.5, 1, 10, 0.75, 22, { capacityBtuH: 60000, eer: 10.9, activeHours: on([7, 17]), area: 'Laboratorio de física', panel: 'caa2', code: 'AC-LAB' }],
+  ['Aire acondicionado central 60.000 BTU/h', 'climatizacion', 5.5, 1, 10, 0.75, 22, { capacityBtuH: 60000, eer: 10.9, activeHours: on([7, 17]), area: 'Sala de cómputo', panel: 'hvac', code: 'AC-SC' }],
+  ...AULAS.map((area): EquipmentSeed => ['Luminaria fluorescente 2×32 W T8', 'iluminacion', 0.07, 8, 8, 1, 22, { ...T8, area, panel: 'floor1' }]),
+  ['Luminaria fluorescente 2×32 W T8', 'iluminacion', 0.07, 16, 8, 1, 22, { ...T8, area: 'Laboratorio de física', panel: 'labs' }],
+  ['Luminaria fluorescente 2×32 W T8', 'iluminacion', 0.07, 158, 8, 1, 22, { ...T8, notes: 'Pasillos, baños y demás espacios.' }],
+  ['Panel LED 40 W', 'iluminacion', 0.04, 20, 8, 1, 22, { ...LED_PANEL, area: 'Sala de cómputo', panel: 'floor2' }],
+  ['Panel LED 40 W', 'iluminacion', 0.04, 8, 8, 1, 22, { ...LED_PANEL, area: 'Coordinación académica', panel: 'floor2' }],
+  ['Panel LED 40 W', 'iluminacion', 0.04, 8, 8, 1, 22, { ...LED_PANEL }],
+  ['Computador de escritorio', 'ti', 0.12, 40, 8, 0.6, 22, { activeHours: PC_HOURS, area: 'Sala de cómputo', panel: 'floor2' }],
+  ['Computador de escritorio', 'ti', 0.12, 6, 8, 0.6, 22, { activeHours: PC_HOURS, area: 'Coordinación académica', panel: 'floor2' }],
+  ['Computador de escritorio', 'ti', 0.12, 50, 8, 0.6, 22, { activeHours: PC_HOURS }],
+  ...AULAS.map((area): EquipmentSeed => ['Videoproyector', 'ti', 0.3, 1, 6, 0.8, 22, { activeHours: PROJECTOR_HOURS, area, panel: 'floor1' }]),
+  ['Videoproyector', 'ti', 0.3, 10, 6, 0.8, 22, { activeHours: PROJECTOR_HOURS }],
   ['Servidor', 'ti', 0.4, 2, 24, 1, 30, { activeHours: on([0, 24]) }],
+  ['Equipo de laboratorio', 'otros', 0.5, 4, 6, 0.5, 22, { activeHours: PROJECTOR_HOURS, area: 'Laboratorio de física', panel: 'labs' }],
   ['Nevera', 'refrigeracion', 0.2, 9, 24, 0.5, 30, { activeHours: on([0, 24]) }],
   ['Dispensador de agua', 'refrigeracion', 0.5, 3, 10, 0.5, 22, { activeHours: on([7, 17]) }],
   ['Bomba de agua de 3 HP', 'motores', 2.24, 2, 6, 0.9, 30, { efficiency: 0.82, activeHours: on([5, 8], [16, 19]) }],
@@ -125,8 +166,8 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
       windowOrientation: 'N' as const,
       measuredLuxAvg: n === 601 ? 312 : 340,
     })),
-    { ...stamp(), name: 'Laboratorio de física', spaceType: 'laboratorio', lengthM: 12, widthM: 8, heightM: 3.2, workPlaneHeightM: 0.9, occupants: 30, hoursPerDay: 8 },
-    { ...stamp(), name: 'Sala de cómputo', spaceType: 'sala-computo', lengthM: 10, widthM: 8, heightM: 3, workPlaneHeightM: 0.8, occupants: 40, hoursPerDay: 10 },
+    { ...stamp(), name: 'Laboratorio de física', spaceType: 'laboratorio', lengthM: 12, widthM: 8, heightM: 3.2, workPlaneHeightM: 0.9, occupants: 30, hoursPerDay: 8, measuredLuxAvg: 405 },
+    { ...stamp(), name: 'Sala de cómputo', spaceType: 'sala-computo', lengthM: 10, widthM: 8, heightM: 3, workPlaneHeightM: 0.8, occupants: 40, hoursPerDay: 10, measuredLuxAvg: 470 },
     { ...stamp(), name: 'Coordinación académica', spaceType: 'oficina', lengthM: 6, widthM: 5, heightM: 2.8, workPlaneHeightM: 0.8, occupants: 6, hoursPerDay: 9 },
   ];
 
@@ -146,6 +187,8 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
   const floor2 = node('tablero', 'TD-P2 · Piso 2', main.id, { breakerA: 125, phases: 3, voltageV: 208, location: 'Pasillo del piso 2' });
   const hvac = node('tablero', 'TD-AA · Aires acondicionados', main.id, { breakerA: 225, phases: 3, voltageV: 208, location: 'Cubierta' });
   const labs = node('tablero', 'TD-LAB · Laboratorios', main.id, { breakerA: 100, phases: 3, voltageV: 208, location: 'Laboratorio de física' });
+  const caa1 = node('circuito', 'C-AA1 · Mini-split aula 601', hvac.id, { breakerA: 20, phases: 2, voltageV: 208, conductor: '2×12 AWG' });
+  const caa2 = node('circuito', 'C-AA2 · Aire central del laboratorio', hvac.id, { breakerA: 40, phases: 3, voltageV: 208, conductor: '3×8 AWG' });
   const electrical: ElectricalNode[] = [
     red,
     transformer,
@@ -159,23 +202,29 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
     node('circuito', 'C1 · Iluminación aulas 601–602', floor1.id, { breakerA: 20, phases: 1, voltageV: 120, conductor: '2×12 AWG' }),
     node('circuito', 'C2 · Tomas aulas 601–602', floor1.id, { breakerA: 20, phases: 1, voltageV: 120, conductor: '2×12 AWG' }),
     node('circuito', 'C3 · Iluminación aulas 603–604', floor1.id, { breakerA: 20, phases: 1, voltageV: 120, conductor: '2×12 AWG' }),
-    node('circuito', 'C-AA1 · Mini-split aula 601', hvac.id, { breakerA: 20, phases: 2, voltageV: 208, conductor: '2×12 AWG' }),
-    node('circuito', 'C-AA2 · Aire central del laboratorio', hvac.id, { breakerA: 40, phases: 3, voltageV: 208, conductor: '3×8 AWG' }),
+    caa1,
+    caa2,
   ];
 
-  const equipment: Equipment[] = EQUIPMENT.map(([name, category, powerKw, quantity, hoursPerDay, useFactor, operatingDaysPerMonth, extra]) => ({
-    ...stamp(),
-    name,
-    category,
-    powerKw,
-    quantity,
-    hoursPerDay,
-    useFactor,
-    operatingDaysPerMonth,
-    condition: 'bueno',
-    ...(category === 'climatizacion' ? { panelId: hvac.id } : {}),
-    ...extra,
-  }));
+  const areaIds = new Map(areas.map((a) => [a.name, a.id]));
+  const panelIds: Record<PanelKey, string> = { hvac: hvac.id, floor1: floor1.id, floor2: floor2.id, labs: labs.id, caa1: caa1.id, caa2: caa2.id };
+  const equipment: Equipment[] = EQUIPMENT.map(([name, category, powerKw, quantity, hoursPerDay, useFactor, operatingDaysPerMonth, extra = {}]) => {
+    const { area, panel, ...rest } = extra;
+    return {
+      ...stamp(),
+      name,
+      category,
+      powerKw,
+      quantity,
+      hoursPerDay,
+      useFactor,
+      operatingDaysPerMonth,
+      condition: 'bueno',
+      areaId: area ? areaIds.get(area) : undefined,
+      panelId: panel ? panelIds[panel] : undefined,
+      ...rest,
+    };
+  });
   const miniSplit = equipment[0];
 
   const measurements: Measurement[] = [

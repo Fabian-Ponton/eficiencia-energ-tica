@@ -15,6 +15,11 @@ export interface ChartPalette {
   heat: string[];
   accent: string;
   navy: string;
+  /** Estados (bien, alerta, serio, crítico), iguales a los chips de estado. */
+  good: string;
+  warning: string;
+  serious: string;
+  critical: string;
 }
 
 export const SANS = 'IBM Plex Sans, Segoe UI, system-ui, sans-serif';
@@ -33,6 +38,10 @@ const LIGHT: ChartPalette = {
   heat: ['#eef3fb', '#9cc2f0', '#2a78d6', '#10234b'],
   accent: '#22a056',
   navy: '#10234b',
+  good: '#1f9d55',
+  warning: '#e0a100',
+  serious: '#eb6834',
+  critical: '#d63a3a',
 };
 
 const DARK: ChartPalette = {
@@ -48,6 +57,10 @@ const DARK: ChartPalette = {
   heat: ['#19253d', '#23508f', '#3987e5', '#cfe3ff'],
   accent: '#22a056',
   navy: '#cfe3ff',
+  good: '#2fb86a',
+  warning: '#d4a017',
+  serious: '#e0703f',
+  critical: '#ef5a52',
 };
 
 export const chartPalette = (dark: boolean): ChartPalette => (dark ? DARK : LIGHT);
