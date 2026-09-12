@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBolt, IconCalendar, IconCurrencyDollar, IconNotes } from '@tabler/icons-vue';
+import { IconBolt, IconCalendar, IconChartDots, IconCurrencyDollar, IconNotes } from '@tabler/icons-vue';
 import DatePicker from 'primevue/datepicker';
 import Textarea from 'primevue/textarea';
 import { computed, watch } from 'vue';
@@ -109,6 +109,25 @@ const calc = computed(() => {
       </label>
     </div>
     <CalcPanel v-if="calc.length" :items="calc" />
+  </section>
+
+  <section class="form-seccion">
+    <h3 class="form-seccion-titulo"><IconChartDots :size="16" />Variables para la línea base</h3>
+    <p class="ayuda-seccion">Opcional. Explican por qué un mes consume más que otro y se usan en la línea base energética (ISO 50006).</p>
+    <div class="form-grid tres">
+      <label class="campo">
+        <span class="etiqueta">Días hábiles</span>
+        <NumberInput v-model="draft.workingDays" :decimals="0" :max="31" suffix="días" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Temperatura media</span>
+        <NumberInput v-model="draft.avgTemperatureC" :decimals="1" :min="-10" :max="50" suffix="°C" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Ocupación</span>
+        <NumberInput v-model="draft.occupancyPct" :decimals="0" :max="100" suffix="%" />
+      </label>
+    </div>
   </section>
 
   <section class="form-seccion">

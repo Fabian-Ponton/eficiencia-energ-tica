@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { IconAlertTriangle, IconCamera, IconCheck, IconFileSpreadsheet, IconGauge, IconPlus } from '@tabler/icons-vue';
+import { IconAlertTriangle, IconCamera, IconChartLine, IconFileImport, IconFileSpreadsheet, IconGauge, IconPlus, IconTrash } from '@tabler/icons-vue';
 import { useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import { computed, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import MonthlyBars from '@/components/charts/MonthlyBars.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import ChoiceChips from '@/components/ui/ChoiceChips.vue';
@@ -16,21 +16,27 @@ import { useFabAction } from '@/composables/useFab';
 import { usePhotoCounts, useProjectRecords } from '@/composables/useProjectRecords';
 import { useQuickAdd } from '@/composables/useQuickAdd';
 import { useRecordEditor } from '@/composables/useRecordEditor';
+import { offerUndo } from '@/composables/useUndo';
+import { restoreRecords, softDeleteRecords } from '@/db/records';
+import { getDb } from '@/db/schema';
 import { DATA_TYPES } from '@/domain/catalogs';
 import { derivePower, imbalanceLevel } from '@/domain/measurements';
-import type { Measurement } from '@/domain/types';
+import type { IntervalSeries, Measurement } from '@/domain/types';
 import { IMBALANCE_STATUS } from '@/ui/icons';
 import { formatDate, formatDateTime, parseLocal, toLocalDateTime } from '@/utils/dates';
 import { formatNumber, formatPercent } from '@/utils/format';
+import IntervalImportSheet from './IntervalImportSheet.vue';
 import MeasurementForm from './MeasurementForm.vue';
 import ReadingForm from './ReadingForm.vue';
 
+const db = getDb();
 const route = useRoute();
 const { projectId } = useCurrentProject();
 const desktop = useMediaQuery('(min-width: 1024px)');
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'es', { numeric: true });
 const { rows: measurements, ready } = useProjectRecords('measurements', (a, b) => b.takenAt.localeCompare(a.takenAt));
 const { rows: readings } = useProjectRecords('meterReadings', (a, b) => a.at.localeCompare(b.at));
+const { rows: series, ready: seriesReady } = useProjectRecords('intervalSeries', (a, b) => b.createdAt - a.createdAt);
 const { rows: areas } = useProjectRecords('areas', byName);
 const { rows: equipment } = useProjectRecords('equipment', byName);
 const { rows: nodes } = useProjectRecords('electrical', byName);
@@ -49,7 +55,7 @@ watch(
 const tabs = computed(() => [
   { value: 'puntuales' as const, label: `Puntuales · ${measurements.value.length}` },
   { value: 'lecturas' as const, label: `Lecturas · ${readings.value.length}` },
-  { value: 'analizador' as const, label: 'Analizador' },
+  { value: 'analizador' as const, label: `Analizador · ${series.value.length}` },
 ]);
 
 // ——— Mediciones puntuales ———
@@ -187,25 +193,52 @@ const {
   photoEntity: 'medicion',
 });
 
+// ——— Archivos del analizador y del operador ———
+const SOURCE_LABEL = { analizador: 'Analizador', operador: 'Operador de red', otro: 'Otro' } as const;
+const importing = ref(false);
+const seriesStats = computed(() => {
+  const days = series.value.reduce((t, s) => t + (s.dayCount ?? 0), 0);
+  const peak = Math.max(0, ...series.value.map((s) => s.peakKw ?? 0));
+  return [
+    { label: 'Series', value: formatNumber(series.value.length) },
+    { label: 'Días registrados', value: formatNumber(days), unit: 'días' },
+    { label: 'Demanda máxima', value: peak ? formatNumber(peak, 1) : '—', unit: peak ? 'kW' : undefined },
+  ];
+});
+/** Alcance del punto de medición: solo una serie de toda la instalación se compara con el inventario. */
+async function toggleScope(s: IntervalSeries) {
+  await db.intervalSeries.update(s.id, { wholeFacility: !s.wholeFacility, updatedAt: Date.now() });
+}
+
+async function removeSeries(s: IntervalSeries) {
+  await softDeleteRecords(db, 'intervalSeries', [s.id]);
+  offerUndo(`Se eliminó «${s.name}»`, () => restoreRecords(db, 'intervalSeries', [s.id]));
+}
+
 function addForTab() {
   if (tab.value === 'lecturas') newReading();
-  else {
-    tab.value = 'puntuales';
-    newMeasurement();
-  }
+  else if (tab.value === 'analizador') importing.value = true;
+  else newMeasurement();
 }
-useFabAction(() =>
-  tab.value === 'lecturas' ? { label: 'Registrar lectura', icon: IconPlus, run: () => newReading() } : { label: 'Agregar medición', icon: IconPlus, run: addForTab },
-);
+const actionLabel = computed(() => (tab.value === 'lecturas' ? 'Registrar lectura' : tab.value === 'analizador' ? 'Importar archivo' : 'Agregar medición'));
+const headerStats = computed(() => {
+  if (tab.value === 'lecturas') return readings.value.length ? readingStats.value : undefined;
+  if (tab.value === 'analizador') return series.value.length ? seriesStats.value : undefined;
+  return measurements.value.length ? pointStats.value : undefined;
+});
+useFabAction(() => ({ label: actionLabel.value, icon: tab.value === 'analizador' ? IconFileImport : IconPlus, run: addForTab }));
 useQuickAdd(addForTab);
 </script>
 
 <template>
   <div class="vista">
-    <PageHeader step="mediciones" :stats="tab === 'lecturas' ? (readings.length ? readingStats : undefined) : tab === 'puntuales' && measurements.length ? pointStats : undefined">
-      <template v-if="desktop && tab !== 'analizador'" #actions>
-        <Button :label="tab === 'lecturas' ? 'Registrar lectura' : 'Agregar medición'" @click="addForTab">
-          <template #icon><IconPlus :size="18" stroke="2.2" /></template>
+    <PageHeader step="mediciones" :stats="headerStats">
+      <template v-if="desktop" #actions>
+        <Button :label="actionLabel" @click="addForTab">
+          <template #icon>
+            <IconFileImport v-if="tab === 'analizador'" :size="18" />
+            <IconPlus v-else :size="18" stroke="2.2" />
+          </template>
         </Button>
       </template>
       <ChoiceChips v-model="tab" :options="tabs" label="Tipo de medición" fill />
@@ -239,7 +272,11 @@ useQuickAdd(addForTab);
           </span>
           <span class="chips">
             <StatusChip tone="neutral" :label="dataTypeLabel(m.dataType)" />
-            <StatusChip v-if="d.imbalance !== null" v-bind="IMBALANCE_STATUS[imbalanceLevel(d.imbalance)]" :label="`${IMBALANCE_STATUS[imbalanceLevel(d.imbalance)].label} · ${formatPercent(d.imbalance, 0)}`" />
+            <StatusChip
+              v-if="d.imbalance !== null"
+              v-bind="IMBALANCE_STATUS[imbalanceLevel(d.imbalance)]"
+              :label="`${IMBALANCE_STATUS[imbalanceLevel(d.imbalance)].label} · ${formatPercent(d.imbalance, 0)}`"
+            />
             <StatusChip v-if="m.thdI !== undefined" tone="neutral" :label="`THD I ${formatNumber(m.thdI, 1)} %`" />
             <span v-if="m.instrument" class="dato">{{ m.instrument }}</span>
             <span v-if="photoCounts.get(m.id)" class="dato"><IconCamera :size="14" />{{ photoCounts.get(m.id) }}</span>
@@ -314,18 +351,51 @@ useQuickAdd(addForTab);
       </div>
     </template>
 
-    <!-- Archivos del analizador (Fase 2) -->
-    <section v-else class="card analizador">
-      <span class="analizador-icono"><IconFileSpreadsheet :size="26" /></span>
-      <h2>Archivos del analizador y del operador</h2>
-      <p>Esta parte se construye en la fase 2 del plan. Podrás importar:</p>
-      <ul>
-        <li><IconCheck :size="16" />CSV o Excel del analizador de redes o del data logger.</li>
-        <li><IconCheck :size="16" />Archivos del medidor inteligente del operador de red.</li>
-        <li><IconCheck :size="16" />Mapeo de columnas con vista previa: separador, formato de fecha, W o kW, potencia o energía.</li>
-      </ul>
-      <p>Con esos datos se arman la curva de carga diaria, el mapa de calor y la demanda máxima.</p>
-    </section>
+    <!-- Archivos del analizador y del operador -->
+    <template v-else>
+      <div v-if="series.length" class="series">
+        <article v-for="s in series" :key="s.id" class="card serie">
+          <span class="serie-icono"><IconChartLine :size="22" /></span>
+          <div class="serie-texto">
+            <strong>{{ s.name }}</strong>
+            <span class="mono serie-meta">{{ SOURCE_LABEL[s.source] }} · cada {{ s.intervalMinutes }} min · {{ s.dayCount ?? 0 }} {{ s.dayCount === 1 ? 'día' : 'días' }}</span>
+            <span class="serie-datos">
+              {{ formatDate(s.firstDate) }} – {{ formatDate(s.lastDate) }}
+              <template v-if="s.peakKw"> · máx. {{ formatNumber(s.peakKw, 1) }} kW</template>
+              <template v-if="s.energyKwh && s.dayCount"> · {{ formatNumber(s.energyKwh / s.dayCount) }} kWh/día</template>
+            </span>
+            <span v-if="s.location" class="serie-datos">{{ s.location }}</span>
+            <button
+              type="button"
+              class="alcance"
+              :class="{ total: s.wholeFacility }"
+              :aria-pressed="!!s.wholeFacility"
+              title="Toca para cambiar el alcance: toda la instalación o un punto parcial"
+              @click="toggleScope(s)"
+            >
+              {{ s.wholeFacility ? 'Toda la instalación' : 'Punto parcial' }}
+            </button>
+          </div>
+          <div class="serie-acciones">
+            <RouterLink :to="{ name: 'comportamiento', params: { projectId }, query: { serie: s.id } }" class="ver">Ver curva</RouterLink>
+            <button type="button" class="boton-icono" :aria-label="`Eliminar ${s.name}`" title="Eliminar la serie" @click="removeSeries(s)">
+              <IconTrash :size="18" />
+            </button>
+          </div>
+        </article>
+      </div>
+      <div v-else-if="seriesReady" class="card">
+        <EmptyState
+          :icon="IconFileSpreadsheet"
+          title="Sin archivos del analizador"
+          text="Importa el CSV o Excel del analizador de redes, del data logger o del medidor inteligente del operador: con esos datos se arma la curva de carga diaria."
+        >
+          <Button label="Importar archivo" @click="importing = true">
+            <template #icon><IconFileImport :size="18" /></template>
+          </Button>
+        </EmptyState>
+      </div>
+    </template>
 
     <FormSheet
       v-model:visible="measurementVisible"
@@ -361,6 +431,8 @@ useQuickAdd(addForTab);
     >
       <ReadingForm :key="readingDraft.id" v-model:draft="readingDraft" :errors="readingErrors" :project-id="projectId" :readings="readings" />
     </FormSheet>
+
+    <IntervalImportSheet v-model:visible="importing" :project-id="projectId" :locations="nodes.map((n) => n.name)" />
   </div>
 </template>
 
@@ -462,55 +534,98 @@ useQuickAdd(addForTab);
   justify-content: space-between;
   gap: 12px;
 }
-.grafica h2,
-.analizador h2 {
+.grafica h2 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
 }
-.analizador {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 20px;
-  color: var(--ink-2);
-  font-size: 14px;
-}
-.analizador p {
-  margin: 0;
-}
-.analizador-icono {
+.series {
   display: grid;
+  gap: 10px;
+}
+.serie {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.serie-icono {
+  display: grid;
+  flex-shrink: 0;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   background: var(--info-wash);
   color: var(--navy);
 }
-.app-dark .analizador-icono {
+.app-dark .serie-icono {
   color: var(--ink);
 }
-.analizador ul {
+.serie-texto {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: 2px;
+  min-width: 0;
 }
-.analizador li {
+.serie-texto strong {
+  font-size: 15px;
+}
+.serie-meta {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.alcance {
+  align-self: flex-start;
+  height: 26px;
+  margin-top: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.alcance.total {
+  border-color: var(--accent-strong);
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.serie-datos {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.serie-acciones {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-.analizador li svg {
   flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--accent-strong);
+  align-items: center;
+  gap: 4px;
+}
+.ver {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ver:hover {
+  background: var(--accent-wash);
+}
+@media (max-width: 560px) {
+  .serie {
+    align-items: flex-start;
+  }
+  .serie-acciones {
+    flex-direction: column;
+    align-items: flex-end;
+  }
 }
 @media (min-width: 1024px) {
-  .lista {
+  .lista,
+  .series {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

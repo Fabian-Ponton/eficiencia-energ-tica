@@ -1,8 +1,8 @@
 import type { Table } from 'dexie';
-import type { Area, Bill, ElectricalNode, EntityType, Equipment, Measurement, MeterReadingRecord, Photo } from '@/domain/types';
+import type { Area, Bill, ElectricalNode, EntityType, Equipment, IntervalSeries, Measurement, MeterReadingRecord, Photo } from '@/domain/types';
 import type { PontiaDb } from './schema';
 
-/** Tablas que se editan desde las pantallas del levantamiento. */
+/** Tablas que se editan desde las pantallas de la auditoría. */
 export interface RecordTables {
   areas: Area;
   equipment: Equipment;
@@ -11,6 +11,7 @@ export interface RecordTables {
   meterReadings: MeterReadingRecord;
   bills: Bill;
   photos: Photo;
+  intervalSeries: IntervalSeries;
 }
 export type RecordTable = keyof RecordTables;
 

@@ -77,6 +77,11 @@
 .completo {
   grid-column: 1 / -1;
 }
+.ayuda-seccion {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
 .campo .p-inputtext,
 .campo .p-select,
 .campo .p-inputnumber,
@@ -148,6 +153,52 @@ input.p-inputtext[type='datetime-local'] {
 .aviso-linea.alerta {
   background: var(--warning-wash);
   color: var(--warning-text);
+}
+
+/* Tarjetas de análisis: título, subtítulo en mono debajo y acciones (PNG, estado) a la derecha */
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+.cabecera-seccion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 12px;
+}
+.cabecera-seccion > h2,
+.cabecera-seccion > h3 {
+  display: flex;
+  grid-column: 1;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.cabecera-seccion > h3 {
+  font-size: 14px;
+}
+.cabecera-seccion > .eyebrow {
+  grid-column: 1 / -1;
+}
+.cabecera-seccion > :not(h2, h3, .eyebrow) {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+}
+/* Con un estado de texto largo, todo va en una sola columna */
+.cabecera-seccion.apilada {
+  grid-template-columns: minmax(0, 1fr);
+}
+.cabecera-seccion.apilada > * {
+  grid-row: auto;
+  grid-column: 1;
+  justify-self: start;
 }
 
 /* Hojas de formulario (inferior en el celular, lateral en el PC) */

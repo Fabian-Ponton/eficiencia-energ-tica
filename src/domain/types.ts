@@ -1,4 +1,5 @@
 /** Modelo de datos de PONTIA. Todo se guarda en el equipo (IndexedDB). */
+import type { IntervalCsvMapping } from './importers/intervalCsv';
 
 /** Campos comunes de cada registro. `updatedAt` y `deletedAt` preparan la sincronización futura con la nube. */
 export interface BaseRecord {
@@ -59,6 +60,28 @@ export interface Project extends BaseRecord {
   endDate?: string;
   /** Última descarga del respaldo .zip. No cuenta como modificación del proyecto. */
   lastBackupAt?: number;
+  /** Parámetros de referencia del dimensionamiento que el auditor cambió; los demás usan los valores por defecto. */
+  sizing?: SizingOverrides;
+}
+
+/** Referencias editables del dimensionamiento. Solo se guardan las que difieren de los valores por defecto. */
+export interface SizingOverrides {
+  /** Por tipo de espacio: iluminancia requerida (lux), carga de envolvente (BTU/h·m²) y límite VEEI (W/m² por 100 lux). */
+  spaces?: Record<string, { lux?: number; envelopeBtuHPerM2?: number; veeiLimit?: number }>;
+  btuHPerPerson?: number;
+  roofExtraBtuHPerM2?: number;
+  solarBtuHPerM2?: Partial<Record<Orientation, number>>;
+  safetyFactor?: number;
+  coolingUnder?: number;
+  coolingOver?: number;
+  lightingTolerance?: number;
+  lightingExcess?: number;
+  maintenanceFactor?: number;
+  loadingHigh?: number;
+  loadingCritical?: number;
+  breakerCriterion?: number;
+  demandFactor?: number;
+  defaultPowerFactor?: number;
 }
 
 export interface Area extends ProjectScoped {
@@ -167,6 +190,25 @@ export interface IntervalSeries extends ProjectScoped {
   intervalMinutes: number;
   location?: string;
   fileName?: string;
+  /** La serie mide todo el consumo de la instalación (no un subtablero): se puede comparar con el inventario. */
+  wholeFacility?: boolean;
+  /** Resumen guardado al importar, para listar las series sin leer todos los días. */
+  firstDate?: string;
+  lastDate?: string;
+  dayCount?: number;
+  peakKw?: number;
+  energyKwh?: number;
+  /** Cómo se leyó el archivo, para poder repetirlo o revisarlo. */
+  mapping?: IntervalCsvMapping;
+}
+
+/** Plantilla reutilizable para importar archivos del mismo equipo u operador. */
+export interface ImportTemplate {
+  id: string;
+  name: string;
+  source: IntervalSeries['source'];
+  mapping: IntervalCsvMapping;
+  createdAt: number;
 }
 
 /** Un día de una serie de intervalos: potencia media (kW) de cada intervalo. */
@@ -189,6 +231,10 @@ export interface Bill extends ProjectScoped {
   costCop: number;
   tariffCopPerKwh?: number;
   reactiveChargeCop?: number;
+  /** Variables relevantes del periodo para la línea base (ISO 50006). */
+  workingDays?: number;
+  avgTemperatureC?: number;
+  occupancyPct?: number;
   notes?: string;
 }
 
@@ -271,4 +317,5 @@ export interface Settings {
   csvFormat: 'es-CO' | 'estandar';
   theme: 'claro' | 'oscuro' | 'sistema';
   lastBackupAt?: number;
+  importTemplates?: ImportTemplate[];
 }

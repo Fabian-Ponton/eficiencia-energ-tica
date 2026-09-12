@@ -100,19 +100,20 @@ h1 {
 .dato .eyebrow {
   font-size: 10px;
 }
+/* El número nunca se corta: si no cabe con la unidad, la unidad baja a la siguiente línea */
 dd {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px;
+  gap: 0 4px;
   margin: 0;
   min-width: 0;
 }
 .valor {
-  overflow: hidden;
+  flex-shrink: 0;
   font-size: 19px;
   font-weight: 600;
   line-height: 1.15;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .unidad {

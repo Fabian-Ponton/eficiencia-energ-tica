@@ -9,6 +9,8 @@ const STEP_VIEWS = {
   electrico: () => import('@/views/project/steps/ElectricalView.vue'),
   mediciones: () => import('@/views/project/steps/MeasurementsView.vue'),
   facturacion: () => import('@/views/project/steps/BillingView.vue'),
+  comportamiento: () => import('@/views/project/steps/BehaviorView.vue'),
+  balance: () => import('@/views/project/steps/BalanceView.vue'),
 };
 const comingSoon = () => import('@/views/project/ComingSoon.vue');
 

@@ -1,4 +1,5 @@
-import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Measurement, MeterReadingRecord, Project } from '@/domain/types';
+import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, IntervalDay, IntervalSeries, Measurement, MeterReadingRecord, Project } from '@/domain/types';
+import { summarizeDays } from './intervals';
 import type { PontiaDb } from './schema';
 
 /**
@@ -13,30 +14,59 @@ const KWH = [
   17900, 17600, 12500, 11200, 17100, 18600, 18400, 19100, 13800, 13100, 17900, 17400,
   17200, 16800, 11900, 10800, 16400, 17900, 17600, 18300, 13200, 12600, 17100, 16600,
 ];
+/** Variables de la línea base: días hábiles, ocupación (%) y temperatura media (°C) de cada mes. */
+const WORKING_DAYS = [21, 19, 10, 12, 20, 21, 20, 21, 12, 12, 21, 21, 21, 19, 10, 11, 20, 21, 19, 21, 12, 11, 21, 21];
+const OCCUPANCY = [95, 95, 35, 40, 95, 100, 100, 100, 55, 50, 95, 95, 95, 95, 35, 40, 95, 100, 100, 100, 55, 50, 95, 95];
+const TEMPERATURE = [28.0, 27.6, 27.2, 26.9, 27.1, 27.6, 28.1, 28.6, 28.9, 28.9, 29.0, 28.6, 28.1, 27.7, 27.3, 27.0, 27.2, 27.8, 28.2, 28.7, 29.0, 29.1, 29.1, 28.7];
 const TARIFF = 850;
+
+/** Horario de 24 h a partir de rangos [desde, hasta). */
+const on = (...ranges: [number, number][]) => Array.from({ length: 24 }, (_, h) => ranges.some(([from, to]) => h >= from && h < to));
 
 type EquipmentSeed = [name: string, category: EndUseCategory, powerKw: number, quantity: number, hoursPerDay: number, useFactor: number, daysPerMonth: number, extra?: Partial<Equipment>];
 
 const EQUIPMENT: EquipmentSeed[] = [
-  ['Aire acondicionado mini-split 18.000 BTU/h', 'climatizacion', 1.65, 38, 8, 0.6, 22, { capacityBtuH: 18000, eer: 10.9, condition: 'regular' }],
-  ['Aire acondicionado central 60.000 BTU/h', 'climatizacion', 5.5, 2, 10, 0.75, 22, { capacityBtuH: 60000, eer: 10.9 }],
-  ['Luminaria fluorescente 2×32 W T8', 'iluminacion', 0.07, 206, 8, 1, 22, { lampType: 'T8', lumens: 5200 }],
-  ['Panel LED 40 W', 'iluminacion', 0.04, 36, 8, 1, 22, { lampType: 'LED', lumens: 4000 }],
-  ['Computador de escritorio', 'ti', 0.12, 96, 8, 0.6, 22],
-  ['Videoproyector', 'ti', 0.3, 14, 6, 0.8, 22],
-  ['Servidor', 'ti', 0.4, 2, 24, 1, 30],
-  ['Nevera', 'refrigeracion', 0.2, 9, 24, 0.5, 30],
-  ['Dispensador de agua', 'refrigeracion', 0.5, 3, 10, 0.5, 22],
-  ['Bomba de agua de 3 HP', 'motores', 2.24, 2, 6, 0.9, 30, { efficiency: 0.82 }],
-  ['Horno de cafetería', 'cocina', 3, 2, 3, 0.5, 22],
-  ['Greca', 'cocina', 1.5, 1, 4, 0.5, 22],
-  ['Horno microondas', 'cocina', 1.2, 2, 1, 0.6, 22],
-  ['Cargadores y equipos menores', 'otros', 0.06, 80, 8, 0.6, 22],
+  ['Aire acondicionado mini-split 18.000 BTU/h', 'climatizacion', 1.65, 38, 8, 0.6, 22, { capacityBtuH: 18000, eer: 10.9, condition: 'regular', activeHours: on([8, 16]) }],
+  ['Aire acondicionado central 60.000 BTU/h', 'climatizacion', 5.5, 2, 10, 0.75, 22, { capacityBtuH: 60000, eer: 10.9, activeHours: on([7, 17]) }],
+  ['Luminaria fluorescente 2×32 W T8', 'iluminacion', 0.07, 206, 8, 1, 22, { lampType: 'T8', lumens: 5200, activeHours: on([7, 11], [14, 18]) }],
+  ['Panel LED 40 W', 'iluminacion', 0.04, 36, 8, 1, 22, { lampType: 'LED', lumens: 4000, activeHours: on([7, 15]) }],
+  ['Computador de escritorio', 'ti', 0.12, 96, 8, 0.6, 22, { activeHours: on([7, 11], [13, 17]) }],
+  ['Videoproyector', 'ti', 0.3, 14, 6, 0.8, 22, { activeHours: on([8, 11], [14, 17]) }],
+  ['Servidor', 'ti', 0.4, 2, 24, 1, 30, { activeHours: on([0, 24]) }],
+  ['Nevera', 'refrigeracion', 0.2, 9, 24, 0.5, 30, { activeHours: on([0, 24]) }],
+  ['Dispensador de agua', 'refrigeracion', 0.5, 3, 10, 0.5, 22, { activeHours: on([7, 17]) }],
+  ['Bomba de agua de 3 HP', 'motores', 2.24, 2, 6, 0.9, 30, { efficiency: 0.82, activeHours: on([5, 8], [16, 19]) }],
+  ['Horno de cafetería', 'cocina', 3, 2, 3, 0.5, 22, { activeHours: on([10, 13]) }],
+  ['Greca', 'cocina', 1.5, 1, 4, 0.5, 22, { activeHours: on([6, 8], [14, 16]) }],
+  ['Horno microondas', 'cocina', 1.2, 2, 1, 0.6, 22, { activeHours: on([12, 13]) }],
+  ['Cargadores y equipos menores', 'otros', 0.06, 80, 8, 0.6, 22, { activeHours: on([7, 15]) }],
 ];
 
 /** Lecturas diarias del medidor a las 7:00: consumo de cada día anterior (fin de semana más bajo). */
 const DAILY_KWH = [655, 648, 662, 610, 268, 252, 640, 651];
 const FIRST_READING = 1_284_350;
+
+/** Semana registrada con el analizador en el tablero general (potencia media por hora, kW). */
+const WEEKDAY_KW = [6, 6, 6, 6, 6, 7, 10, 22, 48, 80, 97, 88, 40, 36, 70, 84, 52, 22, 18, 16, 14, 10, 7, 6];
+const SATURDAY_KW = [6, 6, 6, 6, 6, 6, 7, 9, 14, 20, 22, 22, 18, 16, 15, 14, 12, 9, 8, 8, 7, 7, 6, 6];
+const SUNDAY_KW = [6, 6, 6, 6, 6, 6, 6, 7, 9, 11, 12, 12, 11, 10, 9, 9, 8, 7, 7, 7, 6, 6, 6, 6];
+const WEEK = ['2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06'];
+
+/** Variación pequeña y repetible para que la curva de ejemplo parezca medida. */
+function jitter(i: number): number {
+  const x = Math.sin(i * 12.9898) * 43758.5453;
+  return x - Math.floor(x) - 0.5;
+}
+
+/** 96 intervalos de 15 minutos interpolando la potencia horaria. */
+function quarterHours(profile: readonly number[], day: number): number[] {
+  return Array.from({ length: 96 }, (_, slot) => {
+    const hour = slot / 4;
+    const base = Math.floor(hour);
+    const kw = profile[base] + (profile[(base + 1) % 24] - profile[base]) * (hour - base);
+    return Math.round(kw * (1 + 0.08 * jitter(day * 96 + slot)) * 10) / 10;
+  });
+}
 
 export async function createSampleProject(db: PontiaDb, now = Date.now()): Promise<Project> {
   const projectId = crypto.randomUUID();
@@ -74,6 +104,9 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
       demandKw: Math.round((KWH[i] / (days * 24 * 0.22)) * 10) / 10,
       costCop: KWH[i] * TARIFF,
       tariffCopPerKwh: TARIFF,
+      workingDays: WORKING_DAYS[i],
+      occupancyPct: OCCUPANCY[i],
+      avgTemperatureC: TEMPERATURE[i],
     };
   });
 
@@ -201,14 +234,34 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
     return { ...stamp(), meter: 'Medidor principal', at: `2026-09-${String(day + 1).padStart(2, '0')}T07:00`, kwh: cumulative };
   });
 
-  await db.transaction('rw', [db.projects, db.bills, db.areas, db.equipment, db.electrical, db.measurements, db.meterReadings], async () => {
-    await db.projects.add(project);
-    await db.bills.bulkAdd(bills);
-    await db.areas.bulkAdd(areas);
-    await db.equipment.bulkAdd(equipment);
-    await db.electrical.bulkAdd(electrical);
-    await db.measurements.bulkAdd(measurements);
-    await db.meterReadings.bulkAdd(readings);
-  });
+  // Una semana del analizador en el TGD, cada 15 minutos
+  const weekDays = WEEK.map((date, day) => ({ date, values: quarterHours(day === 5 ? SATURDAY_KW : day === 6 ? SUNDAY_KW : WEEKDAY_KW, day) }));
+  const series: IntervalSeries = {
+    ...stamp(),
+    name: 'Analizador · TGD',
+    source: 'analizador',
+    intervalMinutes: 15,
+    location: 'TGD · Tablero general',
+    fileName: 'analizador_TGD_semana.csv',
+    wholeFacility: true,
+    ...summarizeDays(weekDays, 15),
+  };
+  const intervalDays: IntervalDay[] = weekDays.map((d) => ({ seriesId: series.id, projectId, date: d.date, values: d.values }));
+
+  await db.transaction(
+    'rw',
+    [db.projects, db.bills, db.areas, db.equipment, db.electrical, db.measurements, db.meterReadings, db.intervalSeries, db.intervalDays],
+    async () => {
+      await db.projects.add(project);
+      await db.bills.bulkAdd(bills);
+      await db.areas.bulkAdd(areas);
+      await db.equipment.bulkAdd(equipment);
+      await db.electrical.bulkAdd(electrical);
+      await db.measurements.bulkAdd(measurements);
+      await db.meterReadings.bulkAdd(readings);
+      await db.intervalSeries.add(series);
+      await db.intervalDays.bulkAdd(intervalDays);
+    },
+  );
   return project;
 }

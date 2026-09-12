@@ -12,3 +12,11 @@ export const normalizeText = (text: string): string =>
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .toLowerCase();
+
+/** «Hospital San José · Sede 2» → «hospital-san-jose-sede-2», para nombres de archivo. */
+export const fileSlug = (text: string, max = 48): string =>
+  normalizeText(text)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, max)
+    .replace(/-+$/, '') || 'proyecto';
