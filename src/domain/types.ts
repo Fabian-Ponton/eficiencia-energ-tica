@@ -17,9 +17,12 @@ export type EndUseCategory = 'climatizacion' | 'motores' | 'refrigeracion' | 'il
 export type Condition = 'bueno' | 'regular' | 'deficiente';
 export type DataType = 'medido' | 'calculado' | 'estimado' | 'ingresado';
 export type PhotoKind = 'placa' | 'vista-general' | 'instalacion' | 'estado-fisico' | 'termografia' | 'otra';
-export type EntityType = 'proyecto' | 'area' | 'equipo' | 'electrico' | 'hallazgo' | 'medida' | 'tarea';
+export type EntityType = 'proyecto' | 'area' | 'equipo' | 'electrico' | 'medicion' | 'factura' | 'hallazgo' | 'medida' | 'tarea';
 export type Severity = 'critico' | 'alto' | 'medio' | 'bajo';
 export type TaskStatus = 'pendiente' | 'en-ejecucion' | 'implementada';
+/** Elementos del sistema eléctrico, en el orden en que los recorre la energía. */
+export type ElectricalKind = 'red' | 'transformador' | 'medidor' | 'acometida' | 'tablero' | 'circuito';
+export type Orientation = 'N' | 'S' | 'E' | 'O';
 
 export interface Project extends BaseRecord {
   name: string;
@@ -54,6 +57,8 @@ export interface Project extends BaseRecord {
   clientLogoPhotoId?: string;
   startDate?: string;
   endDate?: string;
+  /** Última descarga del respaldo .zip. No cuenta como modificación del proyecto. */
+  lastBackupAt?: number;
 }
 
 export interface Area extends ProjectScoped {
@@ -68,7 +73,7 @@ export interface Area extends ProjectScoped {
   occupants?: number;
   hoursPerDay?: number;
   windowAreaM2?: number;
-  windowOrientation?: 'N' | 'S' | 'E' | 'O';
+  windowOrientation?: Orientation;
   roofExposed?: boolean;
   roofAvailableM2?: number;
   measuredLuxAvg?: number;
@@ -103,16 +108,25 @@ export interface Equipment extends ProjectScoped {
 }
 
 export interface ElectricalNode extends ProjectScoped {
-  kind: 'red' | 'transformador' | 'medidor' | 'tablero' | 'circuito';
+  kind: ElectricalKind;
   name: string;
   parentId?: string;
+  /** Capacidad nominal del transformador (kVA). */
   ratedKva?: number;
+  /** Tensión del lado de media tensión (kV). */
   primaryKv?: number;
+  /** Tensión secundaria, p. ej. «208/120 V». */
   secondaryV?: string;
+  /** Protección principal del tablero o del circuito (A). */
   breakerA?: number;
+  /** Capacidad de corriente de los conductores (A). */
+  ampacityA?: number;
+  lengthM?: number;
   phases?: 1 | 2 | 3;
   voltageV?: number;
   conductor?: string;
+  meterNumber?: string;
+  location?: string;
   ownership?: string;
   year?: number;
   notes?: string;
@@ -123,10 +137,13 @@ export interface Measurement extends ProjectScoped {
   takenAt: string;
   pointType: 'general' | 'area' | 'equipo' | 'tablero';
   pointId?: string;
-  /** Tensión por fase (V). */
-  voltageV?: number[];
-  /** Corriente por fase (A). */
-  currentA?: number[];
+  phases?: 1 | 2 | 3;
+  /** Tensiones medidas entre fase y neutro (LN) o entre fases (LL). */
+  voltageRef?: 'LN' | 'LL';
+  /** Tensión por fase (V); `null` si no se midió esa fase. */
+  voltageV?: (number | null)[];
+  /** Corriente por fase (A); `null` si no se midió esa fase. */
+  currentA?: (number | null)[];
   kw?: number;
   kva?: number;
   kvar?: number;

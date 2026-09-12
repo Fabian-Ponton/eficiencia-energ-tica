@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ConfirmDialog from 'primevue/confirmdialog';
 import Toast from 'primevue/toast';
+import UndoBar from '@/components/UndoBar.vue';
 import UpdatePrompt from '@/components/UpdatePrompt.vue';
 import { useTheme } from '@/composables/useTheme';
 
@@ -15,5 +16,6 @@ useTheme();
   </RouterView>
   <Toast position="top-center" />
   <ConfirmDialog />
+  <UndoBar />
   <UpdatePrompt />
 </template>

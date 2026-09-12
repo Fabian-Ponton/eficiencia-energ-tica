@@ -8,6 +8,7 @@ import '@fontsource/ibm-plex-mono/latin-500.css';
 import '@fontsource/ibm-plex-mono/latin-600.css';
 import './design/tokens.css';
 import './design/base.css';
+import './design/components.css';
 import { createPinia } from 'pinia';
 import PrimeVue from 'primevue/config';
 import ConfirmationService from 'primevue/confirmationservice';

@@ -1,6 +1,7 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { computeProgress, type ProjectCounts, type StageProgress } from '@/domain/progress';
 import type { Bill, Project } from '@/domain/types';
+import { isActive } from './records';
 import type { PontiaDb } from './schema';
 
 export interface NewProjectInput {
@@ -35,6 +36,16 @@ export async function addProject(db: PontiaDb, input: NewProjectInput): Promise<
   return project;
 }
 
+/** Guarda cambios de los datos generales y marca el proyecto como modificado. */
+export async function updateProject(db: PontiaDb, id: string, changes: Partial<Omit<Project, 'id' | 'createdAt'>>, now = Date.now()): Promise<void> {
+  await db.projects.update(id, { ...changes, updatedAt: now });
+}
+
+/** Registra la descarga del respaldo sin cambiar la fecha de modificación. */
+export const markBackup = async (db: PontiaDb, id: string, now = Date.now()): Promise<void> => {
+  await db.projects.update(id, { lastBackupAt: now });
+};
+
 /** Oculta el proyecto sin borrar sus datos, para poder deshacer. */
 export const softDeleteProject = async (db: PontiaDb, id: string, now = Date.now()): Promise<void> => {
   await db.projects.update(id, { deletedAt: now, updatedAt: now });
@@ -68,17 +79,18 @@ export interface ProjectSummary {
 
 export async function summarizeProject(db: PontiaDb, project: Project): Promise<ProjectSummary> {
   const id = project.id;
-  const [areas, equipment, electrical, measurements, bills, intervalSeries, findings, measures, pgee, tasks] = await Promise.all([
-    db.areas.where('projectId').equals(id).toArray(),
-    db.equipment.where('projectId').equals(id).toArray(),
-    db.electrical.where('projectId').equals(id).count(),
-    db.measurements.where('projectId').equals(id).count(),
-    db.bills.where('projectId').equals(id).toArray(),
-    db.intervalSeries.where('projectId').equals(id).count(),
-    db.findings.where('projectId').equals(id).count(),
-    db.measures.where('projectId').equals(id).count(),
-    db.pgee.where('projectId').equals(id).toArray(),
-    db.tasks.where('projectId').equals(id).count(),
+  const [areas, equipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks] = await Promise.all([
+    db.areas.where('projectId').equals(id).filter(isActive).toArray(),
+    db.equipment.where('projectId').equals(id).filter(isActive).toArray(),
+    db.electrical.where('projectId').equals(id).filter(isActive).count(),
+    db.measurements.where('projectId').equals(id).filter(isActive).count(),
+    db.meterReadings.where('projectId').equals(id).filter(isActive).count(),
+    db.bills.where('projectId').equals(id).filter(isActive).toArray(),
+    db.intervalSeries.where('projectId').equals(id).filter(isActive).count(),
+    db.findings.where('projectId').equals(id).filter(isActive).count(),
+    db.measures.where('projectId').equals(id).filter(isActive).count(),
+    db.pgee.where('projectId').equals(id).filter(isActive).toArray(),
+    db.tasks.where('projectId').equals(id).filter(isActive).count(),
   ]);
   const counts: ProjectCounts = {
     hasGeneralData: Boolean(project.client && project.city && project.areaM2),
@@ -86,7 +98,7 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     areasWithDimensions: areas.filter((a) => a.lengthM && a.widthM && a.heightM).length,
     equipment: equipment.length,
     electrical,
-    measurements,
+    measurements: measurements + readings,
     bills: bills.length,
     intervalSeries,
     findings,

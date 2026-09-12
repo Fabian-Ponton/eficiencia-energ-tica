@@ -27,7 +27,19 @@ describe('proyectos en la base local', () => {
     expect(resumen.equipmentCount).toBeGreaterThan(400);
     expect(resumen.estimatedAnnualKwh / 186_400).toBeGreaterThan(0.9);
     expect(resumen.estimatedAnnualKwh / 186_400).toBeLessThan(1.1);
-    expect(resumen.progress[0].done).toBe(4);
+    // El levantamiento del ejemplo está completo: datos, áreas, inventario, eléctrico, mediciones y facturas
+    expect(resumen.progress[0].done).toBe(6);
+    db.close();
+  });
+
+  it('las lecturas del ejemplo son crecientes y el sistema eléctrico tiene un solo origen', async () => {
+    const db = createDb('pontia-prueba-ejemplo-2');
+    const ejemplo = await createSampleProject(db);
+    const lecturas = await db.meterReadings.where('projectId').equals(ejemplo.id).sortBy('at');
+    expect(lecturas).toHaveLength(9);
+    expect(lecturas.every((l, i) => i === 0 || l.kwh > lecturas[i - 1].kwh)).toBe(true);
+    const nodos = await db.electrical.where('projectId').equals(ejemplo.id).toArray();
+    expect(nodos.filter((n) => !n.parentId)).toHaveLength(1);
     db.close();
   });
 

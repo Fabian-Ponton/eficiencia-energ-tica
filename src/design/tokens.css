@@ -37,6 +37,11 @@
   --warning-wash: #fff4d6;
   --serious-wash: #fdeee7;
   --critical-wash: #fbe7e7;
+  /* Texto sobre los fondos de estado, con contraste AA */
+  --good-text: #13733b;
+  --warning-text: #7f5400;
+  --serious-text: #9c4219;
+  --critical-text: #b02a2a;
 
   --radius-sm: 6px;
   --radius: 8px;
@@ -81,4 +86,8 @@
   --warning-ink: #fab219;
   --serious-wash: #3d2419;
   --critical-wash: #3d1c1f;
+  --good-text: #6fd49a;
+  --warning-text: #fab219;
+  --serious-text: #f3a784;
+  --critical-text: #f29090;
 }

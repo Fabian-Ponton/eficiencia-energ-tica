@@ -89,3 +89,11 @@ export const STAGES: NavStage[] = [
 export const ALL_STEPS = STAGES.flatMap((stage) => stage.steps.map((step) => ({ ...step, stage: stage.id })));
 
 export const findStep = (id: string) => ALL_STEPS.find((step) => step.id === id);
+
+/** «Levantamiento · paso 3 de 6» */
+export function stepEyebrow(id: string): string {
+  const stage = STAGES.find((s) => s.steps.some((step) => step.id === id));
+  if (!stage) return '';
+  const index = stage.steps.findIndex((step) => step.id === id);
+  return stage.steps.length > 1 ? `${stage.label} · paso ${index + 1} de ${stage.steps.length}` : stage.label;
+}

@@ -1,18 +1,42 @@
 <script setup lang="ts">
-import { IconAlertTriangle, IconArrowLeft, IconCamera, IconChevronDown, IconCloudCheck, IconGauge, IconHome, IconPlug, IconPlus, IconReceipt, IconWifiOff } from '@tabler/icons-vue';
+import {
+  IconAlertTriangle,
+  IconArrowLeft,
+  IconBolt,
+  IconCamera,
+  IconChevronDown,
+  IconCloudCheck,
+  IconGauge,
+  IconHome,
+  IconPlug,
+  IconPlus,
+  IconReceipt,
+  IconRuler2,
+  IconWifiOff,
+} from '@tabler/icons-vue';
 import { useOnline } from '@vueuse/core';
 import Drawer from 'primevue/drawer';
-import { computed, ref } from 'vue';
+import { useToast } from 'primevue/usetoast';
+import { computed, ref, shallowRef } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import AppLogo from '@/components/AppLogo.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import QuickPhotoSheet from '@/components/photos/QuickPhotoSheet.vue';
 import { provideCurrentProject } from '@/composables/useCurrentProject';
+import { provideFab } from '@/composables/useFab';
+import { saveRecord } from '@/db/records';
+import { getDb } from '@/db/schema';
+import type { Photo } from '@/domain/types';
 import { ALL_STEPS, STAGES } from '@/navigation';
+import { toLocalDateTime } from '@/utils/dates';
+import { compressImage } from '@/utils/image';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 const online = useOnline();
 const { project, projectId } = provideCurrentProject();
+const fab = provideFab();
 const showQuick = ref(false);
 
 const routeName = computed(() => (typeof route.name === 'string' ? route.name : ''));
@@ -30,14 +54,44 @@ const stageTarget = (id: string) =>
 
 const QUICK = [
   { label: 'Agregar equipo', icon: IconPlug, step: 'inventario' },
-  { label: 'Tomar foto', icon: IconCamera, step: 'inventario' },
-  { label: 'Registrar lectura', icon: IconGauge, step: 'mediciones' },
+  { label: 'Agregar espacio', icon: IconRuler2, step: 'areas' },
+  { label: 'Registrar lectura', icon: IconGauge, step: 'mediciones', query: { tab: 'lecturas' } },
+  { label: 'Agregar medición', icon: IconBolt, step: 'mediciones', query: { tab: 'puntuales' } },
   { label: 'Registrar factura', icon: IconReceipt, step: 'facturacion' },
 ];
 
-async function quick(step: string) {
+async function quick(item: (typeof QUICK)[number]) {
   showQuick.value = false;
-  await router.push({ name: step, params: { projectId: projectId.value } });
+  await router.push({ name: item.step, params: { projectId: projectId.value }, query: { ...item.query, nuevo: '1' } });
+}
+
+// «Tomar foto»: se guarda de inmediato y luego se vincula con un espacio, equipo o tablero
+const quickPhoto = shallowRef<Photo | null>(null);
+const classifying = ref(false);
+async function takeQuickPhoto(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  showQuick.value = false;
+  if (!file) return;
+  try {
+    const image = await compressImage(file);
+    quickPhoto.value = await saveRecord(getDb(), 'photos', {
+      id: crypto.randomUUID(),
+      projectId: projectId.value,
+      entityType: 'proyecto',
+      entityId: projectId.value,
+      kind: 'vista-general',
+      takenAt: toLocalDateTime(),
+      blob: image.blob,
+      thumb: image.thumb,
+      width: image.width,
+      height: image.height,
+    });
+    classifying.value = true;
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'No se pudo guardar la foto', detail: error instanceof Error ? error.message : String(error), life: 6000 });
+  }
 }
 </script>
 
@@ -114,17 +168,28 @@ async function quick(step: string) {
       </RouterLink>
     </nav>
 
-    <button type="button" class="fab" aria-label="Agregar registro" @click="showQuick = true">
-      <IconPlus :size="26" stroke="2.2" />
+    <label v-if="fab" class="mini-fab" aria-label="Tomar foto" title="Tomar foto">
+      <input type="file" accept="image/*" capture="environment" class="sr-only" @change="takeQuickPhoto" />
+      <IconCamera :size="20" />
+    </label>
+    <button type="button" class="fab" :class="{ extendido: fab }" :aria-label="fab?.label ?? 'Agregar registro'" @click="fab ? fab.run() : (showQuick = true)">
+      <IconPlus :size="24" stroke="2.2" />
+      <span v-if="fab" class="fab-texto">{{ fab.label }}</span>
     </button>
     <Drawer v-model:visible="showQuick" position="bottom" header="Agregar" :style="{ height: 'auto' }">
       <div class="rapidas">
-        <button v-for="q in QUICK" :key="q.label" type="button" class="rapida" @click="quick(q.step)">
+        <label class="rapida">
+          <input type="file" accept="image/*" capture="environment" class="sr-only" @change="takeQuickPhoto" />
+          <IconCamera :size="22" />
+          <span>Tomar foto</span>
+        </label>
+        <button v-for="q in QUICK" :key="q.label" type="button" class="rapida" @click="quick(q)">
           <component :is="q.icon" :size="22" />
           <span>{{ q.label }}</span>
         </button>
       </div>
     </Drawer>
+    <QuickPhotoSheet v-model:visible="classifying" :photo="quickPhoto" :project-id="projectId" />
   </div>
 </template>
 
@@ -205,8 +270,9 @@ async function quick(step: string) {
 .red-movil.fuera svg {
   color: var(--warning);
 }
+/* Espacio para que la última tarjeta quede por encima de los dos botones flotantes */
 .contenido {
-  padding-bottom: calc(var(--bottom-nav-height) + 88px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--bottom-nav-height) + 150px + env(safe-area-inset-bottom));
 }
 .no-encontrado {
   margin: 16px;
@@ -258,8 +324,10 @@ async function quick(step: string) {
   right: 16px;
   bottom: calc(var(--bottom-nav-height) + 16px + env(safe-area-inset-bottom));
   z-index: 41;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 56px;
   height: 56px;
   border: 0;
@@ -270,8 +338,42 @@ async function quick(step: string) {
   cursor: pointer;
   transition: transform 150ms var(--ease);
 }
-.fab:active {
+.fab.extendido {
+  width: auto;
+  padding: 0 20px 0 16px;
+}
+.fab-texto {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fab:active,
+.mini-fab:active {
   transform: scale(0.95);
+}
+.mini-fab {
+  position: fixed;
+  right: 22px;
+  bottom: calc(var(--bottom-nav-height) + 84px + env(safe-area-inset-bottom));
+  z-index: 41;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--accent-strong);
+  cursor: pointer;
+  transition: transform 150ms var(--ease);
+}
+.app-dark .mini-fab {
+  color: var(--accent);
+}
+.mini-fab:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .rapidas {
   display: grid;
@@ -320,7 +422,8 @@ async function quick(step: string) {
   }
   .barra-movil,
   .inferior,
-  .fab {
+  .fab,
+  .mini-fab {
     display: none;
   }
   .contenido {

@@ -1,12 +1,20 @@
 <script setup lang="ts">
-import { IconArrowDown, IconArrowUp, IconChevronRight, IconPlug, IconReceipt } from '@tabler/icons-vue';
-import { computed } from 'vue';
+import { IconArrowDown, IconArrowUp, IconCamera, IconChevronRight, IconDownload, IconFileZip, IconPlug, IconReceipt } from '@tabler/icons-vue';
+import Button from 'primevue/button';
+import { useToast } from 'primevue/usetoast';
+import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import MonthlyBars from '@/components/charts/MonthlyBars.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import EndUseBar from '@/components/EndUseBar.vue';
+import PhotoThumb from '@/components/photos/PhotoThumb.vue';
+import PhotoViewer from '@/components/photos/PhotoViewer.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useLiveQuery } from '@/composables/useLiveQuery';
+import { formatBytes } from '@/composables/useStorageInfo';
+import { backupFileName, exportProjectZip } from '@/db/backup';
+import { markBackup } from '@/db/projects';
+import { isActive } from '@/db/records';
 import { getDb } from '@/db/schema';
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { sum } from '@/domain/calc/stats';
@@ -14,11 +22,15 @@ import { currentStage } from '@/domain/progress';
 import type { EndUseCategory } from '@/domain/types';
 import { ALL_STEPS, STAGES } from '@/navigation';
 import { formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
+import { deliverFile } from '@/utils/share';
+import { relativeTime } from '@/utils/time';
 
 const db = getDb();
+const toast = useToast();
 const { projectId, project, summary } = useCurrentProject();
-const bills = useLiveQuery(() => db.bills.where('projectId').equals(projectId.value).sortBy('period'), [projectId], []);
-const equipment = useLiveQuery(() => db.equipment.where('projectId').equals(projectId.value).toArray(), [projectId], []);
+const bills = useLiveQuery(() => db.bills.where('projectId').equals(projectId.value).filter(isActive).sortBy('period'), [projectId], []);
+const equipment = useLiveQuery(() => db.equipment.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
+const photos = useLiveQuery(() => db.photos.where('projectId').equals(projectId.value).filter(isActive).reverse().sortBy('takenAt'), [projectId], []);
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const monthOf = (period: string) => MONTHS[Number(period.slice(5, 7)) - 1] ?? period;
@@ -79,6 +91,31 @@ const nextStep = computed(() => {
 });
 const stageTarget = (id: string) =>
   id === 'informes' ? { name: 'informes', params: { projectId: projectId.value } } : { name: 'etapa', params: { projectId: projectId.value, stage: id } };
+
+// Registro fotográfico: las más recientes, con el visor sobre todas
+const viewing = ref<number | null>(null);
+const recentPhotos = computed(() => (photos.value ?? []).slice(0, 8));
+
+// Respaldo .zip: en el celular abre el menú de compartir; en el PC se descarga
+const exporting = ref(false);
+async function downloadBackup() {
+  const p = project.value;
+  if (!p) return;
+  exporting.value = true;
+  try {
+    const blob = await exportProjectZip(db, p.id);
+    const name = backupFileName(p);
+    const result = await deliverFile(blob, name);
+    if (result !== 'cancelado') {
+      await markBackup(db, p.id);
+      toast.add({ severity: 'success', summary: result === 'compartido' ? 'Respaldo compartido' : 'Respaldo descargado', detail: `${name} · ${formatBytes(blob.size)}`, life: 5000 });
+    }
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'No se pudo crear el respaldo', detail: error instanceof Error ? error.message : String(error), life: 6000 });
+  } finally {
+    exporting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -182,6 +219,34 @@ const stageTarget = (id: string) =>
         <EmptyState v-else :icon="IconPlug" title="Sin equipos todavía" text="Registra el inventario para ver en qué se usa la energía.">
           <RouterLink :to="{ name: 'inventario', params: { projectId } }">Agregar equipos</RouterLink>
         </EmptyState>
+      </section>
+
+      <section class="card fotos">
+        <div class="encabezado">
+          <h2>Registro fotográfico</h2>
+          <span class="eyebrow">{{ photos?.length ?? 0 }} {{ photos?.length === 1 ? 'foto' : 'fotos' }}</span>
+        </div>
+        <div v-if="recentPhotos.length" class="mosaico">
+          <button v-for="(photo, i) in recentPhotos" :key="photo.id" type="button" class="miniatura" :aria-label="`Ver foto ${i + 1}`" @click="viewing = i">
+            <PhotoThumb :blob="photo.thumb ?? photo.blob" :alt="photo.caption ?? ''" />
+          </button>
+        </div>
+        <p v-else class="vacio-fotos"><IconCamera :size="18" />Las fotos de espacios, equipos y tableros aparecen aquí. Usa el botón de cámara para tomar una.</p>
+        <PhotoViewer v-model:index="viewing" :photos="photos ?? []" />
+      </section>
+
+      <section class="card respaldo">
+        <span class="respaldo-icono"><IconFileZip :size="22" /></span>
+        <div class="respaldo-texto">
+          <strong>Respaldo del proyecto</strong>
+          <span>
+            {{ project?.lastBackupAt ? `Último respaldo ${relativeTime(project.lastBackupAt)}.` : 'Aún no has descargado un respaldo.' }}
+            Incluye datos y fotos; ábrelo en otro equipo con «Importar respaldo».
+          </span>
+        </div>
+        <Button :label="exporting ? 'Preparando…' : 'Descargar .zip'" :loading="exporting" severity="secondary" outlined @click="downloadBackup">
+          <template #icon><IconDownload :size="18" /></template>
+        </Button>
       </section>
     </div>
   </div>
@@ -292,7 +357,8 @@ h1 {
 }
 .proceso,
 .grafica,
-.usos {
+.usos,
+.fotos {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -424,6 +490,75 @@ h1 {
   color: var(--ink);
   font-weight: 600;
 }
+.mosaico {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.miniatura {
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.miniatura img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 200ms var(--ease);
+}
+.miniatura:hover img {
+  transform: scale(1.04);
+}
+.vacio-fotos {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.vacio-fotos svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.respaldo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.respaldo-icono {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--info-wash);
+  color: var(--navy);
+}
+.app-dark .respaldo-icono {
+  color: var(--ink);
+}
+.respaldo-texto {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.respaldo-texto strong {
+  font-size: 15px;
+}
+.respaldo-texto span {
+  color: var(--muted);
+}
 
 @media (min-width: 1024px) {
   .inicio {
@@ -439,7 +574,8 @@ h1 {
       'kpi kpi'
       'proceso proceso'
       'siguiente grafica'
-      'usos grafica';
+      'usos grafica'
+      'fotos respaldo';
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
     padding: 12px 0 0;
@@ -458,6 +594,15 @@ h1 {
   }
   .usos {
     grid-area: usos;
+  }
+  .fotos {
+    grid-area: fotos;
+  }
+  .respaldo {
+    grid-area: respaldo;
+  }
+  .mosaico {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
   }
 }
 </style>

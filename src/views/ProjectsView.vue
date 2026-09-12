@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { IconAdjustmentsHorizontal, IconAlertTriangle, IconDatabase, IconHistory, IconPlus, IconSearch, IconStack2 } from '@tabler/icons-vue';
+import { IconAdjustmentsHorizontal, IconAlertTriangle, IconDatabase, IconFileImport, IconHistory, IconPlus, IconSearch, IconStack2 } from '@tabler/icons-vue';
 import Button from 'primevue/button';
+import Dialog from 'primevue/dialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLogo from '@/components/AppLogo.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -12,10 +13,14 @@ import ProjectCard from '@/components/ProjectCard.vue';
 import SettingsDialog from '@/components/SettingsDialog.vue';
 import { useLiveQuery } from '@/composables/useLiveQuery';
 import { formatBytes, useStorageInfo } from '@/composables/useStorageInfo';
+import { offerUndo } from '@/composables/useUndo';
+import { backupFileName, describeBackup, exportProjectZip, openBackup, restoreBackup, type BackupInfo, type OpenedBackup, type RestoreMode } from '@/db/backup';
 import { importLegacyIntoDb, readLegacyLocalStorage, type LegacyData } from '@/db/legacyImport';
-import { addProject, listProjects, restoreProject, softDeleteProject, summarizeProject, type NewProjectInput, type ProjectSummary } from '@/db/projects';
+import { addProject, listProjects, markBackup, restoreProject, softDeleteProject, summarizeProject, type NewProjectInput, type ProjectSummary } from '@/db/projects';
 import { createSampleProject } from '@/db/sampleProject';
 import { getDb } from '@/db/schema';
+import { deliverFile } from '@/utils/share';
+import { relativeTime } from '@/utils/time';
 
 const db = getDb();
 const router = useRouter();
@@ -30,7 +35,6 @@ const filter = ref<Filter>('todos');
 const search = ref('');
 const showNew = ref(false);
 const showSettings = ref(false);
-const lastDeleted = ref<ProjectSummary | null>(null);
 
 const isFinished = (s: ProjectSummary) => s.progress.every((stage) => stage.done === stage.total);
 const all = computed(() => summaries.value ?? []);
@@ -55,6 +59,8 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'terminados', label: 'Terminados' },
 ];
 
+const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 // Datos que PONTIA 1.6 haya dejado en este navegador
 const LEGACY_DONE_KEY = 'pontia-legacy-importado';
 function readLegacy(): LegacyData | null {
@@ -75,10 +81,18 @@ async function create(input: NewProjectInput) {
   await open(project.id);
 }
 
+// La primera vez puede tardar unos segundos mientras se descargan las pantallas del proyecto
+const sampleLoading = ref(false);
 async function loadSample() {
-  const project = await createSampleProject(db);
-  toast.add({ severity: 'success', summary: 'Proyecto de ejemplo listo', detail: 'Datos ilustrativos del Bloque 6 para conocer la app.', life: 4000 });
-  await open(project.id);
+  if (sampleLoading.value) return;
+  sampleLoading.value = true;
+  try {
+    const project = await createSampleProject(db);
+    toast.add({ severity: 'success', summary: 'Proyecto de ejemplo listo', detail: 'Datos ilustrativos del Bloque 6 para conocer la app.', life: 4000 });
+    await open(project.id);
+  } finally {
+    sampleLoading.value = false;
+  }
 }
 
 async function importLegacy() {
@@ -99,22 +113,72 @@ async function importLegacy() {
 }
 
 function remove(summary: ProjectSummary) {
+  const { id, name } = summary.project;
   confirm.require({
     header: 'Eliminar proyecto',
-    message: `¿Eliminar «${summary.project.name}»? Podrás deshacerlo enseguida.`,
+    message: `¿Eliminar «${name}»? Podrás deshacerlo enseguida.`,
     rejectProps: { label: 'Cancelar', severity: 'secondary', outlined: true },
     acceptProps: { label: 'Eliminar', severity: 'danger' },
     accept: async () => {
-      await softDeleteProject(db, summary.project.id);
-      lastDeleted.value = summary;
+      await softDeleteProject(db, id);
+      offerUndo(`Se eliminó «${name}»`, () => restoreProject(db, id));
     },
   });
 }
 
-async function undoDelete() {
-  if (!lastDeleted.value) return;
-  await restoreProject(db, lastDeleted.value.project.id);
-  lastDeleted.value = null;
+// Respaldo .zip: para guardar copias y para pasar un proyecto del celular al PC
+async function exportProject(summary: ProjectSummary) {
+  const project = summary.project;
+  try {
+    const blob = await exportProjectZip(db, project.id);
+    const name = backupFileName(project);
+    const result = await deliverFile(blob, name);
+    if (result === 'cancelado') return;
+    await markBackup(db, project.id);
+    toast.add({ severity: 'success', summary: result === 'compartido' ? 'Respaldo compartido' : 'Respaldo descargado', detail: `${name} · ${formatBytes(blob.size)}`, life: 5000 });
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'No se pudo crear el respaldo', detail: message(error), life: 6000 });
+  }
+}
+
+const fileInput = ref<HTMLInputElement>();
+const importing = ref(false);
+const pending = shallowRef<{ backup: OpenedBackup; info: BackupInfo } | null>(null);
+
+async function onBackupChosen(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  importing.value = true;
+  try {
+    const backup = await openBackup(file);
+    const info = await describeBackup(db, backup);
+    // Si el proyecto está aquí, el auditor decide; si estaba eliminado, el respaldo lo recupera
+    if (info.existing && !info.existing.deletedAt) pending.value = { backup, info };
+    else await restore(backup, info.existing ? 'reemplazar' : 'auto');
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'No se pudo importar el respaldo', detail: message(error), life: 7000 });
+  } finally {
+    importing.value = false;
+  }
+}
+
+async function restore(backup: OpenedBackup, mode: RestoreMode) {
+  pending.value = null;
+  try {
+    const { project, outcome } = await restoreBackup(db, backup, mode);
+    await storage.requestPersistence();
+    toast.add({
+      severity: 'success',
+      summary: outcome === 'reemplazado' ? 'Proyecto actualizado con el respaldo' : 'Proyecto importado',
+      detail: outcome === 'copia' ? `Se creó «${project.name}».` : `«${project.name}» ya está en este equipo.`,
+      life: 5000,
+    });
+    await open(project.id);
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'No se pudo importar el respaldo', detail: message(error), life: 7000 });
+  }
 }
 
 const storagePercent = computed(() =>
@@ -175,25 +239,17 @@ const storagePercent = computed(() =>
         <Button label="Importar" size="small" @click="importLegacy" />
       </section>
 
-      <section v-if="lastDeleted" class="card aviso-borrado" role="status">
-        <span>Se eliminó «{{ lastDeleted.project.name }}».</span>
-        <Button label="Deshacer" size="small" text @click="undoDelete" />
-      </section>
-
       <TransitionGroup v-if="visible.length" name="list" tag="div" class="lista">
-        <ProjectCard
-          v-for="s in visible"
-          :key="s.project.id"
-          :summary="s"
-          @open="open(s.project.id)"
-          @remove="remove(s)"
-        />
+        <ProjectCard v-for="s in visible" :key="s.project.id" :summary="s" @open="open(s.project.id)" @remove="remove(s)" @export="exportProject(s)" />
       </TransitionGroup>
 
       <div v-else-if="summaries && !all.length" class="card">
         <EmptyState :icon="IconStack2" title="Crea tu primera auditoría" text="Todo lo que registres queda guardado en este equipo y funciona sin internet.">
           <Button label="Nuevo proyecto" @click="showNew = true" />
-          <Button label="Ver proyecto de ejemplo" severity="secondary" outlined @click="loadSample" />
+          <Button label="Ver proyecto de ejemplo" severity="secondary" outlined :loading="sampleLoading" @click="loadSample" />
+          <Button label="Importar respaldo" severity="secondary" text :loading="importing" @click="fileInput?.click()">
+            <template #icon><IconFileImport :size="18" /></template>
+          </Button>
         </EmptyState>
       </div>
 
@@ -215,15 +271,19 @@ const storagePercent = computed(() =>
         <div class="pista"><div class="uso" :style="{ width: `${storagePercent}%` }" /></div>
         <span v-if="storage.persisted.value === false" class="nota">
           <IconAlertTriangle :size="16" class="alerta" />
-          El navegador podría liberar espacio. Instala la app para proteger tus datos.
+          El navegador podría liberar espacio. Instala la app y descarga respaldos para proteger tus datos.
         </span>
       </section>
 
       <div v-if="all.length" class="secundarias">
-        <Button label="Proyecto de ejemplo" severity="secondary" outlined @click="loadSample">
+        <Button label="Importar respaldo" severity="secondary" outlined :loading="importing" @click="fileInput?.click()">
+          <template #icon><IconFileImport :size="18" /></template>
+        </Button>
+        <Button label="Proyecto de ejemplo" severity="secondary" outlined :loading="sampleLoading" @click="loadSample">
           <template #icon><IconStack2 :size="18" /></template>
         </Button>
       </div>
+      <input ref="fileInput" type="file" accept=".zip,application/zip" class="sr-only" tabindex="-1" aria-hidden="true" @change="onBackupChosen" />
     </main>
 
     <div class="accion-movil">
@@ -234,6 +294,37 @@ const storagePercent = computed(() =>
 
     <NewProjectDialog v-model:visible="showNew" @create="create" />
     <SettingsDialog v-model:visible="showSettings" />
+
+    <Dialog
+      :visible="pending !== null"
+      modal
+      header="Este proyecto ya está en este equipo"
+      :draggable="false"
+      :style="{ width: 'min(520px, calc(100vw - 24px))' }"
+      @update:visible="(isOpen: boolean) => !isOpen && (pending = null)"
+    >
+      <div v-if="pending" class="dialogo-respaldo">
+        <p>«{{ pending.info.name }}» ya existe aquí. ¿Qué hacemos con el respaldo?</p>
+        <dl class="comparacion">
+          <div>
+            <dt class="eyebrow">En este equipo</dt>
+            <dd>Modificado {{ relativeTime(pending.info.existing?.updatedAt ?? Date.now()) }}</dd>
+          </div>
+          <div>
+            <dt class="eyebrow">En el respaldo</dt>
+            <dd>Creado {{ relativeTime(Date.parse(pending.info.exportedAt)) }}</dd>
+          </div>
+        </dl>
+        <p class="nota-dialogo">
+          «Reemplazar» deja este equipo igual al respaldo: lo que se haya registrado aquí después se pierde. «Importar como copia» conserva los dos.
+        </p>
+      </div>
+      <template #footer>
+        <Button label="Cancelar" severity="secondary" text @click="pending = null" />
+        <Button label="Importar como copia" severity="secondary" outlined @click="pending && restore(pending.backup, 'copia')" />
+        <Button label="Reemplazar" severity="danger" @click="pending && restore(pending.backup, 'reemplazar')" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -353,6 +444,10 @@ h1 {
   color: #fff;
   font-weight: 600;
 }
+.app-dark .filtro.activo {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
 .nuevo-escritorio {
   display: none;
   margin-left: auto;
@@ -361,14 +456,11 @@ h1 {
   display: grid;
   gap: 12px;
 }
-.aviso-legado,
-.aviso-borrado {
+.aviso-legado {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-}
-.aviso-legado {
   border-color: var(--accent);
   background: var(--accent-wash);
 }
@@ -382,10 +474,6 @@ h1 {
   flex-direction: column;
   gap: 2px;
   font-size: 13px;
-}
-.aviso-borrado {
-  justify-content: space-between;
-  font-size: 14px;
 }
 .almacenamiento {
   display: flex;
@@ -439,10 +527,11 @@ h1 {
 }
 .alerta {
   flex-shrink: 0;
-  color: var(--warning-ink);
+  color: var(--warning-text);
 }
 .secundarias {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 .accion-movil {
@@ -458,6 +547,40 @@ h1 {
   width: 100%;
   height: 52px;
   font-size: 16px;
+}
+.dialogo-respaldo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+}
+.dialogo-respaldo p {
+  margin: 0;
+}
+.comparacion {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--divider);
+}
+.comparacion div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+.comparacion dd {
+  margin: 0;
+  font-weight: 600;
+}
+.nota-dialogo {
+  color: var(--muted);
+  font-size: 13px;
 }
 @media (min-width: 768px) {
   .pagina {

@@ -1,0 +1,318 @@
+/* Piezas compartidas por las pantallas: vistas, formularios, hojas, tablas y botones (dirección A). */
+
+/* Vista de un paso de la auditoría */
+.vista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+@media (min-width: 1024px) {
+  .vista {
+    max-width: 1180px;
+    padding: 24px 28px;
+  }
+}
+
+/* Formularios */
+.form-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid var(--divider);
+}
+.form-seccion:first-child {
+  padding-top: 6px;
+  border-top: 0;
+}
+.form-seccion-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.form-seccion-titulo svg {
+  flex-shrink: 0;
+  color: var(--accent-strong);
+}
+.app-dark .form-seccion-titulo svg {
+  color: var(--accent);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.form-grid.tres {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.campo > .etiqueta {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.campo .ayuda {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.campo .error {
+  color: var(--critical-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.completo {
+  grid-column: 1 / -1;
+}
+.campo .p-inputtext,
+.campo .p-select,
+.campo .p-inputnumber,
+.campo .p-datepicker,
+.campo .p-textarea {
+  width: 100%;
+}
+input.p-inputtext[type='date'],
+input.p-inputtext[type='datetime-local'] {
+  min-height: 40px;
+  font-family: inherit;
+}
+.valores-rapidos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.valor-rapido {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.valor-rapido.activo {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: #fff;
+}
+.app-dark .valor-rapido.activo {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+.fila-interruptor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+}
+.fila-interruptor > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+.fila-interruptor small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.aviso-linea {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--info-wash);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.aviso-linea svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.aviso-linea.alerta {
+  background: var(--warning-wash);
+  color: var(--warning-text);
+}
+
+/* Hojas de formulario (inferior en el celular, lateral en el PC) */
+.p-drawer.hoja {
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+}
+.p-drawer.hoja.hoja-inferior {
+  border-radius: 16px 16px 0 0;
+}
+.p-drawer.hoja .p-drawer-header {
+  padding: 0;
+}
+.p-drawer.hoja .p-drawer-content {
+  padding: 0 16px 8px;
+}
+.p-drawer.hoja .p-drawer-footer {
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+}
+.p-drawer.visor {
+  border: 0;
+  background: #0a1122;
+  color: #fff;
+}
+
+/* Tablas de registros (PC) */
+.tabla-contenedor {
+  overflow-x: auto;
+}
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.tabla th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tabla th small {
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tabla td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--divider);
+  vertical-align: middle;
+}
+.tabla tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.tabla tbody tr.fila-clic {
+  cursor: pointer;
+}
+.tabla tbody tr.fila-clic:hover td {
+  background: var(--info-wash);
+}
+.tabla .der {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.tabla tfoot td {
+  border-top: 2px solid var(--border);
+  border-bottom: 0;
+  font-weight: 600;
+}
+.tabla .fila-grupo td {
+  padding-top: 14px;
+  background: var(--surface);
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .tabla th,
+  .tabla td {
+    padding: 10px 8px;
+  }
+}
+
+/* Lista compacta de filas dentro de una tarjeta (celular) */
+.filas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.filas li + li {
+  border-top: 1px solid var(--divider);
+}
+.fila-boton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fila-principal,
+.fila-secundaria {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fila-principal {
+  font-size: 14px;
+}
+.fila-secundaria {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.fila-principal .inicial {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* Botones y etiquetas pequeñas */
+.boton-icono {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.boton-icono:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.etiqueta-calc {
+  margin-left: 4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--info-wash);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.girar {
+  animation: girar 900ms linear infinite;
+}
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}

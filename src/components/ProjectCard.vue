@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconCheck, IconChevronRight, IconTrash } from '@tabler/icons-vue';
+import { IconCheck, IconChevronRight, IconDownload, IconTrash } from '@tabler/icons-vue';
 import { computed } from 'vue';
 import ProgressSegments from '@/components/ProgressSegments.vue';
 import type { ProjectSummary } from '@/db/projects';
@@ -9,7 +9,7 @@ import { formatNumber } from '@/utils/format';
 import { relativeTime } from '@/utils/time';
 
 const props = defineProps<{ summary: ProjectSummary }>();
-defineEmits<{ open: []; remove: [] }>();
+defineEmits<{ open: []; remove: []; export: [] }>();
 
 const project = computed(() => props.summary.project);
 const current = computed(() => currentStage(props.summary.progress));
@@ -62,7 +62,10 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
     <div class="pie">
       <span>Actualizado {{ relativeTime(project.updatedAt) }}</span>
       <div class="acciones">
-        <button type="button" class="eliminar" aria-label="Eliminar proyecto" @click.stop="$emit('remove')">
+        <button type="button" class="accion exportar" aria-label="Descargar el respaldo del proyecto" title="Descargar respaldo (.zip)" @click.stop="$emit('export')">
+          <IconDownload :size="18" />
+        </button>
+        <button type="button" class="accion eliminar" aria-label="Eliminar proyecto" title="Eliminar proyecto" @click.stop="$emit('remove')">
           <IconTrash :size="18" />
         </button>
         <span class="ir">Abrir<IconChevronRight :size="16" /></span>
@@ -206,7 +209,7 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
   align-items: center;
   gap: 4px;
 }
-.eliminar {
+.accion {
   display: grid;
   place-items: center;
   width: 36px;
@@ -218,9 +221,13 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
   cursor: pointer;
   pointer-events: auto;
 }
+.exportar:hover {
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+}
 .eliminar:hover {
   background: var(--critical-wash);
-  color: var(--critical);
+  color: var(--critical-text);
 }
 .ir {
   display: inline-flex;
