@@ -1,0 +1,84 @@
+/* Sistema de diseño PONTIA · dirección A «Técnico preciso». Los colores de datos viven en src/domain/catalogs.ts. */
+:root {
+  color-scheme: light;
+
+  --navy: #10234b;
+  --navy-hover: #1a3163;
+  --page: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --border: #dbe1ea;
+  --divider: #e3e8ef;
+  --field-border: #c9d3df;
+
+  --ink: #0f1b33;
+  --ink-2: #4c5a70;
+  --muted: #5c6a80;
+  --axis: #7a879b;
+
+  --accent: #22a056;
+  --accent-strong: #187f44;
+  --accent-tint: #d9eee1;
+  --accent-wash: #e3f2e8;
+  --accent-ink: #13733b;
+  --info-wash: #e8eef8;
+
+  --on-navy: #ffffff;
+  --on-navy-2: #d7deea;
+  --on-navy-3: #9fb0cc;
+
+  /* Estados: siempre con ícono y texto, nunca solo color */
+  --good: #0ca30c;
+  --warning: #fab219;
+  --warning-ink: #c98500;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --good-wash: #e3f2e8;
+  --warning-wash: #fff4d6;
+  --serious-wash: #fdeee7;
+  --critical-wash: #fbe7e7;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-card: 10px;
+  --shadow-fab: 0 8px 18px rgba(16, 35, 75, 0.28);
+  --shadow-float: 0 12px 32px rgba(16, 35, 75, 0.18);
+
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --blueprint: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+
+  --sidebar-width: 248px;
+  --bottom-nav-height: 68px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root.app-dark {
+  color-scheme: dark;
+
+  --navy: #0b1833;
+  --navy-hover: #15264a;
+  --page: #0c1424;
+  --surface: #131d31;
+  --surface-2: #19253d;
+  --border: #26344f;
+  --divider: #22304a;
+  --field-border: #34455f;
+
+  --ink: #eef2f8;
+  --ink-2: #c1cbdb;
+  --muted: #9aa7bc;
+  --axis: #8793a8;
+
+  --accent-tint: #1d3b2b;
+  --accent-wash: #17332a;
+  --accent-ink: #6fd49a;
+  --info-wash: #1b2b4a;
+
+  --good-wash: #17332a;
+  --warning-wash: #3a3016;
+  --warning-ink: #fab219;
+  --serious-wash: #3d2419;
+  --critical-wash: #3d1c1f;
+}

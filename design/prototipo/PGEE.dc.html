@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap">
+  <style>
+    body { margin: 0; background: #eef1f5; }
+    a { color: #187f44; }
+    a:hover { color: #10234b; }
+    .i { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace; }
+    .serif { font-family: "Newsreader", Georgia, "Times New Roman", serif; }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+
+<div style="display: flex; width: 1440px; height: 900px; overflow: hidden; background: #eef1f5; color: #0f1b33; font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;">
+  <aside style="display: flex; flex-direction: column; gap: 18px; width: 240px; flex-shrink: 0; box-sizing: border-box; padding: 18px 14px 16px; color: #ffffff; background-color: #10234b; background-image: linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px); background-size: 22px 22px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px;"><svg width="30" height="30" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="#22a056"></rect><path d="M7.5 20.5c0-7.2 4.6-11.8 13-12.3 0 8.2-4.6 12.8-11.8 12.8" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15 10.6l-3.4 4.6h2.7l-1 3.3 3.5-4.6h-2.7z" fill="#ffffff"></path></svg><span style="font-size: 17px; font-weight: 600; letter-spacing: 0.04em;">PONTIA</span></div>
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
+      <span class="mono" style="font-size: 10px; letter-spacing: 0.1em; color: #9fb0cc;">PROYECTO · BL-06</span>
+      <span style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 14px; font-weight: 600;">Bloque 6 · Aulas y lab.<svg class="i" width="16" height="16" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M6 9l6 6 6-6"></path></svg></span>
+    </div>
+    <nav style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span class="mono" style="padding: 0 10px 4px; font-size: 10px; letter-spacing: 0.1em; color: #8a9bb8;">LEVANTAMIENTO</span>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><rect x="5" y="3.5" width="14" height="17" rx="1.5"></rect><path d="M9 7.5h2M13 7.5h2M9 11.5h2M13 11.5h2M9 15.5h2M13 15.5h2"></path></svg><span>Datos generales</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M4 9.5h3M4 14.5h3M9.5 4v3M14.5 4v3"></path></svg><span>Áreas y dimensiones</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M9 3.5V8M15 3.5V8"></path><path d="M7 8h10v2.5a5 5 0 0 1-10 0z"></path><path d="M12 15.5V21"></path></svg><span>Inventario</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M13 3 5.5 13.5H11L10 21l7.5-10.5H12z"></path></svg><span>Sistema eléctrico</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M4.5 16a8 8 0 1 1 15 0"></path><path d="M12 13l3.5-4"></path><circle cx="12" cy="13" r="1.2"></circle></svg><span>Mediciones</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z"></path><path d="M9 8h6M9 11.5h6M9 15h4"></path></svg><span>Facturación</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span class="mono" style="padding: 0 10px 4px; font-size: 10px; letter-spacing: 0.1em; color: #8a9bb8;">ANÁLISIS</span>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M4 20h16"></path><path d="M4.5 15.5l4-4.5 3.5 3 6.5-7"></path></svg><span>Comportamiento</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5H12z"></path><path d="M15 3.8A8.5 8.5 0 0 1 20.2 9H15z"></path></svg><span>Balance e indicadores</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M4.5 15.5 15.5 4.5l4 4-11 11z"></path><path d="M8 12l1.5 1.5M10.5 9.5 12 11M13 7l1.5 1.5"></path></svg><span>Dimensionamiento</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span class="mono" style="padding: 0 10px 4px; font-size: 10px; letter-spacing: 0.1em; color: #8a9bb8;">PLAN</span>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4.2-4.2"></path><path d="M8.5 11l1.8 1.8 3.2-3.4"></path></svg><span>Diagnóstico</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.1); color: #ffffff; font-weight: 600;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #22a056;"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12h.01"></path></svg><span>Oportunidades</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><rect x="5" y="4.5" width="14" height="16.5" rx="2"></rect><path d="M9 4.5V3h6v1.5"></path><path d="M9 10h6M9 13.5h6M9 17h3.5"></path></svg><span>PGEE</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M8.5 3v4M15.5 3v4"></path><path d="M8 14h3M8 17h6"></path></svg><span>Implementación</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span class="mono" style="padding: 0 10px 4px; font-size: 10px; letter-spacing: 0.1em; color: #8a9bb8;">INFORMES</span>
+          <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: #d7deea;"><svg class="i" width="18" height="18" viewBox="0 0 24 24" style="color: #9fb0cc;"><path d="M6.5 3h8l4 4v14h-12z"></path><path d="M14.5 3v4h4"></path><path d="M9.5 12h6M9.5 15.5h6"></path></svg><span>Informes y exportación</span></div>
+        </div>
+    </nav>
+    <div style="display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.06); font-size: 12px; color: #d7deea;"><svg class="i" width="16" height="16" viewBox="0 0 24 24" style="color: #22a056;"><path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 9.5 4.25 4.25 0 0 0 7 18z"></path><path d="M9.5 13.5l2 2 3.5-3.5"></path></svg><span>Guardado en el equipo · 84 MB</span></div>
+  </aside>
+  <main style="display: flex; flex-direction: column; gap: 12px; flex-grow: 1; min-width: 0; padding: 20px 28px 24px;">
+    
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span class="mono" style="font-size: 11px; letter-spacing: 0.08em; color: #5c6a80;">BLOQUE 6 / PLAN</span>
+        <span style="font-size: 24px; font-weight: 600; line-height: 1.2;">Oportunidades de ahorro</span>
+      </div>
+      <div style="display: flex; gap: 8px;"><span style="display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; box-sizing: border-box; border-radius: 8px; background: #ffffff; border: 1px solid #c9d3df; color: #10234b; font-size: 13px; font-weight: 600;"><svg class="i" width="16" height="16" viewBox="0 0 24 24"><path d="M12 4v11"></path><path d="M7.5 10.5 12 15l4.5-4.5"></path><path d="M5 15v4h14v-4"></path></svg>Exportar</span><span style="display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 8px; background: #187f44; color: #ffffff; font-size: 13px; font-weight: 600;"><svg class="i" width="16" height="16" viewBox="0 0 24 24" style="stroke-width: 2.2;"><path d="M12 5v14M5 12h14"></path></svg>Nueva medida</span></div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 360px repeat(5, minmax(0, 1fr)); background: #ffffff; border: 1px solid #dbe1ea; border-radius: 10px;">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 18px;">
+        <span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">META DEL PGEE</span>
+        <div style="display: flex; align-items: baseline; gap: 8px;"><span style="font-size: 26px; font-weight: 600; line-height: 1;">16,8 %</span><span style="font-size: 13px; color: #4c5a70;">de ahorro sobre la línea base</span></div>
+        <div style="position: relative; height: 30px;">
+          <span class="mono" style="position: absolute; left: 60%; top: 0; transform: translateX(-50%); font-size: 10px; color: #0f1b33;">META 15 %</span>
+          <div style="position: absolute; left: 0; right: 0; top: 17px; height: 10px; border-radius: 5px; background: #d9eee1;"></div>
+          <div style="position: absolute; left: 0; width: 67.2%; top: 17px; height: 10px; border-radius: 5px; background: #22a056;"></div>
+          <div style="position: absolute; left: calc(60% - 1px); top: 13px; width: 2px; height: 18px; background: #10234b;"></div>
+        </div>
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;"><svg width="14" height="14" viewBox="0 0 24 24" style="flex-shrink: 0;"><circle cx="12" cy="12" r="9" fill="#0ca30c"></circle><path d="M8 12.3l2.6 2.6L16 9.6" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Meta alcanzada con 6 medidas</span>
+      </div>
+      <div style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 14px 16px; border-left: 1px solid #e3e8ef;"><span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">AHORRO DE ENERGÍA</span><span style="font-size: 22px; font-weight: 600; line-height: 1.1;">31.300<span style="font-size: 14px; font-weight: 500; color: #5c6a80;"> kWh/año</span></span></div>
+      <div style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 14px 16px; border-left: 1px solid #e3e8ef;"><span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">AHORRO ANUAL</span><span style="font-size: 22px; font-weight: 600; line-height: 1.1;">$28,0 M</span></div>
+      <div style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 14px 16px; border-left: 1px solid #e3e8ef;"><span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">INVERSIÓN</span><span style="font-size: 22px; font-weight: 600; line-height: 1.1;">$68,3 M</span></div>
+      <div style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 14px 16px; border-left: 1px solid #e3e8ef;"><span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">RETORNO SIMPLE</span><span style="font-size: 22px; font-weight: 600; line-height: 1.1;">2,4<span style="font-size: 14px; font-weight: 500; color: #5c6a80;"> años</span></span></div>
+      <div style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 14px 16px; border-left: 1px solid #e3e8ef;"><span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">CO₂ EVITADO</span><span style="font-size: 22px; font-weight: 600; line-height: 1.1;">3,9<span style="font-size: 14px; font-weight: 500; color: #5c6a80;"> t/año</span></span></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 448px minmax(0, 1fr); gap: 16px;">
+      <section style="display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px 16px; box-sizing: border-box; background: #ffffff; border: 1px solid #dbe1ea; border-radius: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px;">
+          <div style="display: flex; align-items: baseline; gap: 10px;"><span style="font-size: 15px; font-weight: 600;">Matriz de priorización</span><span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">MEDIDAS SELECCIONADAS</span></div>
+          <div style="display: flex; align-items: center; gap: 14px;"><span style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-sizing: border-box; border-radius: 8px; border: 1px solid #dbe1ea; color: #4c5a70;"><svg class="i" width="16" height="16" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"></rect><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"></path></svg></span></div>
+        </div><div style="display: flex; flex-wrap: wrap; gap: 8px 14px;"><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4c5a70;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #2a78d6;"></span>Climatización</span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4c5a70;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #eda100;"></span>Iluminación</span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4c5a70;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #008300;"></span>TI y oficina</span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4c5a70;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #898781;"></span>Otros</span></div>
+        <svg width="416" height="380" viewBox="0 0 416 380" style="display: block; overflow: visible; font-family: 'IBM Plex Mono', ui-monospace, monospace;">
+          <line x1="56" y1="268.8" x2="404" y2="268.8" stroke="#eef1f5" stroke-width="1"></line><text x="48" y="272.3" text-anchor="end" font-size="10" fill="#7a879b">2</text><line x1="56" y1="205.6" x2="404" y2="205.6" stroke="#eef1f5" stroke-width="1"></line><text x="48" y="209.1" text-anchor="end" font-size="10" fill="#7a879b">4</text><line x1="56" y1="142.4" x2="404" y2="142.4" stroke="#eef1f5" stroke-width="1"></line><text x="48" y="145.9" text-anchor="end" font-size="10" fill="#7a879b">6</text><line x1="56" y1="79.2" x2="404" y2="79.2" stroke="#eef1f5" stroke-width="1"></line><text x="48" y="82.7" text-anchor="end" font-size="10" fill="#7a879b">8</text><line x1="56" y1="16" x2="404" y2="16" stroke="#eef1f5" stroke-width="1"></line><text x="48" y="19.5" text-anchor="end" font-size="10" fill="#7a879b">10</text><text x="48" y="335.5" text-anchor="end" font-size="10" fill="#7a879b">0</text>
+          <line x1="56" y1="332" x2="404" y2="332" stroke="#c5cfdc" stroke-width="1"></line>
+          <line x1="56" y1="16" x2="56" y2="332" stroke="#c5cfdc" stroke-width="1"></line>
+          <line x1="160.4" y1="16" x2="160.4" y2="332" stroke="#c5cfdc" stroke-width="1"></line>
+          <line x1="56" y1="205.6" x2="404" y2="205.6" stroke="#c5cfdc" stroke-width="1"></line>
+          <g font-size="10" font-weight="600" fill="#7a879b" style="font-family: 'IBM Plex Sans', sans-serif;">
+            <text x="62" y="30">Rápidas</text>
+            <text x="166.4" y="30">Estratégicas</text>
+            <text x="62" y="324">Complementarias</text>
+            <text x="166.4" y="324">Por revisar</text>
+          </g>
+          <circle cx="63" cy="139.2" r="7" fill="#2a78d6" stroke="#ffffff" stroke-width="2"></circle><text x="74" y="143.2" font-size="11" font-weight="600" fill="#0f1b33">M1</text><circle cx="58.6" cy="268.8" r="7" fill="#008300" stroke="#ffffff" stroke-width="2"></circle><text x="69.6" y="272.8" font-size="11" font-weight="600" fill="#0f1b33">M2</text><circle cx="217" cy="98.2" r="7" fill="#eda100" stroke="#ffffff" stroke-width="2"></circle><text x="228" y="102.2" font-size="11" font-weight="600" fill="#0f1b33">M3</text><circle cx="109.9" cy="249.8" r="7" fill="#eda100" stroke="#ffffff" stroke-width="2"></circle><text x="120.9" y="253.8" font-size="11" font-weight="600" fill="#0f1b33">M4</text><circle cx="386.6" cy="63.4" r="7" fill="#2a78d6" stroke="#ffffff" stroke-width="2"></circle><text x="397.6" y="67.4" font-size="11" font-weight="600" fill="#0f1b33">M5</text><circle cx="95.2" cy="287.8" r="7" fill="#898781" stroke="#ffffff" stroke-width="2"></circle><text x="106.2" y="291.8" font-size="11" font-weight="600" fill="#0f1b33">M6</text>
+          <text x="56" y="348" text-anchor="middle" font-size="10" fill="#7a879b">0</text><text x="143" y="348" text-anchor="middle" font-size="10" fill="#7a879b">10</text><text x="230" y="348" text-anchor="middle" font-size="10" fill="#7a879b">20</text><text x="317" y="348" text-anchor="middle" font-size="10" fill="#7a879b">30</text><text x="404" y="348" text-anchor="middle" font-size="10" fill="#7a879b">40</text>
+          <text x="230" y="372" text-anchor="middle" font-size="11" fill="#4c5a70" style="font-family: 'IBM Plex Sans', sans-serif;">Inversión (millones de COP)</text>
+          <text x="14" y="174" text-anchor="middle" font-size="11" fill="#4c5a70" transform="rotate(-90 14 174)" style="font-family: 'IBM Plex Sans', sans-serif;">Ahorro anual (millones de COP)</text>
+        </svg>
+      </section>
+      <section style="display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px 16px; box-sizing: border-box; background: #ffffff; border: 1px solid #dbe1ea; border-radius: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px;">
+          <div style="display: flex; align-items: baseline; gap: 10px;"><span style="font-size: 15px; font-weight: 600;">Medidas evaluadas</span><span class="mono" style="font-size: 10px; letter-spacing: 0.08em; color: #5c6a80;">7 MEDIDAS</span></div>
+          <div style="display: flex; align-items: center; gap: 14px;"><span style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-sizing: border-box; border-radius: 8px; border: 1px solid #dbe1ea; color: #4c5a70;"><svg class="i" width="16" height="16" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"></rect><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"></path></svg></span></div>
+        </div>
+        <div style="display: flex; flex-direction: column;">
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; gap: 8px; padding-bottom: 8px;"><span class="mono" style="font-size: 10px; letter-spacing: 0.06em; color: #5c6a80;"></span><span class="mono" style="font-size: 10px; letter-spacing: 0.06em; color: #5c6a80;">MEDIDA</span><span class="mono" style="font-size: 10px; letter-spacing: 0.06em; color: #5c6a80; text-align: right;">AHORRO</span><span class="mono" style="font-size: 10px; letter-spacing: 0.06em; color: #5c6a80; text-align: right;">INVERSIÓN</span><span class="mono" style="font-size: 10px; letter-spacing: 0.06em; color: #5c6a80; text-align: right;">RETORNO</span><span class="mono" style="font-size: 10px; letter-spacing: 0.06em; color: #5c6a80; text-align: right;">VPN</span><span class="mono" style="font-size: 10px; letter-spacing: 0.06em; color: #5c6a80; text-align: right;">PRIORIDAD</span></div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e8ef; color: #0f1b33;">
+            <span style="display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #187f44; color: #ffffff;"><svg class="i" width="14" height="14" viewBox="0 0 24 24" style="stroke-width: 2.4;"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span class="mono" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5c6a80;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #2a78d6;"></span>M1</span>
+              <span style="font-size: 13px; font-weight: 500; line-height: 1.3;">Ajuste de horarios de climatización</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px; font-weight: 600;">7.200 kWh</span><span class="num" style="font-size: 11px; color: #5c6a80;">$6,1 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$0,8 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">0,1 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$33,7 M</span>
+            <span style="justify-self: end; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #10234b; color: #ffffff;">Alta</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e8ef; color: #0f1b33;">
+            <span style="display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #187f44; color: #ffffff;"><svg class="i" width="14" height="14" viewBox="0 0 24 24" style="stroke-width: 2.4;"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span class="mono" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5c6a80;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #008300;"></span>M2</span>
+              <span style="font-size: 13px; font-weight: 500; line-height: 1.3;">Apagado nocturno de equipos de TI</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px; font-weight: 600;">2.350 kWh</span><span class="num" style="font-size: 11px; color: #5c6a80;">$2,0 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$0,3 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">0,2 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$11,0 M</span>
+            <span style="justify-self: end; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #10234b; color: #ffffff;">Alta</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e8ef; color: #0f1b33;">
+            <span style="display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #187f44; color: #ffffff;"><svg class="i" width="14" height="14" viewBox="0 0 24 24" style="stroke-width: 2.4;"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span class="mono" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5c6a80;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #eda100;"></span>M3</span>
+              <span style="font-size: 13px; font-weight: 500; line-height: 1.3;">Iluminación LED en aulas</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px; font-weight: 600;">8.700 kWh</span><span class="num" style="font-size: 11px; color: #5c6a80;">$7,4 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$18,5 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">2,5 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$23,3 M</span>
+            <span style="justify-self: end; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #10234b; color: #ffffff;">Alta</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e8ef; color: #0f1b33;">
+            <span style="display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #187f44; color: #ffffff;"><svg class="i" width="14" height="14" viewBox="0 0 24 24" style="stroke-width: 2.4;"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span class="mono" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5c6a80;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #eda100;"></span>M4</span>
+              <span style="font-size: 13px; font-weight: 500; line-height: 1.3;">Sensores de ocupación</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px; font-weight: 600;">3.050 kWh</span><span class="num" style="font-size: 11px; color: #5c6a80;">$2,6 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$6,2 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">2,4 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$8,5 M</span>
+            <span style="justify-self: end; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #e8eef8; color: #10234b;">Media</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e8ef; color: #0f1b33;">
+            <span style="display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #187f44; color: #ffffff;"><svg class="i" width="14" height="14" viewBox="0 0 24 24" style="stroke-width: 2.4;"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span class="mono" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5c6a80;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #2a78d6;"></span>M5</span>
+              <span style="font-size: 13px; font-weight: 500; line-height: 1.3;">Aires inverter en el tablero TC-1</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px; font-weight: 600;">10.000 kWh</span><span class="num" style="font-size: 11px; color: #5c6a80;">$8,5 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$38,0 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">4,5 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$10,0 M</span>
+            <span style="justify-self: end; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #e8eef8; color: #10234b;">Media</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e8ef; color: #0f1b33;">
+            <span style="display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #187f44; color: #ffffff;"><svg class="i" width="14" height="14" viewBox="0 0 24 24" style="stroke-width: 2.4;"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span class="mono" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5c6a80;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #898781;"></span>M6</span>
+              <span style="font-size: 13px; font-weight: 500; line-height: 1.3;">Banco de condensadores de 15 kvar</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px; font-weight: 600;">Reactiva</span><span class="num" style="font-size: 11px; color: #5c6a80;">$1,4 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$4,5 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">3,2 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$3,4 M</span>
+            <span style="justify-self: end; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #e8eef8; color: #10234b;">Media</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e8ef; color: #5c6a80;">
+            <span style="width: 18px; height: 18px; box-sizing: border-box; border-radius: 4px; border: 1.5px solid #c9d3df;"></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span class="mono" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5c6a80;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #898781;"></span>M7</span>
+              <span style="font-size: 13px; font-weight: 500; line-height: 1.3;">Solar fotovoltaica de 20 kWp</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px; font-weight: 600;">32.100 kWh</span><span class="num" style="font-size: 11px; color: #5c6a80;">$27,3 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$90,0 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">3,3 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$64,3 M</span>
+            <span style="justify-self: end; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #ffffff; color: #4c5a70; box-shadow: inset 0 0 0 1px #c9d3df;">En evaluación</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 72px 68px 72px 100px; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid #0f1b33; font-weight: 600;">
+            <span></span><span style="font-size: 13px;">6 medidas seleccionadas</span>
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;"><span class="num" style="font-size: 13px;">31.300 kWh</span><span class="num" style="font-size: 11px; font-weight: 500; color: #5c6a80;">$28,0 M/año</span></div>
+            <span class="num" style="font-size: 13px; text-align: right;">$68,3 M</span>
+            <span class="num" style="font-size: 13px; text-align: right;">2,4 años</span>
+            <span class="num" style="font-size: 13px; text-align: right;">$89,9 M</span>
+            <span></span>
+          </div>
+        </div>
+      </section>
+    </div>
+    <span style="font-size: 12px; color: #5c6a80;">VPN a 10 años con tasa de descuento del 12 % y tarifa de 850 COP/kWh. El factor de emisión es configurable en el proyecto.</span>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>
