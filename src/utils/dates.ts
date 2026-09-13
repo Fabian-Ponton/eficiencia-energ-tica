@@ -72,3 +72,18 @@ export function formatDateTime(text: string | undefined): string {
   const date = parseLocal(text);
   return date ? `${formatDate(text)} · ${pad(date.getHours())}:${pad(date.getMinutes())}` : '—';
 }
+
+/** Suma (o resta) días a una fecha AAAA-MM-DD. */
+export function addDays(date: string, days: number): string {
+  const d = parseLocal(date);
+  if (!d) return date;
+  return toLocalDate(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+}
+
+/** Suma meses a una fecha AAAA-MM-DD; si el día no existe en el mes de llegada, queda el último día del mes. */
+export function addMonths(date: string, months: number): string {
+  const d = parseLocal(date);
+  if (!d) return date;
+  const last = new Date(d.getFullYear(), d.getMonth() + months + 1, 0).getDate();
+  return toLocalDate(new Date(d.getFullYear(), d.getMonth() + months, Math.min(d.getDate(), last)));
+}

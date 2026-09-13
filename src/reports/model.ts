@@ -20,12 +20,12 @@ import { mean, sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import { estimatedProfiles } from '@/domain/estimate';
 import { areaCooling, areaLighting, capacityAnalysis, resolveSizing, type AreaCooling, type AreaLighting, type CapacityResult, type SizingParameters } from '@/domain/sizing';
-import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalSeries, Measure, Measurement, MeterReadingRecord, Photo, Project } from '@/domain/types';
+import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalSeries, Measure, Measurement, MeterReadingRecord, Photo, Project, Task } from '@/domain/types';
 import { formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 
 /**
- * Contenido del informe de auditoría y del PGEE, sin formato: todos los cálculos y los textos que los
- * documentos Word presentan. Es puro para poder probarlo sin navegador.
+ * Contenido del informe de auditoría, del PGEE y del plan de implementación, sin formato: todos los
+ * cálculos y los textos que los documentos Word presentan. Es puro para poder probarlo sin navegador.
  */
 
 export interface ReportData {
@@ -44,6 +44,8 @@ export interface ReportData {
   findings: Finding[];
   /** Medidas de ahorro evaluadas; las del plan tienen `selected`. */
   measures: Measure[];
+  /** Tareas del plan de implementación, por fecha de inicio. */
+  tasks: Task[];
   generatedAt: Date;
 }
 

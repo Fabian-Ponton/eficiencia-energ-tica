@@ -12,6 +12,7 @@ import {
   IconFridge,
   IconInfoCircle,
   IconPlug,
+  IconProgress,
   IconTarget,
   IconToolsKitchen2,
 } from '@tabler/icons-vue';
@@ -21,7 +22,7 @@ import type { LoadingLevel } from '@/domain/calc/sizing/capacity';
 import type { LightingStatus } from '@/domain/calc/sizing/lighting';
 import type { ImbalanceLevel } from '@/domain/measurements';
 import type { CoolingStatus } from '@/domain/sizing';
-import type { Condition, ElectricalKind, EndUseCategory, Finding, Measure, Severity } from '@/domain/types';
+import type { Condition, ElectricalKind, EndUseCategory, Finding, Measure, Severity, TaskStatus } from '@/domain/types';
 
 /** Ícono de cada uso final; se repite en listas, formularios, gráficos e informes. */
 export const END_USE_ICONS: Record<EndUseCategory, Component> = {
@@ -110,3 +111,13 @@ export const PRIORITY_STATUS: Record<NonNullable<Measure['priority']>, StatusSty
   media: { tone: 'warning', icon: IconFlag, label: 'Prioridad media' },
   baja: { tone: 'neutral', icon: IconFlag, label: 'Prioridad baja' },
 };
+
+/** Estado de una tarea del plan de implementación. */
+export const TASK_STATUS: Record<TaskStatus, StatusStyle> = {
+  pendiente: { tone: 'neutral', icon: IconCircleDashed, label: 'Pendiente' },
+  'en-ejecucion': { tone: 'info', icon: IconProgress, label: 'En ejecución' },
+  implementada: { tone: 'good', icon: IconCircleCheck, label: 'Implementada' },
+};
+
+/** Tarea que ya debía terminar y no está implementada. */
+export const OVERDUE_STATUS: StatusStyle = { tone: 'serious', icon: IconAlertTriangle, label: 'Atrasada' };

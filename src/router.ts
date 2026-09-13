@@ -16,6 +16,7 @@ const STEP_VIEWS = {
   diagnostico: () => import('@/views/project/steps/DiagnosisView.vue'),
   oportunidades: () => import('@/views/project/steps/OpportunitiesView.vue'),
   pgee: () => import('@/views/project/steps/PgeeView.vue'),
+  implementacion: () => import('@/views/project/steps/ImplementationView.vue'),
 };
 const comingSoon = () => import('@/views/project/ComingSoon.vue');
 

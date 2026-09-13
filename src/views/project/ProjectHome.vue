@@ -9,6 +9,7 @@ import EmptyState from '@/components/EmptyState.vue';
 import EndUseBar from '@/components/EndUseBar.vue';
 import PhotoThumb from '@/components/photos/PhotoThumb.vue';
 import PhotoViewer from '@/components/photos/PhotoViewer.vue';
+import UpcomingTasks from '@/components/UpcomingTasks.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useLiveQuery } from '@/composables/useLiveQuery';
 import { formatBytes } from '@/composables/useStorageInfo';
@@ -192,6 +193,8 @@ async function downloadBackup() {
         </span>
         <IconChevronRight :size="20" class="siguiente-flecha" />
       </RouterLink>
+
+      <UpcomingTasks />
 
       <section class="card grafica">
         <div class="encabezado">
@@ -600,6 +603,19 @@ h1 {
   }
   .respaldo {
     grid-area: respaldo;
+  }
+  /* Con tareas en el plan, «Próximas tareas» va junto al respaldo y las fotos pasan abajo a lo ancho */
+  .rejilla:has(> .tareas) {
+    grid-template-areas:
+      'kpi kpi'
+      'proceso proceso'
+      'siguiente grafica'
+      'usos grafica'
+      'tareas respaldo'
+      'fotos fotos';
+  }
+  .tareas {
+    grid-area: tareas;
   }
   .mosaico {
     grid-template-columns: repeat(8, minmax(0, 1fr));

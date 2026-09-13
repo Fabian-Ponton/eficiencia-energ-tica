@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  IconCalendarStats,
   IconChartBar,
   IconCircleCheck,
   IconCircleDashed,
@@ -32,7 +33,7 @@ import { chartsBundle, csvBundle } from '@/reports/bundle';
 import { toCsv, type CsvFormat } from '@/reports/csv';
 import { loadReportData } from '@/reports/data';
 import { auditFigures, type ReportFigure } from '@/reports/figures';
-import { generateAuditReport, generatePgeeReport, reportFileName, type GeneratedFile } from '@/reports/generate';
+import { generateAuditReport, generateImplementationReport, generatePgeeReport, reportFileName, type GeneratedFile } from '@/reports/generate';
 import { buildAuditModel } from '@/reports/model';
 import { exportTables, type ExportTable } from '@/reports/tables';
 import { buildWorkbook } from '@/reports/xlsx';
@@ -44,6 +45,7 @@ const db = getDb();
 const toast = useToast();
 const { projectId, project } = useCurrentProject();
 const { rows: measures } = useProjectRecords('measures');
+const { rows: tasks } = useProjectRecords('tasks');
 /** Medidas incluidas en el plan: son las que desarrolla el PGEE. */
 const planCount = computed(() => measures.value.filter((m) => m.selected).length);
 
@@ -114,6 +116,7 @@ async function run(action: Action, task: () => Promise<GeneratedFile>) {
 const generateWord = () =>
   run('auditoria', () => generateAuditReport(db, projectId.value, { includePhotos: includePhotos.value && photoCount.value > 0, photoSize: photoSize.value, onProgress }));
 const generatePgee = () => run('pgee', () => generatePgeeReport(db, projectId.value, { onProgress }));
+const generateImplementation = () => run('implementacion', () => generateImplementationReport(db, projectId.value, { onProgress }));
 const downloadCsvBundle = () =>
   run('csv', async () => {
     const { project: p, tables } = await freshContent();
@@ -166,6 +169,7 @@ const sections = computed(() => {
 const KIND: Record<ReportKind, { label: string; icon: Component }> = {
   auditoria: { label: 'Informe de auditoría', icon: IconFileText },
   pgee: { label: 'Plan de gestión (PGEE)', icon: IconClipboardList },
+  implementacion: { label: 'Plan de implementación', icon: IconCalendarStats },
   csv: { label: 'Tablas en CSV', icon: IconTable },
   excel: { label: 'Libro de Excel', icon: IconFileSpreadsheet },
   graficas: { label: 'Gráficas en PNG', icon: IconChartBar },
@@ -265,10 +269,34 @@ const stats = computed(() => [
 
         <section class="card seccion">
           <div class="cabecera-seccion">
+            <h2><IconCalendarStats :size="18" />Plan de implementación</h2>
+            <span class="eyebrow">Word · {{ tasks.length === 1 ? '1 tarea' : `${formatNumber(tasks.length)} tareas` }}</span>
+          </div>
+          <p class="texto">
+            Cronograma, presupuesto por plazo y por fuente, flujo de caja de la inversión frente al ahorro, responsables y seguimiento. Se completa en el
+            <RouterLink :to="{ name: 'implementacion', params: { projectId } }">paso Implementación</RouterLink>.
+          </p>
+          <div v-if="busy === 'implementacion' && progress" class="avance" role="progressbar" :aria-valuenow="progress.done" aria-valuemin="0" :aria-valuemax="progress.total">
+            <span class="pista"><span class="relleno" :style="{ width: `${Math.round(((progress.done + 1) / progress.total) * 100)}%` }" /></span>
+            <span class="mono paso">{{ progress.step }}</span>
+          </div>
+          <Button
+            :label="busy === 'implementacion' ? 'Generando el plan…' : 'Generar plan (Word)'"
+            severity="secondary"
+            outlined
+            :disabled="busy !== null || !tasks.length"
+            @click="generateImplementation"
+          >
+            <template #icon><component :is="busy === 'implementacion' ? IconLoader2 : IconDownload" :size="18" :class="{ girar: busy === 'implementacion' }" /></template>
+          </Button>
+        </section>
+
+        <section class="card seccion">
+          <div class="cabecera-seccion">
             <h2><IconFileSpreadsheet :size="18" />Libro de Excel</h2>
             <span class="eyebrow">una hoja por tabla, con filtros</span>
           </div>
-          <p class="texto">Inventario, facturas, espacios, sistema eléctrico, mediciones, lecturas, dimensionamiento, hallazgos y medidas de ahorro, listos para seguir trabajando.</p>
+          <p class="texto">Inventario, facturas, espacios, sistema eléctrico, mediciones, lecturas, dimensionamiento, hallazgos, medidas de ahorro y tareas, listos para seguir trabajando.</p>
           <Button label="Descargar Excel (.xlsx)" severity="secondary" outlined :disabled="busy !== null || !preview?.tables.length" @click="downloadExcel">
             <template #icon><component :is="busy === 'excel' ? IconLoader2 : IconDownload" :size="18" :class="{ girar: busy === 'excel' }" /></template>
           </Button>

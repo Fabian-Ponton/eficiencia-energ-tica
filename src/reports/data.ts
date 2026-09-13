@@ -10,7 +10,7 @@ const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompar
 export async function loadReportData(db: PontiaDb, projectId: string, generatedAt = new Date()): Promise<ReportData> {
   const project = await db.projects.get(projectId);
   if (!project || project.deletedAt) throw new Error('El proyecto no existe en este equipo.');
-  const [areas, equipment, electrical, measurements, readings, bills, series, photos, findings, measures] = await Promise.all([
+  const [areas, equipment, electrical, measurements, readings, bills, series, photos, findings, measures, tasks] = await Promise.all([
     db.areas.where('projectId').equals(projectId).toArray(),
     db.equipment.where('projectId').equals(projectId).toArray(),
     db.electrical.where('projectId').equals(projectId).toArray(),
@@ -21,6 +21,7 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     db.photos.where('projectId').equals(projectId).toArray(),
     db.findings.where('projectId').equals(projectId).toArray(),
     db.measures.where('projectId').equals(projectId).toArray(),
+    db.tasks.where('projectId').equals(projectId).toArray(),
   ]);
 
   // Serie principal: la más reciente de toda la instalación; si ninguna lo es, la más reciente
@@ -40,6 +41,7 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     photos: alive(photos).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
     findings: alive(findings).sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.createdAt - b.createdAt),
     measures: alive(measures).sort((a, b) => a.code.localeCompare(b.code, 'es', { numeric: true })),
+    tasks: alive(tasks).sort((a, b) => (a.start ?? '9999').localeCompare(b.start ?? '9999') || a.name.localeCompare(b.name, 'es')),
     generatedAt,
   };
 }

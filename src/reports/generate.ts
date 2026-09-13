@@ -4,10 +4,13 @@ import { backupFileName } from '@/db/backup';
 import type { PontiaDb } from '@/db/schema';
 import { PHOTO_KINDS } from '@/domain/catalogs';
 import type { Photo, Project } from '@/domain/types';
+import { toLocalDate } from '@/utils/dates';
 import { loadReportData } from './data';
 import { buildAuditDocument, type AuditAssets, type AuditOptions } from './docx/audit';
+import { buildImplementationDocument } from './docx/implementation';
 import { buildPgeeDocument } from './docx/pgee';
 import { auditFigures, type ReportFigure } from './figures';
+import { implementationFigures } from './implementationFigures';
 import { buildAuditModel } from './model';
 import { pgeeFigures } from './pgeeFigures';
 
@@ -65,6 +68,7 @@ export async function generateAuditReport(db: PontiaDb, projectId: string, { inc
     ...[...data.areas, ...data.equipment, ...data.electrical].map((r): [string, string] => [r.id, r.name]),
     ...data.findings.map((f): [string, string] => [f.id, f.title]),
     ...data.measures.map((x): [string, string] => [x.id, `${x.code} · ${x.title}`]),
+    ...data.tasks.map((t): [string, string] => [t.id, t.name]),
   ]);
   for (const [index, photo] of photos.entries()) {
     onProgress?.('Agregando las fotos', figures.length + index, total);
@@ -98,4 +102,18 @@ export async function generatePgeeReport(db: PontiaDb, projectId: string, { onPr
   await nextFrame();
   const blob = await Packer.toBlob(buildPgeeDocument(model, { pgee, measures: data.measures, findings: data.findings }, figures, { figures: drawn }));
   return { blob, fileName: reportFileName(data.project, 'PGEE', 'docx', data.generatedAt) };
+}
+
+/** Plan de implementación en Word: cronograma, presupuesto, flujo de caja, responsables y seguimiento. */
+export async function generateImplementationReport(db: PontiaDb, projectId: string, { onProgress }: { onProgress?: Progress } = {}): Promise<GeneratedFile> {
+  onProgress?.('Leyendo el proyecto', 0, 1);
+  const data = await loadReportData(db, projectId);
+  const model = buildAuditModel(data);
+  const figures = implementationFigures(data.tasks, data.measures, data.project.economics, toLocalDate(data.generatedAt));
+  const total = figures.length + 1;
+  const drawn = await drawFigures(figures, onProgress, total);
+  onProgress?.('Armando el documento', total - 1, total);
+  await nextFrame();
+  const blob = await Packer.toBlob(buildImplementationDocument(model, { tasks: data.tasks, measures: data.measures }, figures, { figures: drawn }));
+  return { blob, fileName: reportFileName(data.project, 'Plan-implementacion', 'docx', data.generatedAt) };
 }

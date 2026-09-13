@@ -1,5 +1,6 @@
+import { planTasks } from '@/domain/implementation';
 import { hvacMeasure, ledMeasure, measureEconomics, pvMeasure, specsText, suggestedPriority, type CalculatorResult } from '@/domain/measures';
-import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalDay, IntervalSeries, Measure, Measurement, MeterReadingRecord, Pgee, Project } from '@/domain/types';
+import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalDay, IntervalSeries, Measure, Measurement, MeterReadingRecord, Pgee, Project, Task } from '@/domain/types';
 import { summarizeDays } from './intervals';
 import type { PontiaDb } from './schema';
 
@@ -367,9 +368,25 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
     reviewFrequency: 'Semestral',
   };
 
+  // Cronograma: el que propone PONTIA para las medidas del plan, con la campaña de apagado ya en marcha
+  const RESPONSIBLE: Record<string, string> = { M1: 'Mantenimiento', M2: 'Mantenimiento', M3: 'Oficina de Planeación', M4: 'Servicios Generales' };
+  const codeOf = new Map(measures.map((m) => [m.id, m.code]));
+  const tasks: Task[] = planTasks(measures, projectId, '2026-09-01').map((t, i) => {
+    const code = codeOf.get(t.measureId ?? '') ?? '';
+    return {
+      ...t,
+      createdAt: now + i,
+      updatedAt: now + i,
+      responsible: RESPONSIBLE[code],
+      fundingSource: code === 'M3' ? 'Incentivos de la Ley 1715 de 2014' : 'Recursos propios',
+    };
+  });
+  tasks[0] = { ...tasks[0], status: 'implementada', progress: 100 };
+  tasks[1] = { ...tasks[1], status: 'en-ejecucion', progress: 25 };
+
   await db.transaction(
     'rw',
-    [db.projects, db.bills, db.areas, db.equipment, db.electrical, db.measurements, db.meterReadings, db.intervalSeries, db.intervalDays, db.findings, db.measures, db.pgee],
+    [db.projects, db.bills, db.areas, db.equipment, db.electrical, db.measurements, db.meterReadings, db.intervalSeries, db.intervalDays, db.findings, db.measures, db.pgee, db.tasks],
     async () => {
       await db.projects.add(project);
       await db.bills.bulkAdd(bills);
@@ -383,6 +400,7 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
       await db.findings.bulkAdd(Object.values(findings));
       await db.measures.bulkAdd(measures);
       await db.pgee.add(pgee);
+      await db.tasks.bulkAdd(tasks);
     },
   );
   return project;

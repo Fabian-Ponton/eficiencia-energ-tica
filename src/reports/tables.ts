@@ -1,15 +1,17 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { CONDITIONS, electricalKindOf, endUseOf, spaceTypeOf } from '@/domain/catalogs';
 import { FINDING_STATUS_LABEL, findingTopicLabel, SEVERITY_LABEL } from '@/domain/diagnosis';
+import { PHASE_ORDER, phaseOf, TASK_STATUS_LABEL, taskDays } from '@/domain/implementation';
 import { MEASURE_KIND_LABEL, measureEconomics, PRIORITY_LABEL } from '@/domain/measures';
 import { derivePower } from '@/domain/measurements';
+import type { Measure, Task } from '@/domain/types';
 import type { CsvColumn } from './csv';
 import type { AuditModel } from './model';
 
 /**
  * Tablas que se exportan a CSV y a Excel: los registros del levantamiento, los resultados del análisis
- * y el plan (hallazgos y medidas). Los números van sin formato (el CSV y el Excel les dan el suyo);
- * los textos, ya legibles.
+ * y el plan (hallazgos, medidas y tareas). Los números van sin formato (el CSV y el Excel les dan el
+ * suyo); los textos, ya legibles.
  */
 export interface ExportTable {
   id: string;
@@ -31,6 +33,30 @@ const BASIS = { analizador: 'Analizador', factura: 'Factura', medido: 'Medido', 
 const POINT = { general: 'General', area: 'Espacio', equipo: 'Equipo', tablero: 'Tablero' } as const;
 
 const finite = (value: number | null | undefined) => (value === null || value === undefined || !Number.isFinite(value) ? null : value);
+
+/** Tareas del plan de implementación, por plazo y fecha (también se descargan solas desde su pantalla). */
+export function taskTable(tasks: readonly Task[], measures: readonly Pick<Measure, 'id' | 'code' | 'title'>[]): ExportTable {
+  const measureName = new Map(measures.map((m) => [m.id, `${m.code} · ${m.title}`]));
+  const sorted = [...tasks].sort(
+    (a, b) => PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase] || (a.start ?? '9999').localeCompare(b.start ?? '9999') || a.name.localeCompare(b.name, 'es'),
+  );
+  return table('tareas', 'Tareas de implementación', sorted, [
+    { header: 'Tarea', value: (t) => t.name },
+    { header: 'Medida', value: (t) => (t.measureId ? measureName.get(t.measureId) : '') },
+    { header: 'Plazo', value: (t) => phaseOf(t.phase).label },
+    { header: 'Responsable', value: (t) => t.responsible },
+    { header: 'Inicio', value: (t) => t.start },
+    { header: 'Fin', value: (t) => t.end },
+    { header: 'Días', value: (t) => taskDays(t) },
+    { header: 'Presupuesto (COP)', value: (t) => t.budgetCop, decimals: 0 },
+    { header: 'Financiación', value: (t) => t.fundingSource },
+    { header: 'Estado', value: (t) => TASK_STATUS_LABEL[t.status] },
+    { header: 'Avance (%)', value: (t) => t.progress },
+    { header: 'Indicador', value: (t) => t.kpi },
+    { header: 'Verificación', value: (t) => t.verification },
+    { header: 'Observaciones', value: (t) => t.notes },
+  ]);
+}
 
 export function exportTables(m: AuditModel): ExportTable[] {
   const { data } = m;
@@ -195,7 +221,14 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Vida útil (años)', value: (x) => x.lifetimeYears },
       { header: 'Retorno simple (años)', value: (x) => finite(economics.get(x.id)?.paybackYears), decimals: 1 },
       { header: 'VPN (COP)', value: (x) => finite(economics.get(x.id)?.npvCop), decimals: 0 },
-      { header: 'TIR (%)', value: (x) => { const irr = finite(economics.get(x.id)?.irr); return irr === null ? null : irr * 100; }, decimals: 1 },
+      {
+        header: 'TIR (%)',
+        value: (x) => {
+          const irr = finite(economics.get(x.id)?.irr);
+          return irr === null ? null : irr * 100;
+        },
+        decimals: 1,
+      },
       { header: 'CO₂ evitado (t/año)', value: (x) => finite(economics.get(x.id)?.co2TonnesYear), decimals: 2 },
       { header: 'En el plan', value: (x) => (x.selected ? 'Sí' : 'No') },
       { header: 'Prioridad', value: (x) => (x.priority ? PRIORITY_LABEL[x.priority] : '') },
@@ -203,5 +236,6 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Descripción', value: (x) => x.description },
       { header: 'Observaciones', value: (x) => x.notes },
     ]),
+    taskTable(data.tasks, data.measures),
   ].filter((t) => t.rows.length > 0);
 }

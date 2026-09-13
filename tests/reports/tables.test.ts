@@ -34,6 +34,7 @@ describe('tablas para CSV y Excel', () => {
       capacidad: 9,
       hallazgos: 5,
       medidas: 5,
+      tareas: 8,
     });
 
     const [header, first] = csvLines(tables.find((t) => t.id === 'facturas')!);
