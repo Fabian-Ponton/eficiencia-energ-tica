@@ -1,4 +1,4 @@
-import type { ImportTemplate, Settings } from '@/domain/types';
+import type { CloudSettings, ImportTemplate, Settings } from '@/domain/types';
 import type { PontiaDb } from './schema';
 
 const DEFAULTS: Settings = { id: 'app', csvFormat: 'es-CO', theme: 'sistema' };
@@ -19,4 +19,12 @@ export async function saveImportTemplate(db: PontiaDb, template: Omit<ImportTemp
 export async function deleteImportTemplate(db: PontiaDb, id: string): Promise<void> {
   const settings = await getSettings(db);
   await db.settings.put({ ...settings, importTemplates: (settings.importTemplates ?? []).filter((t) => t.id !== id) });
+}
+
+/** Guarda la conexión con la nube, o la borra con `null`. Se copia como dato plano (sin proxies de Vue). */
+export async function saveCloudSettings(db: PontiaDb, cloud: CloudSettings | null): Promise<void> {
+  const settings = { ...(await getSettings(db)) };
+  if (cloud) settings.cloud = JSON.parse(JSON.stringify(cloud)) as CloudSettings;
+  else delete settings.cloud;
+  await db.settings.put(settings);
 }

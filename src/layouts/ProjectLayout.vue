@@ -28,6 +28,7 @@ import { saveRecord } from '@/db/records';
 import { getDb } from '@/db/schema';
 import type { Photo } from '@/domain/types';
 import { ALL_STEPS, STAGES } from '@/navigation';
+import { useCloudSync } from '@/sync/useCloudSync';
 import { toLocalDateTime } from '@/utils/dates';
 import { compressImage } from '@/utils/image';
 
@@ -35,6 +36,8 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const online = useOnline();
+// Con la nube conectada, el estado de la red dice cuándo fue la última sincronización
+const { label: cloudLabel, short: cloudShort } = useCloudSync();
 const { project, projectId } = provideCurrentProject();
 const fab = provideFab();
 const showQuick = ref(false);
@@ -126,7 +129,7 @@ async function takeQuickPhoto(event: Event) {
       <div class="red-lateral">
         <IconCloudCheck v-if="online" :size="16" class="red-icono" />
         <IconWifiOff v-else :size="16" class="red-icono fuera" />
-        <span>{{ online ? 'En línea · guardado en el equipo' : 'Sin conexión · todo se guarda aquí' }}</span>
+        <span>{{ online ? (cloudLabel ?? 'En línea · guardado en el equipo') : 'Sin conexión · todo se guarda aquí' }}</span>
       </div>
     </aside>
 
@@ -141,7 +144,7 @@ async function takeQuickPhoto(event: Event) {
         <span class="red-movil" :class="{ fuera: !online }">
           <IconCloudCheck v-if="online" :size="16" />
           <IconWifiOff v-else :size="16" />
-          <span>{{ online ? 'Guardado' : 'Sin conexión' }}</span>
+          <span>{{ online ? (cloudShort ?? 'Guardado') : 'Sin conexión' }}</span>
         </span>
       </header>
 

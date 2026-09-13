@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { IconCheck, IconDeviceMobile, IconDownload } from '@tabler/icons-vue';
+import { IconCheck, IconCloud, IconCloudOff, IconDeviceMobile, IconDownload } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import SelectButton from 'primevue/selectbutton';
+import { computed, ref } from 'vue';
+import CloudSyncDialog from '@/components/CloudSyncDialog.vue';
 import { useInstallPrompt } from '@/composables/useInstallPrompt';
 import { useTheme } from '@/composables/useTheme';
+import { useCloudSync } from '@/sync/useCloudSync';
 
 const visible = defineModel<boolean>('visible', { required: true });
 const { preference } = useTheme();
 const { canPrompt, installed, install, isIos } = useInstallPrompt();
+const cloud = useCloudSync();
+const showCloud = ref(false);
 
 const THEMES = [
   { label: 'Claro', value: 'light' },
@@ -16,6 +21,11 @@ const THEMES = [
   { label: 'Automático', value: 'auto' },
 ];
 const legacyUrl = `${import.meta.env.BASE_URL}legacy/`;
+const cloudText = computed(() => {
+  if (!cloud.connected.value) return 'Desactivada: tus proyectos se guardan solo en este equipo.';
+  if (!cloud.signedIn.value) return 'Proyecto de Supabase conectado; falta entrar con tu cuenta.';
+  return cloud.label.value ?? 'Nube conectada.';
+});
 </script>
 
 <template>
@@ -24,6 +34,17 @@ const legacyUrl = `${import.meta.env.BASE_URL}legacy/`;
       <section>
         <h3 class="eyebrow">Apariencia</h3>
         <SelectButton v-model="preference" :options="THEMES" option-label="label" option-value="value" :allow-empty="false" />
+      </section>
+
+      <section>
+        <h3 class="eyebrow">Sincronización en la nube</h3>
+        <p class="estado">
+          <component :is="cloud.signedIn.value ? IconCloud : IconCloudOff" :size="18" :class="{ ok: cloud.signedIn.value }" />
+          {{ cloudText }}
+        </p>
+        <Button :label="cloud.connected.value ? 'Administrar la nube' : 'Configurar la nube'" severity="secondary" outlined @click="showCloud = true">
+          <template #icon><IconCloud :size="18" /></template>
+        </Button>
       </section>
 
       <section>
@@ -45,6 +66,7 @@ const legacyUrl = `${import.meta.env.BASE_URL}legacy/`;
       </section>
     </div>
   </Dialog>
+  <CloudSyncDialog v-model:visible="showCloud" />
 </template>
 
 <style scoped>
@@ -69,6 +91,9 @@ h3 {
   margin: 0;
   color: var(--ink-2);
   font-size: 14px;
+}
+.estado svg {
+  flex-shrink: 0;
 }
 .ok {
   color: var(--good);

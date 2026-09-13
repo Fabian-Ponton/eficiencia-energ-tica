@@ -323,6 +323,32 @@ export interface Task extends ProjectScoped {
   notes?: string;
 }
 
+/** Sesión del usuario en su proyecto de Supabase: tokens y vencimiento (ms). La contraseña nunca se guarda. */
+export interface CloudSession {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  userId: string;
+  email: string;
+}
+
+/** Conexión con el proyecto de Supabase del propio usuario, para trabajar los mismos proyectos en varios equipos. */
+export interface CloudSettings {
+  /** URL del proyecto, p. ej. https://abcd.supabase.co */
+  url: string;
+  /** Clave pública «anon»: las políticas RLS la limitan a los datos de cada usuario. */
+  anonKey: string;
+  session?: CloudSession;
+  /** Sincroniza sola al abrir la app, al volver la conexión y cada 10 minutos. */
+  autoSync: boolean;
+  /** Último cambio de la nube ya recibido (secuencia del servidor). */
+  lastSeq?: number;
+  /** Hasta cuándo se subieron los cambios de este equipo (su reloj, ms). */
+  lastPushedAt?: number;
+  lastSyncAt?: number;
+  lastError?: string;
+}
+
 export interface Settings {
   id: 'app';
   auditorName?: string;
@@ -330,4 +356,5 @@ export interface Settings {
   theme: 'claro' | 'oscuro' | 'sistema';
   lastBackupAt?: number;
   importTemplates?: ImportTemplate[];
+  cloud?: CloudSettings;
 }
