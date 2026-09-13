@@ -401,7 +401,8 @@ export function bubbleChart(opts: {
   const maxSize = Math.max(1, ...opts.points.map((pt) => pt.size));
   return {
     animationDuration: 600,
-    grid: { left: 8, right: 24, top: 28, bottom: 8, containLabel: true },
+    // A la derecha queda espacio para el nombre del eje X («M COP»), que containLabel no cuenta
+    grid: { left: 8, right: 56, top: 28, bottom: 8, containLabel: true },
     tooltip: {
       ...tooltip(p),
       trigger: 'item',

@@ -253,15 +253,52 @@ export function photo(data: Uint8Array, size: { width: number; height: number; t
   ];
 }
 
-/** Encabezado y pie de página con el nombre del proyecto y «Página X de Y». */
-export function pageHeader(projectName: string): Header {
+/** Encabezado y pie de página con el nombre del documento, el del proyecto y «Página X de Y». */
+export function pageHeader(projectName: string, documentName = 'Informe de auditoría energética'): Header {
   return new Header({
     children: [
-      para([text('PONTIA · Informe de auditoría energética', { size: 16, color: COLOR.muted }), text(`   ${projectName}`, { size: 16, color: COLOR.navy, bold: true })], {
+      para([text(`PONTIA · ${documentName}`, { size: 16, color: COLOR.muted }), text(`   ${projectName}`, { size: 16, color: COLOR.navy, bold: true })], {
         border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: COLOR.rule, space: 4 } },
       }),
     ],
   });
+}
+
+/** Portada: franja azul con el tipo de documento, el proyecto y el cliente; debajo, los datos del documento. */
+export function coverPage(opts: { kicker: string; title: string; subtitle: string; facts: readonly [string, string][]; footer: string }): (Paragraph | Table)[] {
+  const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } as const;
+  const band = new Table({
+    width: { size: CONTENT_TWIPS, type: WidthType.DXA },
+    columnWidths: [CONTENT_TWIPS],
+    borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            shading: { type: ShadingType.CLEAR, color: 'auto', fill: COLOR.navy },
+            margins: { top: 480, bottom: 480, left: 360, right: 360 },
+            children: [
+              para([text(opts.kicker, { color: 'CFE3FF', size: 18, bold: true })], { spacing: { after: 160 } }),
+              para([text(opts.title, { font: FONT.heading, size: 52, color: 'FFFFFF' })], { spacing: { after: 120 } }),
+              para([text(opts.subtitle, { size: 24, color: 'E8EEF8' })], { spacing: { after: 0 } }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+  return [
+    new Paragraph({ spacing: { before: 1800 }, children: [] }),
+    band,
+    new Paragraph({ spacing: { after: 360 }, children: [] }),
+    ...opts.facts.map(([label, value]) =>
+      para([text(`${label.toUpperCase()}   `, { size: 16, color: COLOR.muted, bold: true }), text(value, { size: 22 })], {
+        spacing: { after: 100 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: COLOR.rule, space: 4 } },
+      }),
+    ),
+    new Paragraph({ spacing: { before: 1200 }, children: [text(opts.footer, { size: 17, color: COLOR.muted, italics: true })] }),
+  ];
 }
 
 /** Encabezado y pie vacíos, para la portada. */

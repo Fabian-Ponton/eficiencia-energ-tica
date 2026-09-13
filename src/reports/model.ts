@@ -20,12 +20,12 @@ import { mean, sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import { estimatedProfiles } from '@/domain/estimate';
 import { areaCooling, areaLighting, capacityAnalysis, resolveSizing, type AreaCooling, type AreaLighting, type CapacityResult, type SizingParameters } from '@/domain/sizing';
-import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, IntervalSeries, Measurement, MeterReadingRecord, Photo, Project } from '@/domain/types';
+import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalSeries, Measure, Measurement, MeterReadingRecord, Photo, Project } from '@/domain/types';
 import { formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 
 /**
- * Contenido del informe de auditoría, sin formato: todos los cálculos y los textos que el informe Word
- * (y más adelante el PGEE) presenta. Es puro para poder probarlo sin navegador.
+ * Contenido del informe de auditoría y del PGEE, sin formato: todos los cálculos y los textos que los
+ * documentos Word presentan. Es puro para poder probarlo sin navegador.
  */
 
 export interface ReportData {
@@ -40,12 +40,16 @@ export interface ReportData {
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };
   photos: Photo[];
+  /** Hallazgos que registró el auditor (manuales y sugerencias adoptadas), del más grave al más leve. */
+  findings: Finding[];
+  /** Medidas de ahorro evaluadas; las del plan tienen `selected`. */
+  measures: Measure[];
   generatedAt: Date;
 }
 
 export type FindingTone = 'critical' | 'serious' | 'warning' | 'good' | 'info';
 
-/** Hallazgo que sale de los datos (no escrito por el auditor); en la fase 5 se suman los manuales. */
+/** Hallazgo que sale de los datos, no escrito por el auditor: el diagnóstico lo ofrece como sugerencia. */
 export interface AutoFinding {
   tone: FindingTone;
   topic: 'consumo' | 'climatizacion' | 'iluminacion' | 'electrico' | 'datos';
@@ -201,7 +205,7 @@ export function autoFindings(m: AuditModel): AutoFinding[] {
       tone: 'info',
       topic: 'consumo',
       title: 'Usos significativos de energía',
-      detail: `${list(m.significant.map((s) => useLabel(s.category)))} concentran el ${formatPercent(last.cumulativeShare, 0)} del consumo estimado: son la prioridad del plan de gestión (ISO 50001).`,
+      detail: `${list(m.significant.map((s) => useLabel(s.category)))} ${m.significant.length === 1 ? 'concentra' : 'concentran'} el ${formatPercent(last.cumulativeShare, 0)} del consumo estimado: ${m.significant.length === 1 ? 'es' : 'son'} la prioridad del plan de gestión (ISO 50001).`,
     });
   }
   if (m.daily?.peak && m.daily.peak.kw > 0) {
@@ -278,7 +282,7 @@ export function autoFindings(m: AuditModel): AutoFinding[] {
       tone: 'warning',
       topic: 'iluminacion',
       title: 'Iluminación con baja eficiencia (VEEI)',
-      detail: `${list(inefficient.map((l) => l.area.name))} superan el valor límite de eficiencia energética: son candidatos al cambio a LED.`,
+      detail: `${list(inefficient.map((l) => l.area.name))} ${inefficient.length === 1 ? 'supera' : 'superan'} el valor límite de eficiencia energética: conviene cambiar su iluminación a LED.`,
     });
   }
   if (m.baseline && !(m.baseline.quality.cvRmse && m.baseline.quality.nmbe)) {

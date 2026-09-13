@@ -1,4 +1,5 @@
-import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, IntervalDay, IntervalSeries, Measurement, MeterReadingRecord, Project } from '@/domain/types';
+import { hvacMeasure, ledMeasure, measureEconomics, pvMeasure, specsText, suggestedPriority, type CalculatorResult } from '@/domain/measures';
+import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalDay, IntervalSeries, Measure, Measurement, MeterReadingRecord, Pgee, Project } from '@/domain/types';
 import { summarizeDays } from './intervals';
 import type { PontiaDb } from './schema';
 
@@ -297,9 +298,78 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
   };
   const intervalDays: IntervalDay[] = weekDays.map((d) => ({ seriesId: series.id, projectId, date: d.date, values: d.values }));
 
+  // Plan: hallazgos del recorrido, medidas dimensionadas con las calculadoras y el PGEE
+  const quantityOf = (match: (e: Equipment) => boolean) => equipment.filter(match).reduce((total, e) => total + e.quantity, 0);
+  const t8 = quantityOf((e) => e.lampType === 'T8');
+  const classroomSplits = quantityOf((e) => Boolean(e.code?.startsWith('AC-A6')));
+  let order = 0;
+  const finding = (title: string, severity: Finding['severity'], category: Finding['category'], status: Finding['status'], description: string, extra: Partial<Finding> = {}): Finding => {
+    // Un milisegundo entre uno y otro para que el orden del ejemplo no cambie
+    const at = now + order++;
+    return { ...stamp(), createdAt: at, updatedAt: at, title, description, severity, category, status, auto: false, ...extra };
+  };
+  const findings = {
+    lighting: finding(
+      'Iluminación fluorescente T8 de baja eficiencia',
+      'alto',
+      'iluminacion',
+      'en-medida',
+      `${t8} luminarias de 2×32 W T8 con balasto electromagnético (70 W cada una) en aulas, laboratorio y pasillos; el aula 601 tiene 312 lx, por debajo de lo requerido para un aula.`,
+    ),
+    splits: finding('Aires mini-split sin tecnología inverter', 'alto', 'climatizacion', 'en-medida', 'Los aires de las aulas tienen EER 10,9 y más de diez años de uso; trabajan a plena carga durante las clases.'),
+    broken: finding('Aire del aula 604 fuera de servicio', 'medio', 'climatizacion', 'abierto', 'Una de las dos unidades no enciende: la otra trabaja sin descanso y el aula no alcanza la temperatura de confort.', {
+      entityType: 'equipo',
+      entityId: equipment.find((e) => e.code === 'AC-A604')?.id,
+    }),
+    hours: finding('Equipos encendidos después de clases', 'medio', 'ti', 'en-medida', 'En el recorrido de las 6:00 p. m. había computadores, videoproyectores y aires encendidos en aulas vacías.'),
+    roof: finding('Cubierta disponible para energía solar', 'bajo', 'envolvente', 'en-medida', 'La cubierta tiene cerca de 600 m² libres de sombra, con buena exposición para módulos fotovoltaicos.'),
+  };
+
+  const measure = (code: string, r: Omit<CalculatorResult, 'specs'>, extra: Pick<Measure, 'selected' | 'findingIds'> & Partial<Measure>): Measure => {
+    const values = {
+      savingsKwhYear: Math.round(r.savingsKwhYear),
+      savingsCopYear: Math.round(r.savingsCopYear),
+      investmentCop: Math.round(r.investmentCop),
+      annualCostCop: Math.round(r.annualCostCop),
+      lifetimeYears: r.lifetimeYears,
+    };
+    return { ...stamp(), code, title: r.title, category: r.category, kind: r.kind, ...values, priority: suggestedPriority(measureEconomics(values, project.economics), values.investmentCop), ...extra };
+  };
+  const led = ledMeasure({ currentCount: t8, currentW: 70, proposedCount: t8, proposedW: 36, hoursPerYear: 2112, costPerLuminaire: 150_000, tariff: TARIFF });
+  const airReplacement = hvacMeasure({ units: classroomSplits, capacityBtuH: 18_000, currentEer: 10.9, newEer: 16, fullLoadHoursPerYear: 1267, costPerUnit: 3_200_000, tariff: TARIFF });
+  const pv = pvMeasure({ dailyEnergyKwh: 50, peakSunHours: 5.5, performanceRatio: 0.8, moduleWp: 550, moduleAreaM2: 2.6, costPerKwp: 4_000_000, tariff: TARIFF, availableRoofM2: 600 });
+  const shutdown = { title: 'Programa de apagado y control de horarios', category: 'ti', kind: 'operativa', savingsKwhYear: 5_600, savingsCopYear: 5_600 * TARIFF, investmentCop: 1_500_000, annualCostCop: 0, lifetimeYears: 3 } as const;
+  const sensors = { title: 'Sensores de ocupación en pasillos y baños', category: 'iluminacion', kind: 'baja-inversion', savingsKwhYear: 2_400, savingsCopYear: 2_400 * TARIFF, investmentCop: 6_000_000, annualCostCop: 0, lifetimeYears: 8 } as const;
+  const measures: Measure[] = [
+    measure('M1', led, { selected: true, findingIds: [findings.lighting.id], description: specsText(led.specs) }),
+    measure('M2', airReplacement, { selected: true, findingIds: [findings.splits.id], description: specsText(airReplacement.specs) }),
+    measure('M3', pv, { selected: true, findingIds: [findings.roof.id], description: specsText(pv.specs) }),
+    measure('M4', shutdown, { selected: true, findingIds: [findings.hours.id], description: 'Apagado de computadores, videoproyectores y aires al final de cada jornada, con responsables por piso y señalización.' }),
+    measure('M5', sensors, { selected: false, findingIds: [], notes: 'Conviene evaluarla después del cambio a LED: con la nueva potencia el ahorro baja.' }),
+  ];
+
+  // Seguimiento y formación quedan en blanco a propósito: el PGEE muestra ahí el texto propuesto para aprobar
+  const pgee: Pgee = {
+    ...stamp(),
+    policy:
+      'La Universidad de La Guajira se compromete a mejorar de forma continua el desempeño energético del Bloque 6: usar la energía de manera eficiente, asignar los recursos necesarios para cumplir los objetivos y metas de este plan, cumplir los requisitos legales aplicables y preferir equipos y diseños eficientes en sus compras y proyectos.',
+    scope: 'Bloque 6 con sus aulas, laboratorios, sala de cómputo y oficinas (3.000 m² y 900 usuarios). Cubre la energía eléctrica que suministra Air-e en el nivel de tensión 2.',
+    team: [
+      { role: 'Representante de la dirección', name: 'Vicerrectoría Administrativa y Financiera', responsibilities: 'Aprueba la política, asigna los recursos y revisa los resultados cada semestre.' },
+      { role: 'Líder de gestión de la energía', name: 'Oficina de Planeación', responsibilities: 'Coordina el plan, hace el seguimiento de los indicadores y reporta los avances.' },
+      { role: 'Mantenimiento e infraestructura', name: 'Servicios Generales', responsibilities: 'Ejecuta las medidas y mantiene los equipos intervenidos.' },
+    ],
+    objectives: [
+      { description: 'Reducir el consumo de energía tomada de la red frente a la línea base', targetPercent: 20, deadline: '2027-12-31' },
+      { description: 'Generar con energía solar el 10 % del consumo anual del bloque', targetPercent: 10, deadline: '2027-12-31' },
+    ],
+    communication: 'Informe trimestral a la Vicerrectoría y boletín para docentes y estudiantes con el consumo del bloque frente a la meta.',
+    reviewFrequency: 'Semestral',
+  };
+
   await db.transaction(
     'rw',
-    [db.projects, db.bills, db.areas, db.equipment, db.electrical, db.measurements, db.meterReadings, db.intervalSeries, db.intervalDays],
+    [db.projects, db.bills, db.areas, db.equipment, db.electrical, db.measurements, db.meterReadings, db.intervalSeries, db.intervalDays, db.findings, db.measures, db.pgee],
     async () => {
       await db.projects.add(project);
       await db.bills.bulkAdd(bills);
@@ -310,6 +380,9 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
       await db.meterReadings.bulkAdd(readings);
       await db.intervalSeries.add(series);
       await db.intervalDays.bulkAdd(intervalDays);
+      await db.findings.bulkAdd(Object.values(findings));
+      await db.measures.bulkAdd(measures);
+      await db.pgee.add(pgee);
     },
   );
   return project;

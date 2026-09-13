@@ -6,6 +6,7 @@ import { endUseOf } from '@/domain/catalogs';
 import type { EndUseCategory } from '@/domain/types';
 import { MONTHS_SHORT, periodLabel } from '@/utils/dates';
 import type { AuditModel } from './model';
+import { pgeeFigures } from './pgeeFigures';
 
 /** Figura del informe: la gráfica en modo claro y el tamaño en píxeles al que se dibuja. */
 export interface ReportFigure {
@@ -219,5 +220,7 @@ export function auditFigures(m: AuditModel): ReportFigure[] {
       height: diagram.height,
     });
   }
+  // Matriz de priorización de todas las medidas evaluadas (el PGEE muestra solo las del plan)
+  figures.push(...pgeeFigures(m.data.measures));
   return figures;
 }

@@ -1,14 +1,29 @@
 <script setup lang="ts">
-import { IconChartBar, IconCircleCheck, IconCircleDashed, IconDownload, IconFileSpreadsheet, IconFileText, IconFileZip, IconHistory, IconLoader2, IconPhoto, IconTable } from '@tabler/icons-vue';
+import {
+  IconChartBar,
+  IconCircleCheck,
+  IconCircleDashed,
+  IconClipboardList,
+  IconDownload,
+  IconFileSpreadsheet,
+  IconFileText,
+  IconFileZip,
+  IconHistory,
+  IconLoader2,
+  IconPhoto,
+  IconTable,
+} from '@tabler/icons-vue';
 import { useLocalStorage } from '@vueuse/core';
 import Button from 'primevue/button';
 import ToggleSwitch from 'primevue/toggleswitch';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref, shallowRef, type Component } from 'vue';
+import { RouterLink } from 'vue-router';
 import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useLiveQuery } from '@/composables/useLiveQuery';
+import { useProjectRecords } from '@/composables/useProjectRecords';
 import { backupFileName, exportProjectZip } from '@/db/backup';
 import { logReport, markBackup } from '@/db/projects';
 import { getDb } from '@/db/schema';
@@ -17,7 +32,7 @@ import { chartsBundle, csvBundle } from '@/reports/bundle';
 import { toCsv, type CsvFormat } from '@/reports/csv';
 import { loadReportData } from '@/reports/data';
 import { auditFigures, type ReportFigure } from '@/reports/figures';
-import { generateAuditReport, reportFileName, type GeneratedFile } from '@/reports/generate';
+import { generateAuditReport, generatePgeeReport, reportFileName, type GeneratedFile } from '@/reports/generate';
 import { buildAuditModel } from '@/reports/model';
 import { exportTables, type ExportTable } from '@/reports/tables';
 import { buildWorkbook } from '@/reports/xlsx';
@@ -28,6 +43,9 @@ import { deliverFile } from '@/utils/share';
 const db = getDb();
 const toast = useToast();
 const { projectId, project } = useCurrentProject();
+const { rows: measures } = useProjectRecords('measures');
+/** Medidas incluidas en el plan: son las que desarrolla el PGEE. */
+const planCount = computed(() => measures.value.filter((m) => m.selected).length);
 
 // Vista previa: qué tablas y gráficas tiene hoy el proyecto (se recalcula al generar cada archivo)
 const preview = shallowRef<{ tables: ExportTable[]; figures: ReportFigure[] } | null>(null);
@@ -95,6 +113,7 @@ async function run(action: Action, task: () => Promise<GeneratedFile>) {
 
 const generateWord = () =>
   run('auditoria', () => generateAuditReport(db, projectId.value, { includePhotos: includePhotos.value && photoCount.value > 0, photoSize: photoSize.value, onProgress }));
+const generatePgee = () => run('pgee', () => generatePgeeReport(db, projectId.value, { onProgress }));
 const downloadCsvBundle = () =>
   run('csv', async () => {
     const { project: p, tables } = await freshContent();
@@ -137,6 +156,8 @@ const sections = computed(() => {
     { title: 'Indicadores de desempeño y línea base', ok: ids.has('linea-base') },
     { title: 'Dimensionamiento: climatización, iluminación y capacidad', ok: ids.has('climatizacion') || ids.has('unifilar') },
     { title: 'Mediciones puntuales', ok: tables.has('mediciones') },
+    { title: 'Diagnóstico con evidencia fotográfica', ok: tables.has('hallazgos') },
+    { title: 'Oportunidades de ahorro y matriz de priorización', ok: tables.has('medidas') },
     { title: 'Conclusiones y recomendaciones', ok: true },
     { title: `Anexo fotográfico · ${formatNumber(photoCount.value)} ${photoCount.value === 1 ? 'foto' : 'fotos'}`, ok: photoCount.value > 0 && includePhotos.value },
   ];
@@ -144,6 +165,7 @@ const sections = computed(() => {
 
 const KIND: Record<ReportKind, { label: string; icon: Component }> = {
   auditoria: { label: 'Informe de auditoría', icon: IconFileText },
+  pgee: { label: 'Plan de gestión (PGEE)', icon: IconClipboardList },
   csv: { label: 'Tablas en CSV', icon: IconTable },
   excel: { label: 'Libro de Excel', icon: IconFileSpreadsheet },
   graficas: { label: 'Gráficas en PNG', icon: IconChartBar },
@@ -168,8 +190,8 @@ const stats = computed(() => [
         <span class="eyebrow">Word · estructura ISO 50002</span>
       </div>
       <p class="texto">
-        Portada, índice, resumen ejecutivo con indicadores, gráficas y tablas numeradas, verificación de cada espacio, capacidad eléctrica, conclusiones y anexo fotográfico.
-        Se abre y se edita en Word.
+        Portada, índice, resumen ejecutivo con indicadores, gráficas y tablas numeradas, verificación de cada espacio, capacidad eléctrica, diagnóstico con fotos, oportunidades de ahorro,
+        conclusiones y anexo fotográfico. Se abre y se edita en Word.
       </p>
       <ol class="indice-informe">
         <li v-for="s in sections" :key="s.title" :class="{ pendiente: !s.ok }">
@@ -225,10 +247,28 @@ const stats = computed(() => [
       <div class="columna">
         <section class="card seccion">
           <div class="cabecera-seccion">
+            <h2><IconClipboardList :size="18" />Plan de gestión (PGEE)</h2>
+            <span class="eyebrow">Word · {{ planCount === 1 ? '1 medida en el plan' : `${formatNumber(planCount)} medidas en el plan` }}</span>
+          </div>
+          <p class="texto">
+            Política, objetivos y metas, planes de acción con la matriz de priorización y seguimiento con M&amp;V, según la ISO 50001. Se completa en el
+            <RouterLink :to="{ name: 'pgee', params: { projectId } }">paso PGEE</RouterLink>.
+          </p>
+          <div v-if="busy === 'pgee' && progress" class="avance" role="progressbar" :aria-valuenow="progress.done" aria-valuemin="0" :aria-valuemax="progress.total">
+            <span class="pista"><span class="relleno" :style="{ width: `${Math.round(((progress.done + 1) / progress.total) * 100)}%` }" /></span>
+            <span class="mono paso">{{ progress.step }}</span>
+          </div>
+          <Button :label="busy === 'pgee' ? 'Generando el PGEE…' : 'Generar PGEE (Word)'" severity="secondary" outlined :disabled="busy !== null" @click="generatePgee">
+            <template #icon><component :is="busy === 'pgee' ? IconLoader2 : IconDownload" :size="18" :class="{ girar: busy === 'pgee' }" /></template>
+          </Button>
+        </section>
+
+        <section class="card seccion">
+          <div class="cabecera-seccion">
             <h2><IconFileSpreadsheet :size="18" />Libro de Excel</h2>
             <span class="eyebrow">una hoja por tabla, con filtros</span>
           </div>
-          <p class="texto">Inventario, facturas, espacios, sistema eléctrico, mediciones, lecturas y los resultados del dimensionamiento, listos para seguir trabajando.</p>
+          <p class="texto">Inventario, facturas, espacios, sistema eléctrico, mediciones, lecturas, dimensionamiento, hallazgos y medidas de ahorro, listos para seguir trabajando.</p>
           <Button label="Descargar Excel (.xlsx)" severity="secondary" outlined :disabled="busy !== null || !preview?.tables.length" @click="downloadExcel">
             <template #icon><component :is="busy === 'excel' ? IconLoader2 : IconDownload" :size="18" :class="{ girar: busy === 'excel' }" /></template>
           </Button>
@@ -289,6 +329,9 @@ const stats = computed(() => [
   margin: 0;
   color: var(--ink-2);
   font-size: 14px;
+}
+.texto a {
+  font-weight: 600;
 }
 .indice-informe {
   display: grid;
@@ -392,9 +435,15 @@ const stats = computed(() => [
   gap: 8px;
   font-weight: 600;
 }
+/* En el celular la fecha baja a su propia línea en vez de partirse */
+.historial .fila-principal {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
 .historial .fecha {
   color: var(--muted);
   font-size: 12px;
+  white-space: nowrap;
 }
 .historial .fila-secundaria {
   overflow: hidden;

@@ -1,5 +1,19 @@
 import type { Table } from 'dexie';
-import type { Area, Bill, ElectricalNode, EntityType, Equipment, IntervalSeries, Measurement, MeterReadingRecord, Photo } from '@/domain/types';
+import type {
+  Area,
+  Bill,
+  ElectricalNode,
+  EntityType,
+  Equipment,
+  Finding,
+  IntervalSeries,
+  Measure,
+  Measurement,
+  MeterReadingRecord,
+  Pgee,
+  Photo,
+  Task,
+} from '@/domain/types';
 import type { PontiaDb } from './schema';
 
 /** Tablas que se editan desde las pantallas de la auditoría. */
@@ -12,6 +26,10 @@ export interface RecordTables {
   bills: Bill;
   photos: Photo;
   intervalSeries: IntervalSeries;
+  findings: Finding;
+  measures: Measure;
+  pgee: Pgee;
+  tasks: Task;
 }
 export type RecordTable = keyof RecordTables;
 
@@ -28,6 +46,9 @@ const PHOTO_ENTITY: Partial<Record<RecordTable, EntityType>> = {
   measurements: 'medicion',
   meterReadings: 'medicion',
   bills: 'factura',
+  findings: 'hallazgo',
+  measures: 'medida',
+  tasks: 'tarea',
 };
 
 /** Quita los campos vacíos (null, undefined o texto en blanco) y recorta los textos. */

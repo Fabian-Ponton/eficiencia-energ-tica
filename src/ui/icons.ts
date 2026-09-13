@@ -5,19 +5,23 @@ import {
   IconAlertTriangle,
   IconBulb,
   IconCircleCheck,
+  IconCircleDashed,
   IconDeviceDesktop,
   IconEngine,
+  IconFlag,
   IconFridge,
+  IconInfoCircle,
   IconPlug,
+  IconTarget,
   IconToolsKitchen2,
 } from '@tabler/icons-vue';
 import { h, type Component, type FunctionalComponent } from 'vue';
 import ElectricalIcon from '@/components/icons/ElectricalIcon.vue';
 import type { LoadingLevel } from '@/domain/calc/sizing/capacity';
 import type { LightingStatus } from '@/domain/calc/sizing/lighting';
-import type { CoolingStatus } from '@/domain/sizing';
 import type { ImbalanceLevel } from '@/domain/measurements';
-import type { Condition, ElectricalKind, EndUseCategory } from '@/domain/types';
+import type { CoolingStatus } from '@/domain/sizing';
+import type { Condition, ElectricalKind, EndUseCategory, Finding, Measure, Severity } from '@/domain/types';
 
 /** Ícono de cada uso final; se repite en listas, formularios, gráficos e informes. */
 export const END_USE_ICONS: Record<EndUseCategory, Component> = {
@@ -83,4 +87,26 @@ export const IMBALANCE_STATUS: Record<ImbalanceLevel, StatusStyle> = {
   normal: { tone: 'good', icon: IconCircleCheck, label: 'Fases balanceadas' },
   alto: { tone: 'warning', icon: IconAlertTriangle, label: 'Desbalance alto' },
   critico: { tone: 'critical', icon: IconAlertOctagon, label: 'Desbalance crítico' },
+};
+
+/** Gravedad de un hallazgo. */
+export const SEVERITY_STATUS: Record<Severity, StatusStyle> = {
+  critico: { tone: 'critical', icon: IconAlertOctagon, label: 'Crítico' },
+  alto: { tone: 'serious', icon: IconAlertTriangle, label: 'Alto' },
+  medio: { tone: 'warning', icon: IconAlertTriangle, label: 'Medio' },
+  bajo: { tone: 'info', icon: IconInfoCircle, label: 'Bajo' },
+};
+
+/** En qué va un hallazgo: sin atender, con una medida propuesta o resuelto. */
+export const FINDING_STATE: Record<Finding['status'], StatusStyle> = {
+  abierto: { tone: 'neutral', icon: IconCircleDashed, label: 'Abierto' },
+  'en-medida': { tone: 'info', icon: IconTarget, label: 'Con medida' },
+  cerrado: { tone: 'good', icon: IconCircleCheck, label: 'Cerrado' },
+};
+
+/** Prioridad de una medida de ahorro. */
+export const PRIORITY_STATUS: Record<NonNullable<Measure['priority']>, StatusStyle> = {
+  alta: { tone: 'serious', icon: IconFlag, label: 'Prioridad alta' },
+  media: { tone: 'warning', icon: IconFlag, label: 'Prioridad media' },
+  baja: { tone: 'neutral', icon: IconFlag, label: 'Prioridad baja' },
 };

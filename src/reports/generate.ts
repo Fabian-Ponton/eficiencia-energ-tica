@@ -6,8 +6,10 @@ import { PHOTO_KINDS } from '@/domain/catalogs';
 import type { Photo, Project } from '@/domain/types';
 import { loadReportData } from './data';
 import { buildAuditDocument, type AuditAssets, type AuditOptions } from './docx/audit';
-import { auditFigures } from './figures';
+import { buildPgeeDocument } from './docx/pgee';
+import { auditFigures, type ReportFigure } from './figures';
 import { buildAuditModel } from './model';
+import { pgeeFigures } from './pgeeFigures';
 
 /** Aviso de avance: qué se está haciendo y cuántos pasos van. */
 export type Progress = (step: string, done: number, total: number) => void;
@@ -26,6 +28,17 @@ const dataUrlBytes = (url: string) => Uint8Array.from(atob(url.split(',')[1] ?? 
 
 /** Deja que el navegador pinte la barra de avance entre gráfica y gráfica. */
 const nextFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/** Dibuja cada figura en modo claro y la guarda como PNG para el documento. */
+async function drawFigures(figures: readonly ReportFigure[], onProgress: Progress | undefined, total: number): Promise<AuditAssets['figures']> {
+  const drawn: AuditAssets['figures'] = new Map();
+  for (const [index, figure] of figures.entries()) {
+    onProgress?.(`Dibujando «${figure.title}»`, index, total);
+    await nextFrame();
+    drawn.set(figure.id, { data: dataUrlBytes(await renderChartPng(figure.option, figure.width, figure.height)), width: figure.width, height: figure.height });
+  }
+  return drawn;
+}
 
 /** Pie de foto: registro al que pertenece, tipo de foto, código y descripción. */
 function photoCaption(photo: Photo, owners: ReadonlyMap<string, string>): string {
@@ -46,15 +59,13 @@ export async function generateAuditReport(db: PontiaDb, projectId: string, { inc
   const figures = auditFigures(model);
   const photos = includePhotos ? data.photos : [];
   const total = figures.length + photos.length + 1;
-  const assets: AuditAssets = { figures: new Map(), photos: [] };
+  const assets: AuditAssets = { figures: await drawFigures(figures, onProgress, total), photos: [] };
 
-  for (const [index, figure] of figures.entries()) {
-    onProgress?.(`Dibujando «${figure.title}»`, index, total);
-    await nextFrame();
-    assets.figures.set(figure.id, { data: dataUrlBytes(await renderChartPng(figure.option, figure.width, figure.height)), width: figure.width, height: figure.height });
-  }
-
-  const owners = new Map<string, string>([...data.areas, ...data.equipment, ...data.electrical].map((r) => [r.id, r.name]));
+  const owners = new Map<string, string>([
+    ...[...data.areas, ...data.equipment, ...data.electrical].map((r): [string, string] => [r.id, r.name]),
+    ...data.findings.map((f): [string, string] => [f.id, f.title]),
+    ...data.measures.map((x): [string, string] => [x.id, `${x.code} · ${x.title}`]),
+  ]);
   for (const [index, photo] of photos.entries()) {
     onProgress?.('Agregando las fotos', figures.length + index, total);
     assets.photos.push({
@@ -71,4 +82,20 @@ export async function generateAuditReport(db: PontiaDb, projectId: string, { inc
   await nextFrame();
   const blob = await Packer.toBlob(buildAuditDocument(model, figures, assets, { photoSize }));
   return { blob, fileName: reportFileName(data.project, 'Informe-auditoria', 'docx', data.generatedAt), figures: figures.length, photos: assets.photos.length };
+}
+
+/** PGEE en Word: la revisión energética del proyecto, el plan con sus medidas y la matriz de priorización. */
+export async function generatePgeeReport(db: PontiaDb, projectId: string, { onProgress }: { onProgress?: Progress } = {}): Promise<GeneratedFile> {
+  onProgress?.('Leyendo el proyecto', 0, 1);
+  const data = await loadReportData(db, projectId);
+  const model = buildAuditModel(data);
+  // Un PGEE por proyecto: si hubiera más de uno, el primero que se creó (el mismo que edita la pantalla)
+  const pgee = (await db.pgee.where('projectId').equals(projectId).toArray()).filter((p) => !p.deletedAt).sort((a, b) => a.createdAt - b.createdAt)[0];
+  const figures = pgeeFigures(data.measures.filter((x) => x.selected));
+  const total = figures.length + 1;
+  const drawn = await drawFigures(figures, onProgress, total);
+  onProgress?.('Armando el documento', total - 1, total);
+  await nextFrame();
+  const blob = await Packer.toBlob(buildPgeeDocument(model, { pgee, measures: data.measures, findings: data.findings }, figures, { figures: drawn }));
+  return { blob, fileName: reportFileName(data.project, 'PGEE', 'docx', data.generatedAt) };
 }

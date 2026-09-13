@@ -66,7 +66,7 @@ export interface Project extends BaseRecord {
   reports?: ReportRecord[];
 }
 
-export type ReportKind = 'auditoria' | 'csv' | 'excel' | 'graficas';
+export type ReportKind = 'auditoria' | 'pgee' | 'csv' | 'excel' | 'graficas';
 
 export interface ReportRecord {
   id: string;

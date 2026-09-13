@@ -1,12 +1,15 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { CONDITIONS, electricalKindOf, endUseOf, spaceTypeOf } from '@/domain/catalogs';
+import { FINDING_STATUS_LABEL, findingTopicLabel, SEVERITY_LABEL } from '@/domain/diagnosis';
+import { MEASURE_KIND_LABEL, measureEconomics, PRIORITY_LABEL } from '@/domain/measures';
 import { derivePower } from '@/domain/measurements';
 import type { CsvColumn } from './csv';
 import type { AuditModel } from './model';
 
 /**
- * Tablas que se exportan a CSV y a Excel: los registros del levantamiento y los resultados del análisis.
- * Los números van sin formato (el CSV y el Excel les dan el suyo); los textos, ya legibles.
+ * Tablas que se exportan a CSV y a Excel: los registros del levantamiento, los resultados del análisis
+ * y el plan (hallazgos y medidas). Los números van sin formato (el CSV y el Excel les dan el suyo);
+ * los textos, ya legibles.
  */
 export interface ExportTable {
   id: string;
@@ -27,11 +30,15 @@ const LIGHTING = { adecuada: 'Adecuada', insuficiente: 'Insuficiente', excesiva:
 const BASIS = { analizador: 'Analizador', factura: 'Factura', medido: 'Medido', instalado: 'Estimado' } as const;
 const POINT = { general: 'General', area: 'Espacio', equipo: 'Equipo', tablero: 'Tablero' } as const;
 
+const finite = (value: number | null | undefined) => (value === null || value === undefined || !Number.isFinite(value) ? null : value);
+
 export function exportTables(m: AuditModel): ExportTable[] {
   const { data } = m;
   const areaName = new Map(data.areas.map((a) => [a.id, a.name]));
   const nodeName = new Map(data.electrical.map((n) => [n.id, n.name]));
   const equipmentName = new Map(data.equipment.map((e) => [e.id, e.name]));
+  const findingTitle = new Map(data.findings.map((f) => [f.id, f.title]));
+  const economics = new Map(data.measures.map((x) => [x.id, measureEconomics(x, data.project.economics)]));
   const pointName = (type: string, id?: string) =>
     type === 'general' ? 'General' : ((type === 'tablero' ? nodeName : type === 'area' ? areaName : equipmentName).get(id ?? '') ?? '');
   const phase = (values: (number | null)[] | undefined, i: number) => values?.[i] ?? null;
@@ -167,6 +174,34 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Estado', value: (c) => LOADING[c.level] },
       { header: 'Base del cálculo', value: (c) => BASIS[c.basis] },
       { header: 'Carga instalada (kW)', value: (c) => c.installedKw, decimals: 1 },
+    ]),
+    table('hallazgos', 'Hallazgos', data.findings, [
+      { header: 'Hallazgo', value: (f) => f.title },
+      { header: 'Gravedad', value: (f) => SEVERITY_LABEL[f.severity] },
+      { header: 'Tema', value: (f) => findingTopicLabel(f.category) },
+      { header: 'Estado', value: (f) => FINDING_STATUS_LABEL[f.status] },
+      { header: 'Origen', value: (f) => (f.auto ? 'Sugerido por PONTIA' : 'Auditor') },
+      { header: 'Descripción', value: (f) => f.description },
+    ]),
+    table('medidas', 'Medidas de ahorro', data.measures, [
+      { header: 'Código', value: (x) => x.code },
+      { header: 'Medida', value: (x) => x.title },
+      { header: 'Uso final', value: (x) => endUseOf(x.category).label },
+      { header: 'Tipo', value: (x) => MEASURE_KIND_LABEL[x.kind] },
+      { header: 'Ahorro (kWh/año)', value: (x) => x.savingsKwhYear, decimals: 0 },
+      { header: 'Ahorro (COP/año)', value: (x) => x.savingsCopYear, decimals: 0 },
+      { header: 'Inversión (COP)', value: (x) => x.investmentCop, decimals: 0 },
+      { header: 'Costo anual (COP)', value: (x) => x.annualCostCop, decimals: 0 },
+      { header: 'Vida útil (años)', value: (x) => x.lifetimeYears },
+      { header: 'Retorno simple (años)', value: (x) => finite(economics.get(x.id)?.paybackYears), decimals: 1 },
+      { header: 'VPN (COP)', value: (x) => finite(economics.get(x.id)?.npvCop), decimals: 0 },
+      { header: 'TIR (%)', value: (x) => { const irr = finite(economics.get(x.id)?.irr); return irr === null ? null : irr * 100; }, decimals: 1 },
+      { header: 'CO₂ evitado (t/año)', value: (x) => finite(economics.get(x.id)?.co2TonnesYear), decimals: 2 },
+      { header: 'En el plan', value: (x) => (x.selected ? 'Sí' : 'No') },
+      { header: 'Prioridad', value: (x) => (x.priority ? PRIORITY_LABEL[x.priority] : '') },
+      { header: 'Hallazgos que atiende', value: (x) => x.findingIds.map((id) => findingTitle.get(id)).filter(Boolean).join('; ') },
+      { header: 'Descripción', value: (x) => x.description },
+      { header: 'Observaciones', value: (x) => x.notes },
     ]),
   ].filter((t) => t.rows.length > 0);
 }

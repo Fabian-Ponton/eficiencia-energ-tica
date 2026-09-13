@@ -1,8 +1,11 @@
 import { AlignmentType, BorderStyle, Document, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow, WidthType, type FileChild } from 'docx';
 import { BASELINE_VARIABLES } from '@/domain/analysis';
+import { sum } from '@/domain/calc/stats';
 import { endUseOf, spaceTypeOf } from '@/domain/catalogs';
+import { FINDING_STATUS_LABEL, findingTopicLabel, ruleIdOf, SEVERITY_LABEL } from '@/domain/diagnosis';
+import { measureEconomics } from '@/domain/measures';
 import { derivePower } from '@/domain/measurements';
-import type { EndUseCategory, Photo } from '@/domain/types';
+import type { EndUseCategory, Finding, Photo, Severity } from '@/domain/types';
 import { formatDate, formatDateTime, periodLabel, periodLabelLong } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import type { ReportFigure } from '../figures';
@@ -50,21 +53,27 @@ const TONE: Record<FindingTone, { label: string; color: string }> = {
   info: { label: 'Información', color: COLOR.info },
   good: { label: 'Favorable', color: COLOR.good },
 };
+const SEVERITY_COLOR: Record<Severity, string> = { critico: COLOR.critical, alto: COLOR.serious, medio: COLOR.warning, bajo: COLOR.info };
+const SEVERITY_COUNT: Record<Severity, [string, string]> = { critico: ['crítico', 'críticos'], alto: ['alto', 'altos'], medio: ['medio', 'medios'], bajo: ['bajo', 'bajos'] };
 
 const useLabel = (category: string) => endUseOf(category as EndUseCategory).label;
 const signed = (fraction: number) => `${fraction < 0 ? '−' : '+'}${formatPercent(Math.abs(fraction), 1)}`;
 const orDash = (value: number | null | undefined, decimals = 0) => (value === null || value === undefined || !Number.isFinite(value) ? '—' : formatNumber(value, decimals));
+const years = (value: number) => (Number.isFinite(value) ? `${formatNumber(value, 1)} años` : '—');
+const list = (items: readonly string[]) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}` : (items[0] ?? ''));
 
 /**
  * Informe de auditoría energética con la estructura de la ISO 50002: resumen ejecutivo, alcance,
  * metodología, comportamiento del consumo, balance, indicadores y línea base, dimensionamiento,
- * mediciones, conclusiones y anexo fotográfico. Las figuras y las tablas se numeran solas.
+ * mediciones, diagnóstico con fotos, oportunidades de ahorro, conclusiones y anexo fotográfico.
+ * Las secciones, las figuras, las tablas y las fotos se numeran solas.
  */
 export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure[], assets: AuditAssets, options: AuditOptions = {}): Document {
   const { project } = m.data;
   const byId = new Map(figures.map((f) => [f.id, f]));
   let figureNumber = 0;
   let tableNumber = 0;
+  let photoNumber = 0;
 
   const fig = (id: string): FileChild[] => {
     const spec = byId.get(id);
@@ -77,6 +86,10 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     tableNumber += 1;
     return [tableCaption(tableNumber, caption), t, new Paragraph({ spacing: { after: 120 }, children: [] })];
   };
+  const numberedPhoto = (p: AuditAssets['photos'][number], width: number): FileChild[] => {
+    photoNumber += 1;
+    return photo(p.data, p, width, `Foto ${photoNumber}. ${p.caption}`);
+  };
 
   const body: FileChild[] = [
     ...cover(m),
@@ -87,8 +100,21 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     pageBreak(),
   ];
 
-  // 1. Resumen ejecutivo
-  const main = m.findings.filter((f) => f.tone !== 'good' && f.tone !== 'info').slice(0, 6);
+  // 1. Resumen ejecutivo: primero los hallazgos del diagnóstico; después, lo grave que las reglas encontraron y aún no se adoptó
+  const recorded = m.data.findings.filter((f) => f.status !== 'cerrado' && (f.severity === 'critico' || f.severity === 'alto'));
+  const adopted = new Set(m.data.findings.map((f) => f.ruleId).filter(Boolean));
+  const automatic = m.findings.filter(
+    (f) => f.tone !== 'good' && f.tone !== 'info' && (!recorded.length || f.tone === 'critical' || f.tone === 'serious') && !adopted.has(ruleIdOf(f.title)),
+  );
+  const main = [...recorded.map(recordedFindingBullet), ...automatic.map(findingBullet)].slice(0, 6);
+  const plan = m.data.measures.filter((x) => x.selected);
+  const planTotals = {
+    kwh: sum(plan.map((x) => x.savingsKwhYear)),
+    cop: sum(plan.map((x) => x.savingsCopYear)),
+    investment: sum(plan.map((x) => x.investmentCop)),
+    net: sum(plan.map((x) => x.savingsCopYear - x.annualCostCop)),
+  };
+  const planShare = m.referenceKwh && planTotals.kwh ? ` (${formatPercent(planTotals.kwh / m.referenceKwh, 1)} del consumo anual)` : '';
   body.push(
     heading('1. Resumen ejecutivo'),
     para(
@@ -98,8 +124,17 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     kpiGrid(m.kpis),
     new Paragraph({ spacing: { after: 120 }, children: [] }),
     heading('Hallazgos principales', 2),
-    ...(main.length ? main.map(findingBullet) : [para('No se encontraron hallazgos críticos con los datos registrados.')]),
+    ...(main.length ? main : [para('No se encontraron hallazgos críticos con los datos registrados.')]),
   );
+  if (plan.length) {
+    body.push(
+      heading('Oportunidades de ahorro', 2),
+      para(
+        `Las ${plan.length === 1 ? 'medida incluida' : `${plan.length} medidas incluidas`} en el plan ahorran ${formatNumber(planTotals.kwh)} kWh al año${planShare} y ${formatCop(planTotals.cop)} por año, ` +
+          `con una inversión de ${formatCop(planTotals.investment)}${planTotals.net > 0 ? ` que se recupera en ${years(planTotals.investment / planTotals.net)}` : ''}.`,
+      ),
+    );
+  }
 
   // 2. Alcance y descripción de la instalación
   const facts: Cell[][] = [
@@ -152,6 +187,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     ...(m.data.measurements.length ? [bullet(`${m.data.measurements.length} mediciones puntuales de tensión, corriente y potencia.`)] : []),
     bullet('Línea base por regresión con variables relevantes (ISO 50006) y criterios de ASHRAE Guideline 14; los ahorros se verificarán con el protocolo IPMVP.'),
     bullet('Carga térmica simplificada y método de los lúmenes para verificar la climatización y la iluminación de cada espacio.'),
+    ...(m.data.measures.length ? [bullet('Evaluación económica de cada medida de ahorro: retorno simple, valor presente neto y tasa interna de retorno.')] : []),
     note('Los parámetros de referencia (iluminancia, carga de envolvente, VEEI y umbrales) son orientativos y se validan con el RETILAP, el RETIE y el criterio del auditor.'),
   );
 
@@ -213,7 +249,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     const last = m.significant[m.significant.length - 1];
     body.push(
       para(
-        `El censo de carga estima ${formatNumber(m.estimatedAnnualKwh)} kWh al año. ${m.significant.map((s) => useLabel(s.category)).join(', ')} concentran el ${formatPercent(last?.cumulativeShare ?? 0, 0)} del consumo: son los usos significativos de energía (ISO 50001).`,
+        `El censo de carga estima ${formatNumber(m.estimatedAnnualKwh)} kWh al año. ${list(m.significant.map((s) => useLabel(s.category)))} ${m.significant.length === 1 ? 'concentra' : 'concentran'} el ${formatPercent(last?.cumulativeShare ?? 0, 0)} del consumo: ${m.significant.length === 1 ? 'es el uso significativo' : 'son los usos significativos'} de energía (ISO 50001).`,
       ),
       ...fig('pareto-usos'),
       ...table(
@@ -416,11 +452,14 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     }
   }
 
-  // 8. Mediciones puntuales
+  // Desde aquí las secciones dependen de lo registrado: se numeran a partir de la 8
+  let section = 8;
+
+  // Mediciones puntuales
   if (m.data.measurements.length) {
     const points = new Map([...m.data.electrical.map((n) => [n.id, n.name] as const), ...m.data.areas.map((a) => [a.id, a.name] as const), ...m.data.equipment.map((e) => [e.id, e.name] as const)]);
     body.push(
-      heading('8. Mediciones puntuales'),
+      heading(`${section++}. Mediciones puntuales`),
       ...table(
         'Mediciones de campo con el instrumento indicado.',
         dataTable(
@@ -446,23 +485,110 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     );
   }
 
-  // 9. Conclusiones (8 si no hay mediciones puntuales)
-  body.push(heading(`${m.data.measurements.length ? '9' : '8'}. Conclusiones y recomendaciones`));
+  // Diagnóstico: los hallazgos del auditor, cada uno con sus fotos (que ya no se repiten en el anexo)
+  const shown = new Set<AuditAssets['photos'][number]>();
+  const findings = m.data.findings;
+  if (findings.length) {
+    const counts = (['critico', 'alto', 'medio', 'bajo'] as const)
+      .map((s) => ({ s, n: findings.filter((x) => x.severity === s).length }))
+      .filter(({ n }) => n > 0)
+      .map(({ s, n }) => `${n} ${SEVERITY_COUNT[s][n === 1 ? 0 : 1]}`);
+    body.push(
+      heading(`${section++}. Diagnóstico`),
+      para(
+        `El diagnóstico reúne ${findings.length} ${findings.length === 1 ? 'hallazgo' : 'hallazgos'} (${list(counts)}) con su gravedad, el tema al que pertenecen, su estado y la evidencia fotográfica tomada en campo.`,
+      ),
+      ...table(
+        'Hallazgos del diagnóstico, del más grave al más leve.',
+        dataTable(
+          [
+            { header: 'Hallazgo', width: 0.44 },
+            { header: 'Gravedad', width: 0.14 },
+            { header: 'Tema', width: 0.22 },
+            { header: 'Estado', width: 0.2 },
+          ],
+          findings.map((x) => [
+            x.title,
+            { text: SEVERITY_LABEL[x.severity], bold: x.severity === 'critico' || x.severity === 'alto', color: SEVERITY_COLOR[x.severity] },
+            findingTopicLabel(x.category) || '—',
+            FINDING_STATUS_LABEL[x.status],
+          ]),
+        ),
+      ),
+    );
+    for (const x of findings) {
+      body.push(para([text(`${SEVERITY_LABEL[x.severity]} · `, { bold: true, color: SEVERITY_COLOR[x.severity] }), text(x.title, { bold: true })], { spacing: { before: 200, after: 60 } }));
+      if (x.description) body.push(para(x.description));
+      for (const p of assets.photos) {
+        if (p.photo.entityType !== 'hallazgo' || p.photo.entityId !== x.id) continue;
+        shown.add(p);
+        body.push(...numberedPhoto(p, 320));
+      }
+    }
+  }
+
+  // Oportunidades de ahorro: todas las medidas evaluadas y la matriz de priorización
+  if (m.data.measures.length) {
+    const economics = project.economics;
+    const rows = m.data.measures.map((x) => ({ x, e: measureEconomics(x, economics) }));
+    body.push(
+      heading(`${section++}. Oportunidades de ahorro`),
+      para(
+        `Se evaluaron ${rows.length} ${rows.length === 1 ? 'medida' : 'medidas'} con una tasa de descuento del ${formatPercent(economics.discountRate, 1)}, un incremento anual de la tarifa del ${formatPercent(economics.tariffEscalation, 1)} ` +
+          `y una tarifa de ${formatCop(economics.tariffCopPerKwh)} por kWh. ` +
+          (plan.length
+            ? `${plan.length === rows.length ? 'Todas están incluidas' : `${plan.length} están incluidas`} en el plan: ahorran ${formatNumber(planTotals.kwh)} kWh/año${planShare} con una inversión de ${formatCop(planTotals.investment)}.`
+            : 'Aún no hay medidas incluidas en el plan.'),
+      ),
+      ...table(
+        'Medidas de ahorro evaluadas.',
+        dataTable(
+          [
+            { header: 'Medida', width: 0.33 },
+            { header: 'Ahorro (kWh/año)', width: 0.13, align: 'right' },
+            { header: 'Ahorro (COP/año)', width: 0.15, align: 'right' },
+            { header: 'Inversión (COP)', width: 0.15, align: 'right' },
+            { header: 'Retorno', width: 0.12, align: 'right' },
+            { header: 'En el plan', width: 0.12, align: 'center' },
+          ],
+          rows.map(({ x, e }): Cell[] => [
+            `${x.code} · ${x.title}`,
+            formatNumber(x.savingsKwhYear),
+            formatCop(x.savingsCopYear),
+            formatCop(x.investmentCop),
+            years(e.paybackYears),
+            x.selected ? { text: 'Sí', bold: true, color: COLOR.accent } : 'No',
+          ]),
+          plan.length
+            ? ['Total del plan', formatNumber(planTotals.kwh), formatCop(planTotals.cop), formatCop(planTotals.investment), planTotals.net > 0 ? years(planTotals.investment / planTotals.net) : '—', '']
+            : undefined,
+        ),
+      ),
+      ...fig('matriz-priorizacion'),
+      note('El plan de gestión de la energía (PGEE) desarrolla las medidas del plan con su ficha técnica, plazos, responsables y verificación de los ahorros.'),
+    );
+  }
+
+  // Conclusiones
+  body.push(heading(`${section}. Conclusiones y recomendaciones`));
   const concluding = m.findings.filter((x) => x.tone !== 'info');
   body.push(...(concluding.length ? concluding.map(findingBullet) : [para('Los datos registrados no muestran desviaciones importantes.')]));
   const recommendations = recommend(m);
   if (recommendations.length) body.push(heading('Recomendaciones', 2), ...recommendations.map((r) => bullet(r)));
   body.push(
     para(
-      'El siguiente paso es el plan de gestión de la energía (PGEE): priorizar las medidas con su evaluación económica, fijar metas sobre la línea base y programar su implementación y seguimiento.',
+      plan.length
+        ? 'El plan de gestión de la energía (PGEE) desarrolla las medidas incluidas en el plan con sus metas sobre la línea base, los responsables y el seguimiento de los ahorros.'
+        : 'El siguiente paso es el plan de gestión de la energía (PGEE): priorizar las medidas con su evaluación económica, fijar metas sobre la línea base y programar su implementación y seguimiento.',
     ),
   );
 
-  // Anexo fotográfico
-  if (assets.photos.length) {
+  // Anexo fotográfico: las fotos que no se mostraron con su hallazgo
+  const annex = assets.photos.filter((p) => !shown.has(p));
+  if (annex.length) {
     const width = options.photoSize === 'pequena' ? 380 : 520;
     body.push(pageBreak(), heading('Anexo fotográfico'));
-    assets.photos.forEach((p, index) => body.push(...photo(p.data, p, width, `Foto ${index + 1}. ${p.caption}`)));
+    for (const p of annex) body.push(...numberedPhoto(p, width));
   }
 
   return new Document({
@@ -537,6 +663,15 @@ function cover(m: AuditModel): FileChild[] {
 function findingBullet(f: AutoFinding): Paragraph {
   const tone = TONE[f.tone];
   return bullet([text(`${tone.label} · `, { bold: true, color: tone.color }), text(`${f.title}. `, { bold: true }), text(f.detail)]);
+}
+
+/** Hallazgo del diagnóstico en el resumen: gravedad, título y descripción. */
+function recordedFindingBullet(f: Finding): Paragraph {
+  return bullet([
+    text(`${SEVERITY_LABEL[f.severity]} · `, { bold: true, color: SEVERITY_COLOR[f.severity] }),
+    text(`${f.title}${f.description ? '. ' : ''}`, { bold: true }),
+    ...(f.description ? [text(f.description)] : []),
+  ]);
 }
 
 /** Recomendaciones que se desprenden de los hallazgos (se detallan y evalúan en el PGEE). */

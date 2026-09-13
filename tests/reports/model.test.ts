@@ -46,9 +46,13 @@ describe('contenido del informe de auditoría', () => {
       'climatizacion',
       'iluminacion',
       'unifilar',
+      'matriz-priorizacion',
     ]);
     const diagram = figures.find((f) => f.id === 'unifilar');
     expect(diagram?.width).toBeGreaterThan(600);
+    // La matriz del informe muestra todas las medidas evaluadas, también las que no están en el plan
+    const matrix = figures.find((f) => f.id === 'matriz-priorizacion');
+    expect(JSON.stringify(matrix?.option)).toContain('M5');
     db.close();
   });
 

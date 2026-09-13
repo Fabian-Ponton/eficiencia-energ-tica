@@ -13,6 +13,9 @@ const STEP_VIEWS = {
   balance: () => import('@/views/project/steps/BalanceView.vue'),
   dimensionamiento: () => import('@/views/project/steps/SizingView.vue'),
   informes: () => import('@/views/project/steps/ReportsView.vue'),
+  diagnostico: () => import('@/views/project/steps/DiagnosisView.vue'),
+  oportunidades: () => import('@/views/project/steps/OpportunitiesView.vue'),
+  pgee: () => import('@/views/project/steps/PgeeView.vue'),
 };
 const comingSoon = () => import('@/views/project/ComingSoon.vue');
 
