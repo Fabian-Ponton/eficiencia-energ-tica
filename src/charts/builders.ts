@@ -295,6 +295,13 @@ export function sankeyChart(opts: {
   links: { source: string; target: string; value: number }[];
   unit: string;
   dark: boolean;
+  /** Espacio a la derecha para los nombres de la última columna (px). */
+  labelSpace?: number;
+  /**
+   * Color de los flujos: degradado entre nodos (pantalla) o el color del origen, que en PNG pesa
+   * diez veces menos porque el degradado translúcido se comprime mal.
+   */
+  linkColor?: 'gradient' | 'source';
 }): ChartOption {
   const p = chartPalette(opts.dark);
   const labels = new Map(opts.nodes.map((n) => [n.id, n.label]));
@@ -313,15 +320,16 @@ export function sankeyChart(opts: {
       {
         type: 'sankey',
         left: 4,
-        right: 128,
+        right: opts.labelSpace ?? 128,
         top: 8,
-        bottom: 8,
+        // Margen para que la etiqueta del último nodo no se corte
+        bottom: 16,
         nodeWidth: 12,
         nodeGap: 10,
         draggable: false,
         layoutIterations: 64,
         emphasis: { focus: 'adjacency' },
-        lineStyle: { color: 'gradient', curveness: 0.5, opacity: 0.32 },
+        lineStyle: { color: opts.linkColor ?? 'gradient', curveness: 0.5, opacity: 0.32 },
         // Fondo translúcido: las etiquetas de las columnas intermedias quedan sobre los flujos
         label: {
           color: p.text,

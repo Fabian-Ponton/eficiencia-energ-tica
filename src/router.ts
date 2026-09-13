@@ -12,6 +12,7 @@ const STEP_VIEWS = {
   comportamiento: () => import('@/views/project/steps/BehaviorView.vue'),
   balance: () => import('@/views/project/steps/BalanceView.vue'),
   dimensionamiento: () => import('@/views/project/steps/SizingView.vue'),
+  informes: () => import('@/views/project/steps/ReportsView.vue'),
 };
 const comingSoon = () => import('@/views/project/ComingSoon.vue');
 

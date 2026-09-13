@@ -1,6 +1,6 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { computeProgress, type ProjectCounts, type StageProgress } from '@/domain/progress';
-import type { Bill, Project } from '@/domain/types';
+import type { Bill, Project, ReportRecord } from '@/domain/types';
 import { isActive } from './records';
 import type { PontiaDb } from './schema';
 
@@ -45,6 +45,20 @@ export async function updateProject(db: PontiaDb, id: string, changes: Partial<O
 export const markBackup = async (db: PontiaDb, id: string, now = Date.now()): Promise<void> => {
   await db.projects.update(id, { lastBackupAt: now });
 };
+
+/** Historial de informes: se guardan los 50 más recientes. */
+export const REPORT_HISTORY_LIMIT = 50;
+
+/** Registra un informe o una exportación generada; como el respaldo, no cuenta como modificación de los datos. */
+export async function logReport(db: PontiaDb, id: string, report: Omit<ReportRecord, 'id' | 'at'>, now = Date.now()): Promise<ReportRecord> {
+  const entry: ReportRecord = { id: crypto.randomUUID(), at: now, ...report };
+  await db.transaction('rw', db.projects, async () => {
+    const project = await db.projects.get(id);
+    if (!project) return;
+    await db.projects.update(id, { reports: [entry, ...(project.reports ?? [])].slice(0, REPORT_HISTORY_LIMIT) });
+  });
+  return entry;
+}
 
 /** Oculta el proyecto sin borrar sus datos, para poder deshacer. */
 export const softDeleteProject = async (db: PontiaDb, id: string, now = Date.now()): Promise<void> => {
@@ -105,7 +119,7 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     measures,
     pgeeObjectives: pgee.reduce((total, p) => total + p.objectives.length, 0),
     tasks,
-    reports: 0,
+    reports: project.reports?.length ?? 0,
   };
   return {
     project,

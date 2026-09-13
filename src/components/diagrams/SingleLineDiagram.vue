@@ -2,7 +2,7 @@
 import { useMediaQuery } from '@vueuse/core';
 import { computed } from 'vue';
 import ElectricalIcon from '@/components/icons/ElectricalIcon.vue';
-import { electricalRows } from '@/domain/electrical';
+import { linkPath, singleLineLayout, type PlacedNode } from '@/domain/singleLine';
 import type { NodeCheck } from '@/domain/sizing';
 import type { ElectricalNode } from '@/domain/types';
 import { formatNumber, formatPercent } from '@/utils/format';
@@ -10,7 +10,6 @@ import { formatNumber, formatPercent } from '@/utils/format';
 /**
  * Diagrama unifilar simplificado: de la red a los circuitos, con la carga de cada elemento frente a su
  * capacidad y la energía «fluyendo» por las líneas (en ámbar o rojo si el elemento está cargado).
- * Los tableros se reparten a lo ancho y sus circuitos se apilan debajo, como en un cuadro de cargas.
  */
 const props = withDefaults(defineProps<{ nodes: readonly ElectricalNode[]; checks?: Map<string, NodeCheck>; showCircuits?: boolean }>(), {
   checks: undefined,
@@ -21,128 +20,17 @@ const emit = defineEmits<{ select: [node: ElectricalNode] }>();
 /** En el celular el tronco principal va a la izquierda para que se vea sin desplazarse. */
 const narrow = useMediaQuery('(max-width: 640px)');
 
-const W = 168;
-const H = 64;
-const GAP = 16;
-const V = 44;
-const PAD = 12;
-const SLOT = W + GAP;
-/** Circuitos apilados bajo su tablero. */
-const INDENT = 18;
-const CW = W - INDENT;
-const CH = 52;
-const CGAP = 10;
-
-interface Placed {
-  node: ElectricalNode;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  compact: boolean;
+interface Placed extends PlacedNode {
   check?: NodeCheck;
 }
 
 const layout = computed(() => {
-  const visible = props.nodes.filter((n) => props.showCircuits || n.kind !== 'circuito');
-  const rows = electricalRows(visible);
-  const children = new Map<string, ElectricalNode[]>();
-  const parentOf = new Map<string, string>();
-  const roots: ElectricalNode[] = [];
-  const trail: ElectricalNode[] = [];
-  for (const row of rows) {
-    trail.length = row.depth;
-    const parent = trail[row.depth - 1];
-    if (row.depth > 0 && parent) {
-      children.set(parent.id, [...(children.get(parent.id) ?? []), row.node]);
-      parentOf.set(row.node.id, parent.id);
-    } else roots.push(row.node);
-    trail[row.depth] = row.node;
-  }
-  const kidsOf = (n: ElectricalNode) => children.get(n.id) ?? [];
-  /** Un tablero cuyos hijos son solo circuitos finales los muestra apilados en su propia columna. */
-  const stacks = (n: ElectricalNode) => kidsOf(n).length > 0 && kidsOf(n).every((k) => k.kind === 'circuito' && !kidsOf(k).length);
-
-  const width = new Map<string, number>();
-  const measure = (n: ElectricalNode): number => {
-    const kids = kidsOf(n);
-    const value = !kids.length || stacks(n) ? 1 : kids.reduce((total, k) => total + measure(k), 0);
-    width.set(n.id, value);
-    return value;
-  };
-  const totalSlots = roots.reduce((total, r) => total + measure(r), 0);
-
-  const center = new Map<string, number>();
-  const place = (n: ElectricalNode, start: number) => {
-    const kids = kidsOf(n);
-    if (!kids.length || stacks(n)) {
-      center.set(n.id, start + 0.5);
-      return;
-    }
-    let offset = start;
-    for (const kid of kids) {
-      place(kid, offset);
-      offset += width.get(kid.id) ?? 1;
-    }
-    const first = center.get(kids[0].id) ?? 0;
-    const last = center.get(kids[kids.length - 1].id) ?? 0;
-    center.set(n.id, narrow.value ? first : (first + last) / 2);
-  };
-  let start = 0;
-  for (const root of roots) {
-    place(root, start);
-    start += width.get(root.id) ?? 1;
-  }
-
-  const placed = new Map<string, Placed>();
-  const depthOf = new Map(rows.map((r) => [r.node.id, r.depth]));
-  for (const row of rows) {
-    const parent = placed.get(parentOf.get(row.node.id) ?? '');
-    const parentNode = parent?.node;
-    if (parent && parentNode && stacks(parentNode)) {
-      const index = kidsOf(parentNode).indexOf(row.node);
-      placed.set(row.node.id, {
-        node: row.node,
-        x: parent.x + INDENT,
-        y: parent.y + parent.h + 14 + index * (CH + CGAP),
-        w: CW,
-        h: CH,
-        compact: true,
-        check: props.checks?.get(row.node.id),
-      });
-      continue;
-    }
-    placed.set(row.node.id, {
-      node: row.node,
-      x: PAD + ((center.get(row.node.id) ?? 0.5) - 0.5) * SLOT,
-      y: PAD + (depthOf.get(row.node.id) ?? 0) * (H + V),
-      w: W,
-      h: H,
-      compact: false,
-      check: props.checks?.get(row.node.id),
-    });
-  }
-
-  const links = [...placed.values()].flatMap((p) => {
-    const parent = placed.get(parentOf.get(p.node.id) ?? '');
-    if (!parent) return [];
-    let d: string;
-    if (p.compact) {
-      d = `M ${parent.x + INDENT / 2} ${parent.y + parent.h} V ${p.y + p.h / 2} H ${p.x}`;
-    } else {
-      const px = parent.x + parent.w / 2;
-      const cx = p.x + p.w / 2;
-      const bus = parent.y + parent.h + V / 2;
-      d = Math.abs(px - cx) < 0.5 ? `M ${px} ${parent.y + parent.h} V ${p.y}` : `M ${px} ${parent.y + parent.h} V ${bus} H ${cx} V ${p.y}`;
-    }
-    return [{ id: p.node.id, d, level: p.check?.level ?? 'normal' }];
-  });
-  const all = [...placed.values()];
+  const base = singleLineLayout(props.nodes, { showCircuits: props.showCircuits, align: narrow.value ? 'left' : 'center' });
   return {
-    placed: all,
-    links,
-    width: Math.max(W + PAD * 2, PAD * 2 + totalSlots * SLOT - GAP),
-    height: Math.max(H, ...all.map((p) => p.y + p.h)) + PAD,
+    width: base.width,
+    height: base.height,
+    placed: base.placed.map((p): Placed => ({ ...p, check: props.checks?.get(p.node.id) })),
+    links: base.links.map((l) => ({ id: l.id, d: linkPath(l.points), level: props.checks?.get(l.id)?.level ?? 'normal' })),
   };
 });
 

@@ -62,6 +62,18 @@ export interface Project extends BaseRecord {
   lastBackupAt?: number;
   /** Parámetros de referencia del dimensionamiento que el auditor cambió; los demás usan los valores por defecto. */
   sizing?: SizingOverrides;
+  /** Informes y exportaciones generados (el más reciente primero): historial y avance del paso de informes. */
+  reports?: ReportRecord[];
+}
+
+export type ReportKind = 'auditoria' | 'csv' | 'excel' | 'graficas';
+
+export interface ReportRecord {
+  id: string;
+  kind: ReportKind;
+  fileName: string;
+  /** Fecha de generación (ms). */
+  at: number;
 }
 
 /** Referencias editables del dimensionamiento. Solo se guardan las que difieren de los valores por defecto. */

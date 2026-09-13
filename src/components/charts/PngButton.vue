@@ -19,7 +19,7 @@ async function download() {
   if (!option || busy.value) return;
   busy.value = true;
   try {
-    const url = renderChartPng(option, props.width, props.height);
+    const url = await renderChartPng(option, props.width, props.height);
     await deliverFile(dataUrlToBlob(url), `${props.name}.png`);
   } catch (error) {
     toast.add({ severity: 'error', summary: 'No se pudo generar la imagen', detail: error instanceof Error ? error.message : String(error), life: 5000 });
