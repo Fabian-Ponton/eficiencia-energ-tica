@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { IconCheck, IconCloud, IconCloudOff, IconDeviceMobile, IconDownload } from '@tabler/icons-vue';
+import { IconBook2, IconCheck, IconCloud, IconCloudOff, IconDeviceMobile, IconDownload } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import SelectButton from 'primevue/selectbutton';
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import CloudSyncDialog from '@/components/CloudSyncDialog.vue';
 import { useInstallPrompt } from '@/composables/useInstallPrompt';
 import { useTheme } from '@/composables/useTheme';
 import { useCloudSync } from '@/sync/useCloudSync';
 
 const visible = defineModel<boolean>('visible', { required: true });
+const router = useRouter();
 const { preference } = useTheme();
 const { canPrompt, installed, install, isIos } = useInstallPrompt();
 const cloud = useCloudSync();
@@ -20,7 +22,10 @@ const THEMES = [
   { label: 'Oscuro', value: 'dark' },
   { label: 'Automático', value: 'auto' },
 ];
-const legacyUrl = `${import.meta.env.BASE_URL}legacy/`;
+function openManual() {
+  visible.value = false;
+  void router.push({ name: 'manual' });
+}
 const cloudText = computed(() => {
   if (!cloud.connected.value) return 'Desactivada: tus proyectos se guardan solo en este equipo.';
   if (!cloud.signedIn.value) return 'Proyecto de Supabase conectado; falta entrar con tu cuenta.';
@@ -61,8 +66,11 @@ const cloudText = computed(() => {
       </section>
 
       <section>
-        <h3 class="eyebrow">Versión anterior</h3>
-        <a :href="legacyUrl">Abrir PONTIA 1.6</a>
+        <h3 class="eyebrow">Ayuda</h3>
+        <p class="estado">Qué hace cada pantalla y qué datos necesita para funcionar.</p>
+        <Button label="Manual de uso" severity="secondary" outlined @click="openManual">
+          <template #icon><IconBook2 :size="18" /></template>
+        </Button>
       </section>
     </div>
   </Dialog>
@@ -97,8 +105,5 @@ h3 {
 }
 .ok {
   color: var(--good);
-}
-a {
-  font-weight: 600;
 }
 </style>

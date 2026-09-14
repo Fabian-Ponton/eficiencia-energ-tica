@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconAdjustmentsHorizontal, IconAlertTriangle, IconDatabase, IconFileImport, IconHistory, IconPlus, IconSearch, IconStack2 } from '@tabler/icons-vue';
+import { IconAdjustmentsHorizontal, IconAlertTriangle, IconBook2, IconDatabase, IconFileImport, IconHistory, IconPlus, IconSearch, IconStack2 } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import { useConfirm } from 'primevue/useconfirm';
@@ -250,6 +250,9 @@ const storagePercent = computed(() =>
         <EmptyState :icon="IconStack2" title="Crea tu primera auditoría" text="Todo lo que registres queda guardado en este equipo y funciona sin internet.">
           <Button label="Nuevo proyecto" @click="showNew = true" />
           <Button label="Ver proyecto de ejemplo" severity="secondary" outlined :loading="sampleLoading" @click="loadSample" />
+          <Button label="Manual de uso" severity="secondary" text @click="router.push({ name: 'manual' })">
+            <template #icon><IconBook2 :size="18" /></template>
+          </Button>
           <Button label="Importar respaldo" severity="secondary" text :loading="importing" @click="fileInput?.click()">
             <template #icon><IconFileImport :size="18" /></template>
           </Button>
@@ -284,6 +287,9 @@ const storagePercent = computed(() =>
         </Button>
         <Button label="Proyecto de ejemplo" severity="secondary" outlined :loading="sampleLoading" @click="loadSample">
           <template #icon><IconStack2 :size="18" /></template>
+        </Button>
+        <Button label="Manual de uso" severity="secondary" outlined @click="router.push({ name: 'manual' })">
+          <template #icon><IconBook2 :size="18" /></template>
         </Button>
       </div>
       <input ref="fileInput" type="file" accept=".zip,application/zip" class="sr-only" tabindex="-1" aria-hidden="true" @change="onBackupChosen" />

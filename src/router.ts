@@ -25,6 +25,7 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'proyectos', component: () => import('@/views/ProjectsView.vue') },
+    { path: '/manual', name: 'manual', component: () => import('@/views/ManualView.vue') },
     {
       path: '/proyecto/:projectId',
       component: () => import('@/layouts/ProjectLayout.vue'),

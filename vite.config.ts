@@ -37,8 +37,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
-        // La versión 1.6 sigue disponible en /legacy/ con su propio index.html
-        navigateFallbackDenylist: [/\/legacy\//],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
       },

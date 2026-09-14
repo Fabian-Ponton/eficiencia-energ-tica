@@ -3,6 +3,7 @@ import {
   IconAlertTriangle,
   IconArrowLeft,
   IconBolt,
+  IconBook2,
   IconCamera,
   IconChevronDown,
   IconCloudCheck,
@@ -126,6 +127,7 @@ async function takeQuickPhoto(event: Event) {
           </RouterLink>
         </div>
       </nav>
+      <RouterLink to="/manual" class="item"><IconBook2 :size="18" class="item-icono" /><span>Manual de uso</span></RouterLink>
       <div class="red-lateral">
         <IconCloudCheck v-if="online" :size="16" class="red-icono" />
         <IconWifiOff v-else :size="16" class="red-icono fuera" />
