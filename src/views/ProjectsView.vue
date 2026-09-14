@@ -8,6 +8,7 @@ import { computed, ref, shallowRef } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLogo from '@/components/AppLogo.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import InstallCard from '@/components/InstallCard.vue';
 import NewProjectDialog from '@/components/NewProjectDialog.vue';
 import ProjectCard from '@/components/ProjectCard.vue';
 import SettingsDialog from '@/components/SettingsDialog.vue';
@@ -238,6 +239,8 @@ const storagePercent = computed(() =>
         </div>
         <Button label="Importar" size="small" @click="importLegacy" />
       </section>
+
+      <InstallCard />
 
       <TransitionGroup v-if="visible.length" name="list" tag="div" class="lista">
         <ProjectCard v-for="s in visible" :key="s.project.id" :summary="s" @open="open(s.project.id)" @remove="remove(s)" @export="exportProject(s)" />

@@ -3,7 +3,22 @@ import { IconCloudCheck, IconRefresh, IconX } from '@tabler/icons-vue';
 import { useRegisterSW } from 'virtual:pwa-register/vue';
 import { watch } from 'vue';
 
-const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW();
+const UNA_HORA = 60 * 60 * 1000;
+
+// La app instalada busca versiones nuevas al abrirse, al volver a ella y cada hora; el auditor decide cuándo actualizar
+const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW({
+  onRegisteredSW(_url, registration) {
+    if (!registration) return;
+    const check = () => {
+      if (navigator.onLine) void registration.update();
+    };
+    setInterval(check, UNA_HORA);
+    window.addEventListener('online', check);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') check();
+    });
+  },
+});
 
 function close() {
   needRefresh.value = false;
