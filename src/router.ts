@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import { ALL_STEPS } from './navigation';
+import { forgetMissingChunk, isMissingChunkError, missingChunk, recoverMissingChunk } from './utils/chunks';
 
 /** Pasos ya construidos; los demás muestran en qué fase del plan llegan. */
 const STEP_VIEWS = {
@@ -44,3 +45,27 @@ export const router = createRouter({
   ],
   scrollBehavior: () => ({ top: 0 }),
 });
+
+/**
+ * Cada pantalla se descarga en su propio archivo. Si alguno no llega —copia incompleta en el equipo,
+ * sin conexión o una versión recién publicada—, la pantalla no abriría y no pasaría nada. En ese caso
+ * se recarga una vez para traerla completa; Vite avisa del fallo por su cuenta y el router por la suya.
+ */
+let intentando = '';
+router.beforeEach((to) => {
+  intentando = to.fullPath;
+});
+
+/** Recarga una vez y, si el archivo sigue sin llegar, avisa y vuelve a la lista de proyectos (que sí está cargada). */
+function recuperar(path?: string) {
+  recoverMissingChunk(path);
+  if (missingChunk.value && path && path !== '/') void router.replace('/');
+}
+
+router.onError((error, to) => {
+  if (isMissingChunkError(error)) recuperar(to.fullPath);
+});
+
+router.afterEach(() => forgetMissingChunk());
+
+window.addEventListener('vite:preloadError', () => recuperar(intentando || undefined));

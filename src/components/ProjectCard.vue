@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { IconCheck, IconChevronRight, IconDownload, IconTrash } from '@tabler/icons-vue';
 import { computed } from 'vue';
+import { RouterLink } from 'vue-router';
 import ProgressSegments from '@/components/ProgressSegments.vue';
 import type { ProjectSummary } from '@/db/projects';
 import { currentStage } from '@/domain/progress';
@@ -21,11 +22,10 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
 
 <template>
   <article class="card proyecto">
-    <button type="button" class="abrir" :aria-label="`Abrir ${project.name}`" @click="$emit('open')" />
     <div class="cabecera">
       <div class="titulos">
         <span v-if="project.code || project.sector" class="eyebrow">{{ [project.code, project.sector].filter(Boolean).join(' · ') }}</span>
-        <span class="nombre">{{ project.name }}</span>
+        <RouterLink class="nombre" :to="{ name: 'inicio', params: { projectId: project.id } }">{{ project.name }}</RouterLink>
         <span v-if="project.client || project.city" class="lugar">{{ [project.client, project.city].filter(Boolean).join(' · ') }}</span>
       </div>
       <span v-if="finished" class="chip terminado"><IconCheck :size="14" stroke="2.4" />Terminado</span>
@@ -68,7 +68,9 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
         <button type="button" class="accion eliminar" aria-label="Eliminar proyecto" title="Eliminar proyecto" @click.stop="$emit('remove')">
           <IconTrash :size="18" />
         </button>
-        <span class="ir">Abrir<IconChevronRight :size="16" /></span>
+        <button type="button" class="ir" :aria-label="`Abrir ${project.name}`" @click="$emit('open')">
+          Abrir<IconChevronRight :size="16" />
+        </button>
       </div>
     </div>
   </article>
@@ -89,23 +91,6 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
   border-color: var(--field-border);
   box-shadow: 0 4px 16px rgba(16, 35, 75, 0.08);
 }
-.abrir {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border: 0;
-  border-radius: var(--radius-card);
-  background: transparent;
-  cursor: pointer;
-}
-.cabecera,
-.avance,
-.metricas,
-.pie {
-  position: relative;
-  z-index: 1;
-  pointer-events: none;
-}
 .cabecera {
   display: flex;
   align-items: flex-start;
@@ -119,9 +104,18 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
   min-width: 0;
 }
 .nombre {
+  color: var(--ink);
   font-size: 17px;
   font-weight: 600;
   line-height: 1.3;
+  text-decoration: none;
+}
+/* El nombre es el enlace de la tarjeta y su área de toque cubre toda la tarjeta */
+.nombre::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-card);
 }
 .lugar {
   color: var(--ink-2);
@@ -205,6 +199,7 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
   font-size: 12px;
 }
 .acciones {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -219,7 +214,6 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  pointer-events: auto;
 }
 .exportar:hover {
   background: var(--accent-wash);
@@ -233,8 +227,17 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  min-height: 36px;
+  padding: 0 6px 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: var(--accent-strong);
   font-size: 13px;
   font-weight: 600;
+  cursor: pointer;
+}
+.ir:hover {
+  background: var(--accent-wash);
 }
 </style>
