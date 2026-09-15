@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { IconCloudCheck, IconRefresh, IconX } from '@tabler/icons-vue';
+import { useToast } from 'primevue/usetoast';
 import { useRegisterSW } from 'virtual:pwa-register/vue';
-import { watch } from 'vue';
+import { onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 const UNA_HORA = 60 * 60 * 1000;
+/** Pantallas de consulta: nada queda a medias, así que la versión nueva se puede aplicar sola. */
+const PANTALLAS_SEGURAS = new Set(['proyectos', 'manual', 'inicio', 'etapa']);
+/** Cuántas veces se actualizó sola en esta sesión; el tope evita recargar en bucle si algo falla. */
+const INTENTOS = 'pontia:auto-actualizaciones';
+const TOPE = 2;
 
-// La app instalada busca versiones nuevas al abrirse, al volver a ella y cada hora; el auditor decide cuándo actualizar
+const route = useRoute();
+const toast = useToast();
+
+// La app instalada busca versiones nuevas al abrirse, al volver a ella y cada hora
 const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW({
   onRegisteredSW(_url, registration) {
     if (!registration) return;
@@ -18,6 +28,50 @@ const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW({
       if (document.visibilityState === 'visible') check();
     });
   },
+});
+
+const intentos = (): number => {
+  try {
+    return Number(sessionStorage.getItem(INTENTOS) ?? 0);
+  } catch {
+    return TOPE; // Sin almacenamiento no se puede contar: mejor preguntar que arriesgar un bucle
+  }
+};
+const anotarIntento = (valor: number) => {
+  try {
+    sessionStorage.setItem(INTENTOS, String(valor));
+  } catch {
+    // Sin almacenamiento de sesión no hay nada que anotar
+  }
+};
+
+/** Momento seguro: ningún formulario abierto, nada escribiéndose y en una pantalla de consulta. */
+function momentoSeguro(): boolean {
+  if (document.querySelector('.p-dialog, .p-drawer')) return false;
+  const activo = document.activeElement;
+  if (activo instanceof HTMLElement && (activo.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(activo.tagName))) return false;
+  return PANTALLAS_SEGURAS.has(String(route.name ?? ''));
+}
+
+/** Se actualiza sola si no interrumpe; si el auditor está registrando datos, espera con el aviso. */
+function actualizarSiNoInterrumpe() {
+  if (!needRefresh.value || intentos() >= TOPE || !momentoSeguro()) return;
+  anotarIntento(intentos() + 1);
+  void updateServiceWorker(true);
+}
+
+watch(needRefresh, actualizarSiNoInterrumpe);
+// Al salir del formulario y volver a una pantalla de consulta, la actualización pendiente se aplica sola
+watch(() => route.name, actualizarSiNoInterrumpe);
+
+onMounted(() => {
+  if (!intentos()) return;
+  // La recarga vino de una actualización aplicada sola: se confirma cuando ya no queda ninguna pendiente
+  setTimeout(() => {
+    if (needRefresh.value) return;
+    anotarIntento(0);
+    toast.add({ severity: 'success', summary: 'PONTIA se actualizó', detail: 'Ya tienes la versión más reciente. Tus proyectos siguen aquí.', life: 5000 });
+  }, 4000);
 });
 
 function close() {
