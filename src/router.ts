@@ -10,6 +10,7 @@ const STEP_VIEWS = {
   electrico: () => import('@/views/project/steps/ElectricalView.vue'),
   mediciones: () => import('@/views/project/steps/MeasurementsView.vue'),
   facturacion: () => import('@/views/project/steps/BillingView.vue'),
+  control: () => import('@/views/project/steps/CollectionView.vue'),
   comportamiento: () => import('@/views/project/steps/BehaviorView.vue'),
   balance: () => import('@/views/project/steps/BalanceView.vue'),
   dimensionamiento: () => import('@/views/project/steps/SizingView.vue'),

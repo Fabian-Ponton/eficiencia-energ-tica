@@ -20,7 +20,24 @@ import { mean, sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import { estimatedProfiles } from '@/domain/estimate';
 import { areaCooling, areaLighting, capacityAnalysis, resolveSizing, type AreaCooling, type AreaLighting, type CapacityResult, type SizingParameters } from '@/domain/sizing';
-import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalSeries, Measure, Measurement, MeterReadingRecord, Photo, Project, Task } from '@/domain/types';
+import type {
+  Area,
+  Bill,
+  CollectionItem,
+  ElectricalNode,
+  EndUseCategory,
+  Equipment,
+  Finding,
+  IntervalSeries,
+  MaintenanceRecord,
+  Measure,
+  Measurement,
+  MeterReadingRecord,
+  OccupancyRecord,
+  Photo,
+  Project,
+  Task,
+} from '@/domain/types';
 import { formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 
 /**
@@ -39,6 +56,10 @@ export interface ReportData {
   /** Facturas y equipos de otros energéticos (gas natural…): no entran en ningún cálculo eléctrico. */
   otherBills: Bill[];
   otherEquipment: Equipment[];
+  /** Horarios de uso (Formato 6), mantenimiento (Formato 9) y control de recolección (Formato 13). */
+  occupancy: OccupancyRecord[];
+  maintenance: MaintenanceRecord[];
+  collection: CollectionItem[];
   series: IntervalSeries[];
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };

@@ -15,6 +15,7 @@ const vacio: ProjectCounts = {
   pgeeObjectives: 0,
   tasks: 0,
   reports: 0,
+  collectionResolved: false,
 };
 
 describe('avance de la auditoría', () => {
@@ -28,10 +29,17 @@ describe('avance de la auditoría', () => {
     const avance = computeProgress({ ...vacio, hasGeneralData: true, areas: 7, areasWithDimensions: 7, equipment: 14, measurements: 3, bills: 24 });
     const [campo, analisis] = avance;
     expect(campo.done).toBe(5);
-    expect(campo.ratio).toBeCloseTo(5 / 6, 10);
+    expect(campo.total).toBe(7);
+    expect(campo.ratio).toBeCloseTo(5 / 7, 10);
     expect(campo.steps.find((s) => s.id === 'electrico')?.done).toBe(false);
     expect(analisis.done).toBe(3);
     expect(currentStage(avance)?.id).toBe('campo');
+  });
+
+  it('el control de recolección cuenta cuando todos los renglones están obtenidos o declarados no disponibles', () => {
+    const paso = (resuelto: boolean) => computeProgress({ ...vacio, collectionResolved: resuelto })[0].steps.find((s) => s.id === 'control')?.done;
+    expect(paso(false)).toBe(false);
+    expect(paso(true)).toBe(true);
   });
 
   it('la facturación cuenta cuando hay al menos un año de facturas', () => {

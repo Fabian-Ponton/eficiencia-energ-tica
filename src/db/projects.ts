@@ -1,5 +1,6 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { isElectric } from '@/domain/carriers';
+import { buildCollection, collectionResolved } from '@/domain/collection';
 import { computeProgress, type ProjectCounts, type StageProgress } from '@/domain/progress';
 import type { Bill, EntityKind, EntityOrder, Project, ReportRecord, Tenure } from '@/domain/types';
 import { isActive, plain } from './records';
@@ -108,9 +109,9 @@ export interface ProjectSummary {
 
 export async function summarizeProject(db: PontiaDb, project: Project): Promise<ProjectSummary> {
   const id = project.id;
-  const [areas, equipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks] = await Promise.all([
+  const [areas, allEquipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks, occupancy, maintenance, collection, photos] = await Promise.all([
     db.areas.where('projectId').equals(id).filter(isActive).toArray(),
-    db.equipment.where('projectId').equals(id).filter((e) => isActive(e) && isElectric(e)).toArray(),
+    db.equipment.where('projectId').equals(id).filter(isActive).toArray(),
     db.electrical.where('projectId').equals(id).filter(isActive).count(),
     db.measurements.where('projectId').equals(id).filter(isActive).count(),
     db.meterReadings.where('projectId').equals(id).filter(isActive).count(),
@@ -120,7 +121,12 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     db.measures.where('projectId').equals(id).filter(isActive).count(),
     db.pgee.where('projectId').equals(id).filter(isActive).toArray(),
     db.tasks.where('projectId').equals(id).filter(isActive).count(),
+    db.occupancy.where('projectId').equals(id).filter(isActive).toArray(),
+    db.maintenance.where('projectId').equals(id).filter(isActive).toArray(),
+    db.collection.where('projectId').equals(id).filter(isActive).toArray(),
+    db.photos.where('projectId').equals(id).filter(isActive).count(),
   ]);
+  const equipment = allEquipment.filter(isElectric);
   const counts: ProjectCounts = {
     hasGeneralData: Boolean(project.client && project.city && project.areaM2),
     areas: areas.length,
@@ -135,6 +141,20 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     pgeeObjectives: pgee.reduce((total, p) => total + p.objectives.length, 0),
     tasks,
     reports: project.reports?.length ?? 0,
+    collectionResolved: collectionResolved(
+      buildCollection({
+        project,
+        areas,
+        equipment: allEquipment,
+        occupancy,
+        maintenance,
+        electricBills: bills.length,
+        measurementRecords: measurements + readings + intervalSeries,
+        photos,
+        findings,
+        stored: collection,
+      }),
+    ),
   };
   return {
     project,

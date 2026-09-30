@@ -27,8 +27,10 @@ describe('proyectos en la base local', () => {
     expect(resumen.equipmentCount).toBeGreaterThan(400);
     expect(resumen.estimatedAnnualKwh / 186_400).toBeGreaterThan(0.9);
     expect(resumen.estimatedAnnualKwh / 186_400).toBeLessThan(1.1);
-    // El levantamiento del ejemplo está completo: datos, áreas, inventario, eléctrico, mediciones y facturas
+    // El levantamiento del ejemplo tiene sus seis pasos de datos; el control de recolección sigue abierto (faltan los planos y otros renglones)
     expect(resumen.progress[0].done).toBe(6);
+    expect(resumen.progress[0].total).toBe(7);
+    expect(resumen.progress[0].steps.find((s) => s.id === 'control')?.done).toBe(false);
     db.close();
   });
 

@@ -13,6 +13,8 @@ export interface ProjectCounts {
   pgeeObjectives: number;
   tasks: number;
   reports: number;
+  /** Los doce renglones del control de recolección están obtenidos o declarados no disponibles. */
+  collectionResolved: boolean;
 }
 
 export type StageId = 'campo' | 'analisis' | 'plan' | 'informes';
@@ -40,6 +42,7 @@ export function computeProgress(c: ProjectCounts): StageProgress[] {
       ['electrico', c.electrical > 0],
       ['mediciones', c.measurements > 0],
       ['facturacion', c.bills >= 12],
+      ['control', c.collectionResolved],
     ]),
     stage('analisis', [
       ['comportamiento', c.bills >= 12 || c.intervalSeries > 0],

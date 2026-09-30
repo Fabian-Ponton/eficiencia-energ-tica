@@ -93,6 +93,11 @@ export function compact<T extends object>(value: T): T {
 
 const tableOf = <K extends RecordTable>(db: PontiaDb, name: K) => db.table(name) as Table<RecordTables[K], string>;
 
+/** El registro tal como se guarda: sin campos vacíos, sin proxies de Vue y con sus fechas de creación y modificación. */
+export function toRecord<T extends { createdAt?: number }>(draft: T, now = Date.now()): T & { createdAt: number; updatedAt: number } {
+  return { ...compact(plain(draft)), createdAt: draft.createdAt ?? now, updatedAt: now };
+}
+
 /** Crea o reemplaza un registro y marca el proyecto como modificado. */
 export async function saveRecord<K extends RecordTable>(
   db: PontiaDb,
@@ -100,7 +105,7 @@ export async function saveRecord<K extends RecordTable>(
   draft: Draft<RecordTables[K]>,
   now = Date.now(),
 ): Promise<RecordTables[K]> {
-  const record = { ...compact(plain(draft)), createdAt: draft.createdAt ?? now, updatedAt: now } as unknown as RecordTables[K];
+  const record = toRecord(draft, now) as unknown as RecordTables[K];
   const table = tableOf(db, name);
   await db.transaction('rw', [table, db.projects], async () => {
     await table.put(record);

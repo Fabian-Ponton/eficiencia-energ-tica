@@ -181,6 +181,18 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         result: 'Comportamiento mensual y anual, tarifa efectiva, porcentaje de reactiva, línea base energética y contraste con el consumo estimado del inventario. Con gas u otros energéticos, el balance de todos los energéticos.',
         tip: 'Con 12 meses seguidos ya se ve un año completo; con 24 se puede comparar contra el año anterior.',
       },
+      {
+        id: 'control',
+        what: 'La lista de la información que hace falta para auditar (el Formato 13): qué ya se tiene, qué falta, quién la entrega y para cuándo. También genera y lee los formatos de Excel de la recolección.',
+        inputs: [
+          { label: 'Responsable, fecha objetivo y fecha obtenida de cada renglón', need: 'recomendado', source: 'Quién de la entidad tiene la información y cuándo se comprometió a entregarla. Sirve para hacer seguimiento a lo pendiente.' },
+          { label: 'Planos y distribución', need: 'obligatorio', source: 'PONTIA no guarda planos: marca el renglón como obtenido cuando los tengas, o como no disponible si la entidad no los tiene.' },
+          { label: 'Renglones «No disponible»', need: 'opcional', source: 'Cuando la entidad no tiene un dato, decláralo. El renglón queda resuelto y el informe puede decir qué no se pudo obtener.' },
+          { label: 'Formatos de Excel diligenciados', need: 'opcional', source: 'Se descargan en blanco o con lo registrado, se llenan con los técnicos y se leen de nuevo. Anota siempre las unidades (W, kW, V, A, BTU/h) y escribe N/D si el dato no está disponible.' },
+        ],
+        result: 'El estado de la recolección (los renglones se marcan solos con los datos registrados), la lista de lo que falta y los 13 formatos de Excel listos para llevar a campo o para cargar los datos de una vez.',
+        tip: 'Un renglón sale «obtenido» solo, cuando los datos ya están en la app. Marca a mano únicamente lo que la app no puede saber, como los planos.',
+      },
     ],
   },
   {

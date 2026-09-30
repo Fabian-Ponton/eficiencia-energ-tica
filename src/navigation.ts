@@ -5,6 +5,7 @@ import {
   IconChartBar,
   IconChartLine,
   IconChartPie,
+  IconChecklist,
   IconClipboardCheck,
   IconClipboardList,
   IconFileText,
@@ -50,6 +51,7 @@ export const STAGES: NavStage[] = [
       { id: 'electrico', label: 'Sistema eléctrico', icon: IconBolt, phase: 1, description: 'Transformador, acometida, tableros y circuitos.' },
       { id: 'mediciones', label: 'Mediciones', icon: IconGauge, phase: 1, description: 'Mediciones puntuales, lecturas del medidor y archivos del analizador.' },
       { id: 'facturacion', label: 'Facturación', icon: IconReceipt, phase: 1, description: 'Facturas mensuales: kWh, reactiva, demanda y costo.' },
+      { id: 'control', label: 'Control de recolección', icon: IconChecklist, phase: 1, description: 'Qué información falta, quién la tiene y los formatos de Excel.' },
     ],
   },
   {

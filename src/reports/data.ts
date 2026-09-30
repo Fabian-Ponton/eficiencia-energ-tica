@@ -11,7 +11,7 @@ const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompar
 export async function loadReportData(db: PontiaDb, projectId: string, generatedAt = new Date()): Promise<ReportData> {
   const project = await db.projects.get(projectId);
   if (!project || project.deletedAt) throw new Error('El proyecto no existe en este equipo.');
-  const [areas, equipment, electrical, measurements, readings, bills, series, photos, findings, measures, tasks] = await Promise.all([
+  const [areas, equipment, electrical, measurements, readings, bills, series, photos, findings, measures, tasks, occupancy, maintenance, collection] = await Promise.all([
     db.areas.where('projectId').equals(projectId).toArray(),
     db.equipment.where('projectId').equals(projectId).toArray(),
     db.electrical.where('projectId').equals(projectId).toArray(),
@@ -23,6 +23,9 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     db.findings.where('projectId').equals(projectId).toArray(),
     db.measures.where('projectId').equals(projectId).toArray(),
     db.tasks.where('projectId').equals(projectId).toArray(),
+    db.occupancy.where('projectId').equals(projectId).toArray(),
+    db.maintenance.where('projectId').equals(projectId).toArray(),
+    db.collection.where('projectId').equals(projectId).toArray(),
   ]);
 
   // Serie principal: la más reciente de toda la instalación; si ninguna lo es, la más reciente
@@ -39,6 +42,9 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     readings: alive(readings).sort((a, b) => a.at.localeCompare(b.at)),
     bills: alive(bills).filter(isElectric).sort((a, b) => a.period.localeCompare(b.period)),
     otherBills: alive(bills).filter(isNotElectric).sort((a, b) => a.period.localeCompare(b.period)),
+    occupancy: alive(occupancy),
+    maintenance: alive(maintenance),
+    collection: alive(collection),
     series: activeSeries,
     mainSeries: main ? { series: main, readings: await loadSeriesReadings(db, main) } : undefined,
     photos: alive(photos).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
