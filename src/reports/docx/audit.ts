@@ -1,6 +1,7 @@
 import { AlignmentType, BorderStyle, Document, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow, WidthType, type FileChild } from 'docx';
 import { BASELINE_VARIABLES } from '@/domain/analysis';
 import { sum } from '@/domain/calc/stats';
+import { carrierInfo, summarizeCarriers, totalEnergy, unitLabel } from '@/domain/carriers';
 import { endUseOf, spaceTypeOf } from '@/domain/catalogs';
 import { FINDING_STATUS_LABEL, findingTopicLabel, ruleIdOf, SEVERITY_LABEL } from '@/domain/diagnosis';
 import { measureEconomics } from '@/domain/measures';
@@ -179,6 +180,9 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     heading('3. Metodología'),
     para('La auditoría sigue la estructura de la norma ISO 50002 y usa la información recogida en campo:'),
     bullet(`Facturas del operador de red (${m.data.bills.length} ${m.data.bills.length === 1 ? 'periodo' : 'periodos'}) para el comportamiento mensual, anual y la línea base.`),
+    ...(m.data.otherBills.length
+      ? [bullet(`Facturas de ${list([...new Set(m.data.otherBills.map((b) => carrierInfo(b.carrier).label.toLowerCase()))])} (${m.data.otherBills.length}) para el balance de todos los energéticos, en kWh equivalentes.`)]
+      : []),
     bullet(`Censo de carga con ${formatNumber(m.data.equipment.reduce((t, e) => t + e.quantity, 0))} equipos, su potencia, horario y factor de uso.`),
     ...(m.data.mainSeries ? [bullet(`Registro de ${m.data.mainSeries.series.name} cada ${m.data.mainSeries.series.intervalMinutes} minutos para la curva de carga diaria.`)] : []),
     ...(m.data.measurements.length ? [bullet(`${m.data.measurements.length} mediciones puntuales de tensión, corriente y potencia.`)] : []),
@@ -280,6 +284,53 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     }
   } else {
     body.push(para('No hay equipos en el censo de carga: el balance por uso final queda pendiente.'));
+  }
+
+  // Otros energéticos: se suman a la electricidad solo en kWh equivalentes; todo lo demás del informe es eléctrico
+  if (m.data.otherBills.length) {
+    const carriers = summarizeCarriers([...m.data.bills, ...m.data.otherBills]);
+    const total = totalEnergy(carriers);
+    const others = carriers.filter((c) => c.carrier !== 'electricidad');
+    body.push(
+      heading('Todos los energéticos', 2),
+      para(
+        `Además de la electricidad, la instalación usa ${list(others.map((c) => c.info.label.toLowerCase()))}. Los energéticos se suman solo en kWh equivalentes, con el factor de conversión de cada factura; el balance por uso final, los indicadores y la línea base de este informe son eléctricos.`,
+      ),
+      ...table(
+        'Energía de los últimos 12 periodos por energético.',
+        dataTable(
+          [
+            { header: 'Energético', width: 0.24 },
+            { header: 'Facturado', width: 0.2, align: 'right' },
+            { header: 'kWh equivalentes', width: 0.18, align: 'right' },
+            { header: 'Parte', width: 0.12, align: 'right' },
+            { header: 'Costo (COP)', width: 0.14, align: 'right' },
+            { header: 'COP/kWh', width: 0.12, align: 'right' },
+          ],
+          [
+            ...carriers.map((c): Cell[] => [
+              c.info.label,
+              `${formatNumber(c.quantity)} ${unitLabel(c.unit)}`,
+              formatNumber(c.kwh),
+              formatPercent(c.share, 1),
+              formatCop(c.costCop),
+              c.copPerKwh === null ? '—' : formatNumber(c.copPerKwh, 1),
+            ]),
+            [
+              { text: 'Total', bold: true },
+              '',
+              { text: formatNumber(total.kwh), bold: true },
+              total.kwh > 0 ? '100 %' : '—',
+              { text: formatCop(total.costCop), bold: true },
+              total.kwh > 0 && total.missingFactor === 0 ? formatNumber(total.costCop / total.kwh, 1) : '—',
+            ],
+          ],
+        ),
+      ),
+    );
+    if (total.missingFactor) {
+      body.push(note(`${total.missingFactor} ${total.missingFactor === 1 ? 'factura no tiene' : 'facturas no tienen'} factor de conversión y no se incluye en los kWh: el total está incompleto.`));
+    }
   }
 
   // 6. Indicadores y línea base

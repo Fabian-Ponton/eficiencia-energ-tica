@@ -5,6 +5,7 @@ import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useProjectRecords } from '@/composables/useProjectRecords';
+import { isElectric } from '@/domain/carriers';
 import { areaCooling, areaLighting, capacityAnalysis, resolveSizing } from '@/domain/sizing';
 import { formatNumber, formatPercent } from '@/utils/format';
 import CapacityTab from './sizing/CapacityTab.vue';
@@ -16,10 +17,10 @@ const route = useRoute();
 const { project } = useCurrentProject();
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'es', { numeric: true });
 const { rows: areas, ready } = useProjectRecords('areas', byName);
-const { rows: equipment } = useProjectRecords('equipment');
+const { rows: equipment } = useProjectRecords('equipment', undefined, isElectric);
 const { rows: nodes, ready: nodesReady } = useProjectRecords('electrical');
 const { rows: measurements } = useProjectRecords('measurements');
-const { rows: bills } = useProjectRecords('bills');
+const { rows: bills } = useProjectRecords('bills', undefined, isElectric);
 const { rows: series } = useProjectRecords('intervalSeries');
 
 const TABS = [

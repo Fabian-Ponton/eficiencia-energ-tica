@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconCamera, IconInfoCircle, IconPlus, IconReceipt } 
 import { useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import MonthlyBars from '@/components/charts/MonthlyBars.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import ChoiceChips from '@/components/ui/ChoiceChips.vue';
@@ -15,15 +16,29 @@ import { usePhotoCounts, useProjectRecords } from '@/composables/useProjectRecor
 import { useQuickAdd } from '@/composables/useQuickAdd';
 import { useRecordEditor } from '@/composables/useRecordEditor';
 import { powerFactorFromEnergy, summarizeBills } from '@/domain/calc/bills';
+import { isElectric, isNotElectric } from '@/domain/carriers';
 import type { Bill } from '@/domain/types';
 import { MONTHS_SHORT, missingPeriods, nextPeriod, periodLabel, periodLabelLong, toPeriod } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber } from '@/utils/format';
 import BillForm from './BillForm.vue';
+import OtherEnergyTab from './OtherEnergyTab.vue';
 
 const { projectId } = useCurrentProject();
 const desktop = useMediaQuery('(min-width: 1024px)');
-const { rows: bills, ready } = useProjectRecords('bills', (a, b) => a.period.localeCompare(b.period));
+// La electricidad y los demás energéticos se registran por separado: ninguna cifra eléctrica cambia al cargar una factura de gas
+const byPeriod = (a: Bill, b: Bill) => a.period.localeCompare(b.period);
+const { rows: bills, ready } = useProjectRecords('bills', byPeriod, isElectric);
+const { rows: otherBills, ready: otherReady } = useProjectRecords('bills', byPeriod, isNotElectric);
 const photoCounts = usePhotoCounts('factura');
+
+const route = useRoute();
+const TABS = [
+  { value: 'electricidad', label: 'Electricidad' },
+  { value: 'otros', label: 'Gas y otros energéticos' },
+] as const;
+type Tab = (typeof TABS)[number]['value'];
+const tab = ref<Tab>(TABS.find((t) => t.value === route.query.tab)?.value ?? 'electricidad');
+const otherTab = ref<InstanceType<typeof OtherEnergyTab>>();
 
 const RANGES = [
   { value: 12, label: '12 meses' },
@@ -48,6 +63,16 @@ function monthLabel(period: string) {
 }
 
 const stats = computed(() => {
+  if (tab.value === 'otros') {
+    const totalKwh = otherBills.value.reduce((t, b) => t + (b.kwh ?? 0), 0);
+    return otherBills.value.length
+      ? [
+          { label: 'Facturas', value: formatNumber(otherBills.value.length) },
+          { label: 'Energía equivalente', value: formatNumber(totalKwh), unit: 'kWh' },
+          { label: 'Costo', value: formatMillionsCop(otherBills.value.reduce((t, b) => t + (b.costCop || 0), 0)), unit: 'COP' },
+        ]
+      : undefined;
+  }
   const s = summary.value;
   if (!s) return undefined;
   const withDays = lastYear.value.filter((b) => b.days);
@@ -86,21 +111,28 @@ const { visible, draft, isNew, errors, saving, openNew, openEdit, save, remove }
   photoEntity: 'factura',
 });
 
-useFabAction({ label: 'Registrar factura', icon: IconPlus, run: () => openNew() });
-useQuickAdd(() => openNew());
+const addAction = () => (tab.value === 'otros' ? otherTab.value?.openNew() : openNew());
+useFabAction(() => ({ label: tab.value === 'otros' ? 'Registrar factura de gas' : 'Registrar factura', icon: IconPlus, run: addAction }));
+useQuickAdd(() => {
+  tab.value = 'electricidad';
+  openNew();
+});
 </script>
 
 <template>
   <div class="vista">
     <PageHeader step="facturacion" :stats="stats">
       <template v-if="desktop" #actions>
-        <Button label="Registrar factura" @click="openNew()">
+        <Button :label="tab === 'otros' ? 'Registrar factura de gas' : 'Registrar factura'" @click="addAction()">
           <template #icon><IconPlus :size="18" stroke="2.2" /></template>
         </Button>
       </template>
+      <ChoiceChips v-model="tab" :options="TABS" label="Energético de las facturas" fill />
     </PageHeader>
 
-    <template v-if="bills.length">
+    <OtherEnergyTab v-if="tab === 'otros'" ref="otherTab" :bills="otherBills" :ready="otherReady" />
+
+    <template v-else-if="bills.length">
       <p v-if="bills.length < 12" class="aviso-linea">
         <IconInfoCircle :size="16" />Con 12 facturas consecutivas se completa este paso y se calcula el consumo anual. Llevas {{ bills.length }}.
       </p>

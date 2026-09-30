@@ -19,6 +19,7 @@ import { isActive } from '@/db/records';
 import { getDb } from '@/db/schema';
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { sum } from '@/domain/calc/stats';
+import { isElectric } from '@/domain/carriers';
 import { checkCompliance, groupStatus } from '@/domain/compliance';
 import { currentStage } from '@/domain/progress';
 import type { EndUseCategory } from '@/domain/types';
@@ -30,8 +31,8 @@ import { relativeTime } from '@/utils/time';
 const db = getDb();
 const toast = useToast();
 const { projectId, project, summary } = useCurrentProject();
-const bills = useLiveQuery(() => db.bills.where('projectId').equals(projectId.value).filter(isActive).sortBy('period'), [projectId], []);
-const equipment = useLiveQuery(() => db.equipment.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
+const bills = useLiveQuery(() => db.bills.where('projectId').equals(projectId.value).filter((b) => isActive(b) && isElectric(b)).sortBy('period'), [projectId], []);
+const equipment = useLiveQuery(() => db.equipment.where('projectId').equals(projectId.value).filter((e) => isActive(e) && isElectric(e)).toArray(), [projectId], []);
 const photos = useLiveQuery(() => db.photos.where('projectId').equals(projectId.value).filter(isActive).reverse().sortBy('takenAt'), [projectId], []);
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];

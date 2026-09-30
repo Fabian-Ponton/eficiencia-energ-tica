@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconAirConditioning, IconBolt, IconBulb, IconEngine, IconLayoutGrid, IconListDetails, IconNotes, IconTag } from '@tabler/icons-vue';
+import { IconAirConditioning, IconBolt, IconBulb, IconEngine, IconFlame, IconInfoCircle, IconLayoutGrid, IconListDetails, IconNotes, IconTag } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
@@ -15,6 +15,7 @@ import NumberInput from '@/components/ui/NumberInput.vue';
 import type { FieldErrors } from '@/composables/useRecordEditor';
 import type { Draft } from '@/db/records';
 import { dailyEnergyKwh, installedPowerKw } from '@/domain/calc/equipment';
+import { carrierInfo, CARRIERS, isElectric } from '@/domain/carriers';
 import { AC_TYPES, COMMON_BTU, CONDITIONS, EQUIPMENT_SUGGESTIONS, FIXTURE_TYPES, LAMP_TYPES, LIGHT_CONTROLS, regimeOf, USAGE_REGIMES } from '@/domain/catalogs';
 import type { Area, ElectricalNode, Equipment } from '@/domain/types';
 import { CONDITION_STATUS } from '@/ui/icons';
@@ -28,6 +29,15 @@ const UNITS = [
   { value: 'W', label: 'W' },
   { value: 'kW', label: 'kW' },
 ] as const;
+const CARRIER_OPTIONS = CARRIERS.map((c) => ({ value: c.id, label: c.label }));
+// Un equipo sin energético es eléctrico: el campo solo se guarda cuando es otro
+const carrier = computed({
+  get: () => draft.value.carrier ?? 'electricidad',
+  set: (value) => {
+    draft.value.carrier = value === 'electricidad' ? undefined : value;
+  },
+});
+const electric = computed(() => isElectric(draft.value));
 const REGIME_OPTIONS = USAGE_REGIMES.map((r) => ({ value: r.id, label: r.label }));
 const PHASE_OPTIONS = [
   { value: 1, label: 'Monofásico' },
@@ -116,6 +126,14 @@ function useHorsepower() {
   </section>
 
   <section class="form-seccion">
+    <h3 class="form-seccion-titulo"><IconFlame :size="16" />Energético</h3>
+    <ChoiceChips v-model="carrier" :options="CARRIER_OPTIONS" label="Energético del equipo" />
+    <p v-if="!electric" class="aviso-linea">
+      <IconInfoCircle :size="16" />{{ carrierInfo(draft.carrier).label }}: escribe la potencia térmica de la placa. Este equipo se compara con la factura de su energético y no entra en ninguna cifra eléctrica.
+    </p>
+  </section>
+
+  <section class="form-seccion">
     <h3 class="form-seccion-titulo"><IconTag :size="16" />Identificación</h3>
     <div class="form-grid">
       <label class="campo completo">
@@ -170,7 +188,7 @@ function useHorsepower() {
     </label>
     <div class="form-grid">
       <div class="campo completo">
-        <span class="etiqueta">Potencia de una unidad</span>
+        <span class="etiqueta">{{ electric ? 'Potencia de una unidad' : 'Potencia térmica de una unidad' }}</span>
         <div class="potencia">
           <NumberInput v-model="power" required :decimals="unit === 'W' ? 1 : 3" :suffix="unit" :invalid="Boolean(errors.powerKw)" aria-label="Potencia de una unidad" />
           <ChoiceChips v-model="unit" :options="UNITS" label="Unidad de potencia" />
@@ -297,15 +315,15 @@ function useHorsepower() {
         <span class="etiqueta">Año de fabricación</span>
         <NumberInput v-model="draft.year" :decimals="0" :min="1950" :max="thisYear" :grouping="false" />
       </label>
-      <label class="campo">
+      <label v-if="electric" class="campo">
         <span class="etiqueta">Voltaje</span>
         <NumberInput v-model="draft.voltageV" :decimals="0" suffix="V" />
       </label>
-      <label class="campo">
+      <label v-if="electric" class="campo">
         <span class="etiqueta">Corriente nominal</span>
         <NumberInput v-model="draft.currentA" :decimals="1" suffix="A" />
       </label>
-      <div class="campo completo">
+      <div v-if="electric" class="campo completo">
         <span class="etiqueta">Fases</span>
         <ChoiceChips v-model="draft.phases" :options="PHASE_OPTIONS" label="Fases del equipo" clearable />
       </div>

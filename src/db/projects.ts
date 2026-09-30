@@ -1,4 +1,5 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
+import { isElectric } from '@/domain/carriers';
 import { computeProgress, type ProjectCounts, type StageProgress } from '@/domain/progress';
 import type { Bill, EntityKind, EntityOrder, Project, ReportRecord, Tenure } from '@/domain/types';
 import { isActive, plain } from './records';
@@ -109,11 +110,11 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
   const id = project.id;
   const [areas, equipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks] = await Promise.all([
     db.areas.where('projectId').equals(id).filter(isActive).toArray(),
-    db.equipment.where('projectId').equals(id).filter(isActive).toArray(),
+    db.equipment.where('projectId').equals(id).filter((e) => isActive(e) && isElectric(e)).toArray(),
     db.electrical.where('projectId').equals(id).filter(isActive).count(),
     db.measurements.where('projectId').equals(id).filter(isActive).count(),
     db.meterReadings.where('projectId').equals(id).filter(isActive).count(),
-    db.bills.where('projectId').equals(id).filter(isActive).toArray(),
+    db.bills.where('projectId').equals(id).filter((b) => isActive(b) && isElectric(b)).toArray(),
     db.intervalSeries.where('projectId').equals(id).filter(isActive).count(),
     db.findings.where('projectId').equals(id).filter(isActive).count(),
     db.measures.where('projectId').equals(id).filter(isActive).count(),

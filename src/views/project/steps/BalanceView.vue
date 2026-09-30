@@ -6,11 +6,13 @@ import { linesChart, paretoChart, rankingChart, sankeyChart } from '@/charts/bui
 import { chartPalette } from '@/charts/palette';
 import EChart from '@/components/charts/EChart.vue';
 import PngButton from '@/components/charts/PngButton.vue';
+import AllEnergyPanel from '@/components/AllEnergyPanel.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useProjectRecords } from '@/composables/useProjectRecords';
+import { isElectric } from '@/domain/carriers';
 import { useTheme } from '@/composables/useTheme';
 import {
   annualSummary,
@@ -34,9 +36,13 @@ import { fileSlug } from '@/utils/text';
 
 const { projectId, project } = useCurrentProject();
 const { isDark } = useTheme();
-const { rows: equipment, ready } = useProjectRecords('equipment');
+const { rows: equipment, ready } = useProjectRecords('equipment', undefined, isElectric);
 const { rows: areas } = useProjectRecords('areas');
-const { rows: bills } = useProjectRecords('bills', (a, b) => a.period.localeCompare(b.period));
+const { rows: bills } = useProjectRecords('bills', (a, b) => a.period.localeCompare(b.period), isElectric);
+// Todos los energéticos: solo para el panel del total; el resto del balance es eléctrico
+const { rows: allBills } = useProjectRecords('bills');
+const { rows: allEquipment } = useProjectRecords('equipment');
+const hasOtherEnergy = computed(() => allBills.value.some((b) => !isElectric(b)) || allEquipment.value.some((e) => !isElectric(e)));
 const pngName = (chart: string) => `${fileSlug(project.value?.name ?? 'proyecto')}_${chart}`;
 
 const colorOf = (id: EndUseCategory, dark: boolean) => (dark ? endUseOf(id).colorDark : endUseOf(id).color);
@@ -181,6 +187,8 @@ const significantLabels = computed(() => significant.value.map((s) => endUseOf(s
     <PageHeader step="balance" :stats="headerStats" />
 
     <div v-if="equipment.length" class="rejilla">
+      <AllEnergyPanel v-if="hasOtherEnergy" class="ancha" :bills="allBills" :equipment="allEquipment" />
+
       <section v-if="reconciliation" class="card seccion ancha">
         <div class="cabecera-seccion apilada">
           <h2>Conciliación del censo con la factura</h2>

@@ -15,6 +15,7 @@ import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useProjectRecords } from '@/composables/useProjectRecords';
+import { isElectric } from '@/domain/carriers';
 import { useTheme } from '@/composables/useTheme';
 import { loadSeriesReadings } from '@/db/intervals';
 import { getDb } from '@/db/schema';
@@ -42,8 +43,8 @@ type Tab = (typeof TABS)[number]['value'];
 const tab = ref<Tab>(route.query.tab === 'mensual' || route.query.tab === 'anual' ? route.query.tab : 'diario');
 
 const { rows: seriesList, ready: seriesReady } = useProjectRecords('intervalSeries', (a, b) => b.createdAt - a.createdAt);
-const { rows: bills } = useProjectRecords('bills', (a, b) => a.period.localeCompare(b.period));
-const { rows: equipment } = useProjectRecords('equipment');
+const { rows: bills } = useProjectRecords('bills', (a, b) => a.period.localeCompare(b.period), isElectric);
+const { rows: equipment } = useProjectRecords('equipment', undefined, isElectric);
 
 // ——— Diario: serie del analizador o del operador ———
 const selectedId = ref<string | undefined>(typeof route.query.serie === 'string' ? route.query.serie : undefined);

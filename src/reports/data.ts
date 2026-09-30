@@ -1,5 +1,6 @@
 import { loadSeriesReadings } from '@/db/intervals';
 import type { PontiaDb } from '@/db/schema';
+import { isElectric, isNotElectric } from '@/domain/carriers';
 import { SEVERITY_ORDER } from '@/domain/diagnosis';
 import type { ReportData } from './model';
 
@@ -31,11 +32,13 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
   return {
     project,
     areas: alive(areas).sort(byName),
-    equipment: alive(equipment),
+    equipment: alive(equipment).filter(isElectric),
+    otherEquipment: alive(equipment).filter(isNotElectric),
     electrical: alive(electrical),
     measurements: alive(measurements).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
     readings: alive(readings).sort((a, b) => a.at.localeCompare(b.at)),
-    bills: alive(bills).sort((a, b) => a.period.localeCompare(b.period)),
+    bills: alive(bills).filter(isElectric).sort((a, b) => a.period.localeCompare(b.period)),
+    otherBills: alive(bills).filter(isNotElectric).sort((a, b) => a.period.localeCompare(b.period)),
     series: activeSeries,
     mainSeries: main ? { series: main, readings: await loadSeriesReadings(db, main) } : undefined,
     photos: alive(photos).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),

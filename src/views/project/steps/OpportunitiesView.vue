@@ -15,6 +15,7 @@ import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useFabAction } from '@/composables/useFab';
 import { useProjectRecords } from '@/composables/useProjectRecords';
+import { isElectric } from '@/domain/carriers';
 import { useQuickAdd } from '@/composables/useQuickAdd';
 import { useRecordEditor } from '@/composables/useRecordEditor';
 import { useTheme } from '@/composables/useTheme';
@@ -40,8 +41,8 @@ const desktop = useMediaQuery('(min-width: 1024px)');
 const byCode = (a: Measure, b: Measure) => a.code.localeCompare(b.code, 'es', { numeric: true });
 const { rows: measures, ready } = useProjectRecords('measures', byCode);
 const { rows: findings } = useProjectRecords('findings');
-const { rows: bills } = useProjectRecords('bills');
-const { rows: equipment } = useProjectRecords('equipment');
+const { rows: bills } = useProjectRecords('bills', undefined, isElectric);
+const { rows: equipment } = useProjectRecords('equipment', undefined, isElectric);
 const { rows: areas } = useProjectRecords('areas');
 
 const DEFAULT_ECONOMICS = { tariffCopPerKwh: 0, discountRate: 0.12, tariffEscalation: 0, horizonYears: 10, emissionFactorKgPerKwh: 0 };

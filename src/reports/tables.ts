@@ -1,4 +1,5 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
+import { carrierInfo, unitLabel } from '@/domain/carriers';
 import { CONDITIONS, electricalKindOf, endUseOf, spaceTypeOf } from '@/domain/catalogs';
 import { FINDING_STATUS_LABEL, findingTopicLabel, SEVERITY_LABEL } from '@/domain/diagnosis';
 import { PHASE_ORDER, phaseOf, TASK_STATUS_LABEL, taskDays } from '@/domain/implementation';
@@ -70,7 +71,7 @@ export function exportTables(m: AuditModel): ExportTable[] {
   const phase = (values: (number | null)[] | undefined, i: number) => values?.[i] ?? null;
 
   return [
-    table('inventario', 'Inventario', data.equipment, [
+    table('inventario', 'Inventario', [...data.equipment, ...data.otherEquipment], [
       { header: 'Código', value: (e) => e.code },
       { header: 'Equipo', value: (e) => e.name },
       { header: 'Uso final', value: (e) => endUseOf(e.category).label },
@@ -90,8 +91,9 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Tipo de lámpara', value: (e) => e.lampType },
       { header: 'Año', value: (e) => e.year },
       { header: 'Observaciones', value: (e) => e.notes },
+      { header: 'Energético', value: (e) => carrierInfo(e.carrier).label },
     ]),
-    table('facturas', 'Facturas', data.bills, [
+    table('facturas', 'Facturas', [...data.bills, ...data.otherBills], [
       { header: 'Periodo', value: (b) => b.period },
       { header: 'Desde', value: (b) => b.startDate },
       { header: 'Hasta', value: (b) => b.endDate },
@@ -106,6 +108,10 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Temperatura media (°C)', value: (b) => b.avgTemperatureC, decimals: 1 },
       { header: 'Ocupación (%)', value: (b) => b.occupancyPct },
       { header: 'Observaciones', value: (b) => b.notes },
+      { header: 'Energético', value: (b) => carrierInfo(b.carrier).label },
+      { header: 'Cantidad facturada', value: (b) => b.quantity },
+      { header: 'Unidad', value: (b) => (b.quantity === undefined ? '' : unitLabel(b.unit)) },
+      { header: 'Factor (kWh por unidad)', value: (b) => b.kwhPerUnit, decimals: 4 },
     ]),
     table('espacios', 'Espacios', data.areas, [
       { header: 'Espacio', value: (a) => a.name },

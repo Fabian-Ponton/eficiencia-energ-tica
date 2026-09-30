@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconCamera, IconMapPin, IconPlug, IconPlus, IconSearch } from '@tabler/icons-vue';
+import { IconCamera, IconFlame, IconMapPin, IconPlug, IconPlus, IconSearch } from '@tabler/icons-vue';
 import { useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
@@ -18,6 +18,7 @@ import { useQuickAdd } from '@/composables/useQuickAdd';
 import { useRecordEditor } from '@/composables/useRecordEditor';
 import { useTheme } from '@/composables/useTheme';
 import { installedPowerKw, monthlyEnergyKwh } from '@/domain/calc/equipment';
+import { isElectric, isNotElectric, NON_ELECTRIC_CARRIERS } from '@/domain/carriers';
 import { daysPerMonth, END_USES, LAMP_TYPES, regimeOf, USAGE_REGIMES } from '@/domain/catalogs';
 import { maintenanceStatus } from '@/domain/maintenance';
 import type { EndUseCategory, Equipment } from '@/domain/types';
@@ -74,21 +75,29 @@ const filtered = computed(() => {
   });
 });
 
+// Los equipos de gas u otro energético van en su propio grupo: sus kW son térmicos y no suman a las cifras eléctricas
+const filteredElectric = computed(() => filtered.value.filter(isElectric));
 const groups = computed(() =>
   END_USES.map((use) => {
-    const items = filtered.value.filter((e) => e.category === use.id);
+    const items = filteredElectric.value.filter((e) => e.category === use.id);
     return { use, items, kw: items.reduce((t, e) => t + installedPowerKw(e), 0), kwh: items.reduce((t, e) => t + monthly(e), 0) };
+  }).filter((g) => g.items.length),
+);
+const otherGroups = computed(() =>
+  NON_ELECTRIC_CARRIERS.map((carrier) => {
+    const items = filtered.value.filter((e) => isNotElectric(e) && e.carrier === carrier.id);
+    return { carrier, items, kw: items.reduce((t, e) => t + installedPowerKw(e), 0), kwh: items.reduce((t, e) => t + monthly(e), 0) };
   }).filter((g) => g.items.length),
 );
 
 const totals = computed(() => ({
-  count: filtered.value.reduce((t, e) => t + e.quantity, 0),
-  kw: filtered.value.reduce((t, e) => t + installedPowerKw(e), 0),
-  kwh: filtered.value.reduce((t, e) => t + monthly(e), 0),
+  count: filteredElectric.value.reduce((t, e) => t + e.quantity, 0),
+  kw: filteredElectric.value.reduce((t, e) => t + installedPowerKw(e), 0),
+  kwh: filteredElectric.value.reduce((t, e) => t + monthly(e), 0),
 }));
 const endUseTotals = computed(() => {
   const result: Partial<Record<EndUseCategory, number>> = {};
-  for (const e of equipment.value) result[e.category] = (result[e.category] ?? 0) + monthly(e);
+  for (const e of equipment.value) if (isElectric(e)) result[e.category] = (result[e.category] ?? 0) + monthly(e);
   return result;
 });
 const categoryCounts = computed(() => {
@@ -210,7 +219,7 @@ useQuickAdd(() => {
         </button>
       </div>
 
-      <div v-if="desktop && groups.length" class="card tabla-contenedor">
+      <div v-if="desktop && (groups.length || otherGroups.length)" class="card tabla-contenedor">
         <table class="tabla">
           <thead>
             <tr>
@@ -252,9 +261,34 @@ useQuickAdd(() => {
               <td class="der">{{ photoCounts.get(e.id) ?? '—' }}</td>
             </tr>
           </tbody>
+          <tbody v-for="group in otherGroups" :key="group.carrier.id">
+            <tr class="fila-grupo">
+              <td colspan="9">
+                <span class="grupo">
+                  <span class="icono-uso" style="--color: var(--warning-text)"><IconFlame :size="16" /></span>
+                  {{ group.carrier.label }} · potencia térmica
+                  <span class="mono grupo-datos">{{ formatNumber(group.kw, 1) }} kW · {{ formatNumber(group.kwh) }} kWh/mes térmicos</span>
+                </span>
+              </td>
+            </tr>
+            <tr v-for="e in group.items" :key="e.id" class="fila-clic" tabindex="0" @click="openEdit(e)" @keydown.enter="openEdit(e)">
+              <td>
+                <div class="nombre">{{ e.name }}</div>
+                <div class="sub">{{ [e.code, e.areaId ? areaName.get(e.areaId) : undefined].filter(Boolean).join(' · ') || '—' }}</div>
+              </td>
+              <td class="der">{{ formatNumber(e.quantity) }}</td>
+              <td class="der">{{ formatNumber(e.powerKw, 3) }}</td>
+              <td class="der">{{ formatNumber(installedPowerKw(e), 2) }}</td>
+              <td class="der">{{ formatNumber(e.hoursPerDay, 1) }} h · {{ e.operatingDaysPerMonth }} d</td>
+              <td class="der">{{ formatNumber(e.useFactor * 100) }} %</td>
+              <td class="der fuerte">{{ formatNumber(monthly(e)) }}</td>
+              <td><StatusChip v-bind="CONDITION_STATUS[e.condition]" /></td>
+              <td class="der">{{ photoCounts.get(e.id) ?? '—' }}</td>
+            </tr>
+          </tbody>
           <tfoot>
             <tr>
-              <td>{{ filtering ? 'Total de lo filtrado' : 'Total' }}</td>
+              <td>{{ filtering ? 'Total eléctrico de lo filtrado' : otherGroups.length ? 'Total eléctrico' : 'Total' }}</td>
               <td class="der">{{ formatNumber(totals.count) }}</td>
               <td />
               <td class="der">{{ formatNumber(totals.kw, 1) }}</td>
@@ -268,7 +302,7 @@ useQuickAdd(() => {
         </table>
       </div>
 
-      <div v-else-if="groups.length" class="grupos">
+      <div v-else-if="groups.length || otherGroups.length" class="grupos">
         <section v-for="group in groups" :key="group.use.id" class="grupo-movil">
           <header class="grupo-cabecera">
             <span class="icono-uso" :style="{ '--color': colorOf(group.use.id) }"><component :is="END_USE_ICONS[group.use.id]" :size="16" /></span>
@@ -296,9 +330,31 @@ useQuickAdd(() => {
             </button>
           </TransitionGroup>
         </section>
+        <section v-for="group in otherGroups" :key="group.carrier.id" class="grupo-movil">
+          <header class="grupo-cabecera">
+            <span class="icono-uso" style="--color: var(--warning-text)"><IconFlame :size="16" /></span>
+            <h2>{{ group.carrier.label }} · térmico</h2>
+            <span class="mono">{{ formatNumber(group.kwh) }} kWh/mes</span>
+          </header>
+          <TransitionGroup name="list" tag="div" class="tarjetas">
+            <button v-for="e in group.items" :key="e.id" type="button" class="card equipo" @click="openEdit(e)">
+              <span class="equipo-fila">
+                <span class="equipo-nombre">{{ e.name }}</span>
+                <span class="equipo-energia"><strong class="num">{{ formatNumber(monthly(e)) }}</strong><small>kWh/mes</small></span>
+              </span>
+              <span class="mono equipo-detalle">
+                {{ formatNumber(e.quantity) }} × {{ formatNumber(e.powerKw, 3) }} kW · {{ formatNumber(e.hoursPerDay, 1) }} h/día · {{ e.operatingDaysPerMonth }} d/mes
+              </span>
+              <span class="equipo-chips">
+                <StatusChip v-bind="CONDITION_STATUS[e.condition]" />
+                <span v-if="e.areaId && areaName.get(e.areaId)" class="dato"><IconMapPin :size="14" />{{ areaName.get(e.areaId) }}</span>
+              </span>
+            </button>
+          </TransitionGroup>
+        </section>
       </div>
 
-      <div v-if="!groups.length" class="card">
+      <div v-if="!groups.length && !otherGroups.length" class="card">
         <EmptyState :icon="IconSearch" title="Sin resultados" text="Prueba con otro nombre o quita los filtros." />
       </div>
     </template>

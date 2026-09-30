@@ -7,7 +7,12 @@ import { useCurrentProject } from './useCurrentProject';
 import { useLiveQuery } from './useLiveQuery';
 
 /** Registros vigentes (no eliminados) del proyecto abierto, actualizados en vivo. */
-export function useProjectRecords<K extends RecordTable>(name: K, sort?: (a: RecordTables[K], b: RecordTables[K]) => number) {
+export function useProjectRecords<K extends RecordTable>(
+  name: K,
+  sort?: (a: RecordTables[K], b: RecordTables[K]) => number,
+  /** Deja solo los registros que cumplen (por ejemplo, los eléctricos). */
+  keep?: (row: RecordTables[K]) => boolean,
+) {
   const { projectId } = useCurrentProject();
   const db = getDb();
   const live = useLiveQuery(async () => {
@@ -15,7 +20,7 @@ export function useProjectRecords<K extends RecordTable>(name: K, sort?: (a: Rec
     const rows = await table
       .where('projectId')
       .equals(projectId.value)
-      .filter((row) => !row.deletedAt)
+      .filter((row) => !row.deletedAt && (!keep || keep(row)))
       .toArray();
     return sort ? rows.sort(sort) : rows;
   }, [projectId]);

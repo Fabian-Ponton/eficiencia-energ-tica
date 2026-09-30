@@ -11,6 +11,7 @@ import PageHeader from '@/components/ui/PageHeader.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useFabAction } from '@/composables/useFab';
 import { usePhotoCounts, useProjectRecords } from '@/composables/useProjectRecords';
+import { isElectric } from '@/domain/carriers';
 import { useQuickAdd } from '@/composables/useQuickAdd';
 import { useRecordEditor } from '@/composables/useRecordEditor';
 import { electricalKindOf } from '@/domain/catalogs';
@@ -24,7 +25,7 @@ const { projectId } = useCurrentProject();
 const confirm = useConfirm();
 const desktop = useMediaQuery('(min-width: 1024px)');
 const { rows: nodes, ready } = useProjectRecords('electrical');
-const { rows: equipment } = useProjectRecords('equipment');
+const { rows: equipment } = useProjectRecords('equipment', undefined, isElectric);
 const photoCounts = usePhotoCounts('electrico');
 
 const rows = computed(() => electricalRows(nodes.value));

@@ -36,6 +36,9 @@ export interface ReportData {
   measurements: Measurement[];
   readings: MeterReadingRecord[];
   bills: Bill[];
+  /** Facturas y equipos de otros energéticos (gas natural…): no entran en ningún cálculo eléctrico. */
+  otherBills: Bill[];
+  otherEquipment: Equipment[];
   series: IntervalSeries[];
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };

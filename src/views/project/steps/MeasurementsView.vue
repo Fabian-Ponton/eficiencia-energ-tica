@@ -14,6 +14,7 @@ import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useFabAction } from '@/composables/useFab';
 import { usePhotoCounts, useProjectRecords } from '@/composables/useProjectRecords';
+import { isElectric } from '@/domain/carriers';
 import { useQuickAdd } from '@/composables/useQuickAdd';
 import { useRecordEditor } from '@/composables/useRecordEditor';
 import { offerUndo } from '@/composables/useUndo';
@@ -38,7 +39,7 @@ const { rows: measurements, ready } = useProjectRecords('measurements', (a, b) =
 const { rows: readings } = useProjectRecords('meterReadings', (a, b) => a.at.localeCompare(b.at));
 const { rows: series, ready: seriesReady } = useProjectRecords('intervalSeries', (a, b) => b.createdAt - a.createdAt);
 const { rows: areas } = useProjectRecords('areas', byName);
-const { rows: equipment } = useProjectRecords('equipment', byName);
+const { rows: equipment } = useProjectRecords('equipment', byName, isElectric);
 const { rows: nodes } = useProjectRecords('electrical', byName);
 const photoCounts = usePhotoCounts('medicion');
 
