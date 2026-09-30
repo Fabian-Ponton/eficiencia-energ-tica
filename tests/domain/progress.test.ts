@@ -16,6 +16,7 @@ const vacio: ProjectCounts = {
   tasks: 0,
   reports: 0,
   collectionResolved: false,
+  safetyDone: false,
 };
 
 describe('avance de la auditoría', () => {
@@ -40,6 +41,13 @@ describe('avance de la auditoría', () => {
     const paso = (resuelto: boolean) => computeProgress({ ...vacio, collectionResolved: resuelto })[0].steps.find((s) => s.id === 'control')?.done;
     expect(paso(false)).toBe(false);
     expect(paso(true)).toBe(true);
+  });
+
+  it('la seguridad eléctrica cuenta con hallazgos registrados o con la revisión sin hallazgos', () => {
+    const paso = (hecho: boolean) => computeProgress({ ...vacio, safetyDone: hecho })[2].steps.find((s) => s.id === 'seguridad')?.done;
+    expect(paso(false)).toBe(false);
+    expect(paso(true)).toBe(true);
+    expect(computeProgress(vacio)[2].total).toBe(5);
   });
 
   it('la facturación cuenta cuando hay al menos un año de facturas', () => {

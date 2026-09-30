@@ -4,6 +4,7 @@ import { CONDITIONS, electricalKindOf, endUseOf, spaceTypeOf } from '@/domain/ca
 import { FINDING_STATUS_LABEL, findingTopicLabel, SEVERITY_LABEL } from '@/domain/diagnosis';
 import { PHASE_ORDER, phaseOf, TASK_STATUS_LABEL, taskDays } from '@/domain/implementation';
 import { MEASURE_KIND_LABEL, measureEconomics, PRIORITY_LABEL, savingsTypeInfo, savingsTypeOf } from '@/domain/measures';
+import { CONTROL_HIERARCHY, levelOf, RISK_LEVELS, riskFactorInfo, safetyCodes, SAFETY_STATUS_LABEL, type RiskLevel } from '@/domain/safety';
 import { derivePower } from '@/domain/measurements';
 import type { Measure, Task } from '@/domain/types';
 import type { CsvColumn } from './csv';
@@ -218,6 +219,30 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Posible causa', value: (f) => f.cause },
       { header: 'Impacto energético', value: (f) => f.energyImpact },
       { header: 'Acción sugerida', value: (f) => f.suggestedAction },
+    ]),
+    table('seguridad', 'Seguridad eléctrica', data.safetyFindings, [
+      { header: 'Código', value: (f) => safetyCodes(data.safetyFindings).get(f.id) },
+      { header: 'Factor de riesgo', value: (f) => riskFactorInfo(f.riskFactor).label },
+      { header: 'Riesgo', value: (f) => (f.real ? 'Real' : 'Potencial') },
+      {
+        header: 'Ubicación',
+        value: (f) =>
+          f.entityType === 'area' ? data.areas.find((a) => a.id === f.entityId)?.name : f.entityType === 'equipo' ? data.equipment.find((e) => e.id === f.entityId)?.name : f.entityType === 'electrico' ? data.electrical.find((n) => n.id === f.entityId)?.name : '',
+      },
+      { header: 'Descripción', value: (f) => f.description },
+      { header: 'Consecuencia (1 a 5)', value: (f) => f.consequence },
+      { header: 'Frecuencia', value: (f) => f.frequency?.toUpperCase() },
+      { header: 'Nivel de riesgo', value: (f) => (levelOf(f) ? RISK_LEVELS[levelOf(f) as RiskLevel].label : 'Por valorar') },
+      { header: 'Alto riesgo', value: (f) => (f.highRisk ? 'Sí' : 'No') },
+      { header: 'Peligro inminente', value: (f) => (f.imminent ? 'Sí' : 'No') },
+      { header: 'Estado', value: (f) => SAFETY_STATUS_LABEL[f.status] },
+      { header: 'Tipo de control', value: (f) => CONTROL_HIERARCHY.find((c) => c.id === f.control)?.label },
+      { header: 'Acción inmediata', value: (f) => f.immediateAction },
+      { header: 'Acción recomendada', value: (f) => f.recommendedAction },
+      { header: 'Responsable', value: (f) => f.responsible },
+      { header: 'Fecha compromiso', value: (f) => f.dueDate },
+      { header: 'Norma de referencia', value: (f) => f.normRef },
+      { header: 'Origen', value: (f) => (f.auto ? 'Sugerido por PONTIA' : 'Auditor') },
     ]),
     table('medidas', 'Medidas de ahorro', data.measures, [
       { header: 'Código', value: (x) => x.code },

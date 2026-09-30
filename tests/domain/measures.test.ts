@@ -81,6 +81,14 @@ describe('hallazgos sugeridos', () => {
     { tone: 'serious' as const, topic: 'iluminacion' as const, title: 'Iluminancia por debajo de la requerida', detail: 'Aula 601.' },
   ];
 
+  it('la sobrecarga y el desbalance no se ofrecen como hallazgo de ahorro: se valoran en Seguridad eléctrica', () => {
+    const conRiesgos = [
+      ...suggestions,
+      { tone: 'serious' as const, topic: 'seguridad' as const, title: 'Desbalance de fases en TD-AA', detail: 'Hasta un 21 %.' },
+    ];
+    expect(pendingSuggestions(conRiesgos, []).map((s) => s.title)).toEqual(['Transformador T1: carga crítica', 'Iluminancia por debajo de la requerida']);
+  });
+
   it('ofrece solo lo que falta revisar', () => {
     const adopted = [{ ruleId: ruleIdOf('Transformador T1: carga crítica') }];
     expect(pendingSuggestions(suggestions, adopted).map((s) => s.title)).toEqual(['Iluminancia por debajo de la requerida']);

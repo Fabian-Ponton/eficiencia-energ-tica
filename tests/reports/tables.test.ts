@@ -53,6 +53,44 @@ describe('tablas para CSV y Excel', () => {
     expect(measuresHeader).toContain('Prioridad;Clase de potencial;Consumo actual del sistema (kWh/año);Hallazgos que atiende;Evidencia;Responsable;Plazo;Indicador de seguimiento');
   });
 
+  it('los hallazgos de seguridad eléctrica salen en su propia tabla, del más urgente al menos urgente, con la valoración del RETIE', async () => {
+    const db = createDb('pontia-prueba-tablas-seguridad');
+    const ejemplo = await createSampleProject(db);
+    const base = { projectId: ejemplo.id, foundAt: '2026-09-10', real: false, highRisk: false, imminent: false, auto: false, createdAt: 1, updatedAt: 1 } as const;
+    const data = await loadReportData(db, ejemplo.id);
+    const sinValorar = { ...base, id: 'a', riskFactor: 'sobrecarga', description: 'Circuito de tomas sobrecargado', status: 'abierto' } as const;
+    const inminente = {
+      ...base,
+      id: 'b',
+      riskFactor: 'contacto-directo',
+      description: 'Conductores desnudos al alcance de los estudiantes',
+      status: 'abierto',
+      imminent: true,
+      real: true,
+      consequence: 5,
+      frequency: 'b',
+      immediateAction: 'Desenergizar el circuito',
+      responsible: 'Mantenimiento',
+      dueDate: '2026-09-15',
+      normRef: 'RETIE 1.5.1',
+    } as const;
+    const cerrado = { ...base, id: 'c', riskFactor: 'cortocircuito', description: 'Protección reemplazada', status: 'cerrado', consequence: 2, frequency: 'd' } as const;
+    const tables = exportTables(buildAuditModel({ ...data, safetyFindings: [inminente, sinValorar, cerrado] }));
+    const seguridad = tables.find((t) => t.id === 'seguridad')!;
+    expect(seguridad.title).toBe('Seguridad eléctrica');
+    expect(seguridad.rows).toHaveLength(3);
+
+    const [header, first, second, third] = csvLines(seguridad);
+    expect(header.startsWith('Código;Factor de riesgo;Riesgo;Ubicación;Descripción;Consecuencia (1 a 5);Frecuencia;Nivel de riesgo;Alto riesgo;Peligro inminente;Estado;')).toBe(true);
+    // Las filas siguen el orden del informe (el más urgente primero); el peligro inminente y el nivel alto van arriba
+    expect(first).toContain('Contacto directo;Real;;Conductores desnudos al alcance de los estudiantes;5;B;Alto;No;Sí;Abierto;');
+    expect(first).toContain('Desenergizar el circuito');
+    expect(first).toContain('Mantenimiento;2026-09-15;RETIE 1.5.1;Auditor');
+    expect(second).toContain('Sobrecarga;Potencial;;Circuito de tomas sobrecargado;;;Por valorar;No;No;Abierto');
+    expect(third).toContain('Cortocircuito;Potencial;;Protección reemplazada;2;D;Bajo;No;No;Cerrado');
+    db.close();
+  });
+
   it('arma un libro de Excel con una hoja por tabla', async () => {
     const tables = await sampleTables('pontia-prueba-excel');
     const blob = await buildWorkbook(tables, { title: 'Prueba' });

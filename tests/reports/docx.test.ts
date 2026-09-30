@@ -50,7 +50,8 @@ describe('informe Word de auditoría', () => {
       '8. Mediciones puntuales',
       '9. Diagnóstico',
       '10. Oportunidades de ahorro',
-      '11. Conclusiones y recomendaciones',
+      '11. Seguridad eléctrica',
+      '12. Conclusiones y recomendaciones',
     ]) {
       expect(text).toContain(section);
     }
@@ -88,6 +89,103 @@ describe('informe Word de auditoría', () => {
     expect(Object.values(zip.files).filter((entry) => !entry.dir && entry.name.startsWith('word/media/'))).toHaveLength(figures.length + 2);
     // La portada usa su propio encabezado y pie vacíos
     expect(xml).toContain('w:titlePg');
+    db.close();
+  });
+
+  it('la seguridad eléctrica tiene su propio capítulo con la matriz del RETIE y avisa lo que pide atención; no entra en las conclusiones de ahorro', async () => {
+    const db = createDb('pontia-prueba-docx-seguridad');
+    const ejemplo = await createSampleProject(db);
+    await saveRecord(db, 'safetyFindings', {
+      id: 's-tablero',
+      projectId: ejemplo.id,
+      foundAt: '2026-09-10',
+      riskFactor: 'contacto-directo',
+      real: true,
+      consequences: { personas: 4 },
+      consequence: 4,
+      frequency: 'c',
+      confirmed: true,
+      highRisk: true,
+      imminent: false,
+      precedent: 'Contacto con partes energizadas en un tablero abierto de una sede comparable',
+      evaluator: 'Ingeniero electricista del área de mantenimiento',
+      description: 'El tablero de un laboratorio no tiene tapa y hay partes energizadas al alcance',
+      immediateAction: 'Señalizar y restringir el acceso hasta instalar la tapa',
+      recommendedAction: 'Instalar tapa y etiquetar el tablero',
+      control: 'ingenieria',
+      responsible: 'Jefe de mantenimiento',
+      dueDate: '2026-10-15',
+      status: 'abierto',
+      auto: false,
+    });
+    await saveRecord(db, 'safetyFindings', {
+      id: 's-cerrado',
+      projectId: ejemplo.id,
+      foundAt: '2026-09-11',
+      riskFactor: 'cortocircuito',
+      real: false,
+      consequences: { economicas: 2 },
+      consequence: 2,
+      frequency: 'd',
+      highRisk: false,
+      imminent: false,
+      description: 'Protección sin la capacidad de corte adecuada en el tablero auxiliar',
+      status: 'cerrado',
+      auto: false,
+    });
+    const model = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
+    // Del más urgente al menos urgente: el de alto riesgo va primero
+    expect(model.data.safetyFindings.map((f) => f.id)).toEqual(['s-tablero', 's-cerrado']);
+    expect(model.safety.summary).toMatchObject({ total: 2, open: 1, closed: 1, highRisk: 1, attention: 1 });
+
+    const figures = auditFigures(model);
+    expect(figures.map((f) => f.id)).toContain('matriz-riesgos');
+    const assets: AuditAssets = { figures: new Map(figures.map((f, i) => [f.id, { data: Uint8Array.from([...PIXEL, i]), width: f.width, height: f.height }])), photos: [] };
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(buildAuditDocument(model, figures, assets)));
+    const text = ((await zip.file('word/document.xml')?.async('string')) ?? '').replace(/<[^>]+>/g, '');
+
+    // Aviso en el resumen ejecutivo, sin importar el ahorro
+    expect(text).toContain('1 hallazgo de seguridad eléctrica pide atención inmediata');
+    // Capítulo propio: qué norma, la matriz, la tabla y el detalle de lo que pide atención
+    expect(text).toContain('11. Seguridad eléctrica');
+    expect(text).toContain('art. 1.5.1.4.1');
+    expect(text).toContain('no reemplaza el dictamen de inspección del RETIE');
+    expect(text).toContain('1 de alto riesgo');
+    expect(text).toContain('Matriz de riesgos de origen eléctrico');
+    expect(text).toContain('Hallazgos de seguridad eléctrica, del más urgente al menos urgente.');
+    expect(text).toContain('S1 · Contacto directo');
+    expect(text).toContain('Decisión del RETIE.');
+    expect(text).toContain('Señalizar y restringir el acceso hasta instalar la tapa');
+    expect(text).toContain('Contacto con partes energizadas en un tablero abierto de una sede comparable');
+    // Lo cerrado consta en la tabla del capítulo, con su estado, pero no se detalla como pendiente
+    expect(text).toContain('S2');
+    expect(text).toContain('Cerrado');
+    expect(text).not.toContain('Protección sin la capacidad de corte adecuada');
+    expect(text).toContain('Los hallazgos de seguridad eléctrica no se incluyen en el potencial de ahorro ni en la priorización de las medidas.');
+    // Las conclusiones de ahorro no repiten la sobrecarga ni el desbalance
+    const conclusiones = text.slice(text.indexOf('12. Conclusiones y recomendaciones'));
+    expect(conclusiones).not.toContain('Transformador T1: carga crítica');
+    db.close();
+  });
+
+  it('sin hallazgos ni situaciones de seguridad, el informe no abre el capítulo y la numeración no salta', async () => {
+    const db = createDb('pontia-prueba-docx-sin-seguridad');
+    const ejemplo = await createSampleProject(db);
+    // Sin sobrecarga ni desbalance en los datos y sin hallazgos registrados
+    const base = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
+    const sinSituaciones = { ...base, safety: { summary: base.safety.summary, suggestions: [] } };
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(buildAuditDocument(sinSituaciones, [], { figures: new Map(), photos: [] })));
+    const text = ((await zip.file('word/document.xml')?.async('string')) ?? '').replace(/<[^>]+>/g, '');
+    expect(text).not.toContain('Seguridad eléctrica');
+    expect(text).toContain('11. Conclusiones y recomendaciones');
+
+    // Si el auditor revisó y no encontró nada, el capítulo lo dice
+    const revisada = { ...sinSituaciones, data: { ...sinSituaciones.data, project: { ...sinSituaciones.data.project, safetyReviewed: true } } };
+    const zipRevisada = await JSZip.loadAsync(await Packer.toBuffer(buildAuditDocument(revisada, [], { figures: new Map(), photos: [] })));
+    const textRevisada = ((await zipRevisada.file('word/document.xml')?.async('string')) ?? '').replace(/<[^>]+>/g, '');
+    expect(textRevisada).toContain('11. Seguridad eléctrica');
+    expect(textRevisada).toContain('El auditor revisó la seguridad eléctrica de la instalación y no registró hallazgos.');
+    expect(textRevisada).toContain('12. Conclusiones y recomendaciones');
     db.close();
   });
 

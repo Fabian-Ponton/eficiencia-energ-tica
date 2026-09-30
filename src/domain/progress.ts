@@ -15,6 +15,8 @@ export interface ProjectCounts {
   reports: number;
   /** Los doce renglones del control de recolección están obtenidos o declarados no disponibles. */
   collectionResolved: boolean;
+  /** Hay hallazgos de seguridad eléctrica registrados o el auditor revisó y no encontró ninguno. */
+  safetyDone: boolean;
 }
 
 export type StageId = 'campo' | 'analisis' | 'plan' | 'informes';
@@ -51,6 +53,7 @@ export function computeProgress(c: ProjectCounts): StageProgress[] {
     ]),
     stage('plan', [
       ['diagnostico', c.findings > 0],
+      ['seguridad', c.safetyDone],
       ['oportunidades', c.measures > 0],
       ['pgee', c.pgeeObjectives > 0],
       ['implementacion', c.tasks > 0],

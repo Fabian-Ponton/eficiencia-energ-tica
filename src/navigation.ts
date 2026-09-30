@@ -14,6 +14,7 @@ import {
   IconReceipt,
   IconRuler2,
   IconRulerMeasure,
+  IconShieldBolt,
   IconTarget,
   IconZoomCheck,
 } from '@tabler/icons-vue';
@@ -72,6 +73,7 @@ export const STAGES: NavStage[] = [
     icon: IconTarget,
     steps: [
       { id: 'diagnostico', label: 'Diagnóstico', icon: IconZoomCheck, phase: 5, description: 'Hallazgos con evidencia fotográfica.' },
+      { id: 'seguridad', label: 'Seguridad eléctrica', icon: IconShieldBolt, phase: 5, description: 'Riesgos de origen eléctrico con la matriz del RETIE, aparte de los ahorros.' },
       { id: 'oportunidades', label: 'Oportunidades', icon: IconTarget, phase: 5, description: 'Medidas de ahorro con evaluación económica y priorización.' },
       { id: 'pgee', label: 'PGEE', icon: IconClipboardList, phase: 5, description: 'Política energética, metas, planes de acción y seguimiento.' },
       { id: 'implementacion', label: 'Implementación', icon: IconCalendarStats, phase: 6, description: 'Cronograma, presupuesto y avance de las medidas.' },

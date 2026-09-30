@@ -458,6 +458,72 @@ export function gaugeChart(opts: {
   };
 }
 
+/**
+ * Matriz de análisis de riesgos del RETIE (1.5.1.4.1): consecuencia de 1 a 5 y frecuencia de E a A. Cada celda dice su nivel y los
+ * códigos de los hallazgos abiertos que caen en ella; el color sigue la escala del RETIE y siempre va con el texto del nivel.
+ */
+export function riskMatrixChart(opts: {
+  /** Nivel de cada celda, de la matriz, con el texto que se muestra. */
+  levels: { consequence: number; frequency: number; key: string; level: 'muy-bajo' | 'bajo' | 'medio' | 'alto' | 'muy-alto'; label: string }[];
+  /** Códigos de los hallazgos por celda: clave «consecuencia + letra de la frecuencia» (por ejemplo, «4b»). */
+  codes: ReadonlyMap<string, readonly string[]>;
+  frequencyLabels: string[];
+  consequenceLabels: string[];
+  dark: boolean;
+}): ChartOption {
+  const p = chartPalette(opts.dark);
+  const fill: Record<string, { color: string; text: string }> = {
+    'muy-alto': { color: p.critical, text: '#ffffff' },
+    alto: { color: withAlpha(p.serious, 0.85), text: opts.dark ? '#ffffff' : p.text },
+    medio: { color: withAlpha(p.warning, 0.75), text: p.text },
+    bajo: { color: withAlpha(p.good, 0.55), text: p.text },
+    'muy-bajo': { color: withAlpha(p.good, 0.3), text: p.text },
+  };
+  return {
+    animationDuration: 400,
+    grid: { left: 8, right: 8, top: 30, bottom: 8, containLabel: true },
+    tooltip: {
+      ...tooltip(p),
+      trigger: 'item',
+      formatter: (params: { data: { name: string } }) => params.data.name,
+    },
+    xAxis: {
+      type: 'category',
+      position: 'top',
+      data: opts.frequencyLabels,
+      axisTick: { show: false },
+      axisLine: { show: false },
+      axisLabel: { color: p.muted, fontFamily: SANS, fontSize: 10, interval: 0, lineHeight: 12 },
+      splitArea: { show: false },
+    },
+    yAxis: { type: 'category', data: opts.consequenceLabels, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: p.muted, fontFamily: SANS, fontSize: 11 } },
+    series: [
+      {
+        type: 'heatmap',
+        data: opts.levels.map((cell) => {
+          const codes = opts.codes.get(cell.key) ?? [];
+          const style = fill[cell.level];
+          return {
+            value: [cell.frequency, cell.consequence - 1, 1],
+            name: `${cell.label}${codes.length ? ` · ${codes.join(', ')}` : ''}`,
+            itemStyle: { color: style.color, borderColor: p.surface, borderWidth: 3, borderRadius: 4 },
+            label: {
+              show: true,
+              formatter: () => (codes.length ? `${cell.label.toUpperCase()}\n${codes.join(' ')}` : cell.label.toUpperCase()),
+              color: style.text,
+              fontFamily: MONO,
+              fontSize: 10,
+              fontWeight: codes.length ? 700 : 500,
+              lineHeight: 13,
+            },
+          };
+        }),
+        emphasis: { disabled: true },
+      },
+    ],
+  };
+}
+
 /** Matriz de priorización: burbujas con ahorro anual frente a inversión; el tamaño es el ahorro de energía. */
 export function bubbleChart(opts: {
   points: { label: string; x: number; y: number; size: number; color: string }[];

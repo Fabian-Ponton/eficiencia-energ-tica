@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { createSampleProject } from '@/db/sampleProject';
 import { createDb } from '@/db/schema';
+import { safetyFindingFromSuggestion } from '@/domain/safety';
 import { loadReportData } from '@/reports/data';
 import { auditFigures } from '@/reports/figures';
 import { buildAuditModel } from '@/reports/model';
@@ -60,10 +61,41 @@ describe('contenido del informe de auditoría', () => {
     db.close();
   });
 
+  it('la sobrecarga y el desbalance se valoran como seguridad eléctrica: salen de los hallazgos de ahorro y no se pierden', async () => {
+    const db = createDb('pontia-prueba-informe-seguridad');
+    const ejemplo = await createSampleProject(db);
+    const data = await loadReportData(db, ejemplo.id, new Date(2026, 8, 12));
+    const model = buildAuditModel(data);
+
+    // El análisis los sigue detectando, pero con el tema «seguridad»: el diagnóstico y las conclusiones de ahorro no los cuentan
+    const carga = model.findings.find((f) => f.title === 'Transformador T1: carga crítica');
+    expect(carga?.topic).toBe('seguridad');
+    expect(model.findings.find((f) => f.title === 'Desbalance de fases en TD-AA · Aires acondicionados')?.topic).toBe('seguridad');
+    expect(model.findings.find((f) => f.title.startsWith('Aires'))?.topic).not.toBe('seguridad');
+
+    // Sin hallazgos de seguridad registrados, quedan como situaciones por valorar con la matriz del RETIE
+    expect(model.safety.summary.total).toBe(0);
+    const titles = model.safety.suggestions.map((s) => s.title);
+    expect(titles).toContain('Transformador T1: carga crítica');
+    expect(titles).toContain('Desbalance de fases en TD-AA · Aires acondicionados');
+    expect(model.safety.suggestions.every((s) => s.riskFactor === 'sobrecarga' || s.riskFactor === 'equipo-defectuoso')).toBe(true);
+
+    // Al adoptar una como hallazgo, deja de ofrecerse y cuenta en el resumen (sin valorar todavía)
+    const transformador = model.safety.suggestions.find((s) => s.title === 'Transformador T1: carga crítica')!;
+    const adoptado = { ...safetyFindingFromSuggestion(transformador, ejemplo.id, '2026-09-12'), createdAt: 1, updatedAt: 1 };
+    const conHallazgo = buildAuditModel({ ...data, safetyFindings: [adoptado] });
+    expect(conHallazgo.safety.summary).toMatchObject({ total: 1, open: 1, unevaluated: 1, attention: 0 });
+    expect(conHallazgo.safety.suggestions.map((s) => s.title)).not.toContain('Transformador T1: carga crítica');
+    expect(conHallazgo.safety.suggestions.map((s) => s.title)).toContain('Desbalance de fases en TD-AA · Aires acondicionados');
+    db.close();
+  });
+
   it('prepara una figura por cada análisis disponible', async () => {
     const db = createDb('pontia-prueba-informe-figuras');
     const ejemplo = await createSampleProject(db);
     const figures = auditFigures(buildAuditModel(await loadReportData(db, ejemplo.id)));
+    // Sin hallazgos de seguridad valorados no hay matriz de riesgos que dibujar
+    expect(figures.map((f) => f.id)).not.toContain('matriz-riesgos');
     expect(figures.map((f) => f.id)).toEqual([
       'consumo-mensual',
       'tendencia-anual',

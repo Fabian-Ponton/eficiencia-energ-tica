@@ -37,6 +37,8 @@ export type UpmeModelKind = 'valor-absoluto' | 'cociente' | 'estadistico';
 export type UsageRegime = 'continuo' | 'horario' | 'ciclos' | 'respaldo';
 /** Clase de potencial de ahorro del art. 4(d) de la Res. 40412. */
 export type SavingsType = 'bpo' | 'cambio-tecnologico' | 'sustitucion-energetico' | 'fncer' | 'pasiva';
+/** Nivel de una consecuencia en la matriz del RETIE (1 a 5). */
+export type RiskLevelNumber = 1 | 2 | 3 | 4 | 5;
 /** Factores de riesgo eléctrico del RETIE (art. 1.5.1.3). */
 export type RetieRiskFactor =
   | 'arcos'
@@ -557,9 +559,20 @@ export interface SafetyFinding extends ProjectScoped {
   riskFactor: RetieRiskFactor;
   /** Riesgo real o potencial. */
   real: boolean;
-  /** Consecuencia (1 a 5) y frecuencia (a a e) de la matriz del RETIE (1.5.1.4.1). */
-  consequence: 1 | 2 | 3 | 4 | 5;
-  frequency: 'a' | 'b' | 'c' | 'd' | 'e';
+  /**
+   * Consecuencia de cada clase (personas, económicas, ambientales e imagen) de 1 a 5, y la más grave de ellas, que es la que se cruza
+   * con la frecuencia (a a e) en la matriz del RETIE (1.5.1.4.1). Sin consecuencia o sin frecuencia, el hallazgo queda por valorar.
+   */
+  consequences?: { personas?: RiskLevelNumber; economicas?: RiskLevelNumber; ambientales?: RiskLevelNumber; imagen?: RiskLevelNumber };
+  consequence?: RiskLevelNumber;
+  frequency?: 'a' | 'b' | 'c' | 'd' | 'e';
+  /** La valoración de consecuencia y frecuencia la confirmó el auditor; las sugeridas por PONTIA nacen sin confirmar. */
+  confirmed?: boolean;
+  /** Antecedente comparable (criterio d del 1.5.1.4.2) y persona competente que evaluó el riesgo. */
+  precedent?: string;
+  evaluator?: string;
+  /** Cómo se identifica el peligro en el SG-SST de la entidad, si el auditor quiere dejar la equivalencia. */
+  sstRef?: string;
   /** Alto riesgo o peligro inminente según los criterios del RETIE (1.5.1.4.2). */
   highRisk: boolean;
   imminent: boolean;

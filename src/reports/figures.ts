@@ -1,9 +1,10 @@
-import { barsChart, bulletChart, dayProfileChart, linesChart, paretoChart, sankeyChart, weekHeatmapChart } from '@/charts/builders';
+import { barsChart, bulletChart, dayProfileChart, linesChart, paretoChart, riskMatrixChart, sankeyChart, weekHeatmapChart } from '@/charts/builders';
 import type { ChartOption } from '@/charts/echarts';
 import { chartPalette } from '@/charts/palette';
 import { singleLineChart } from '@/charts/singleLineChart';
 import { upmeBaselineFigure } from '@/charts/upmeBaselineChart';
 import { endUseOf } from '@/domain/catalogs';
+import { FREQUENCIES, RISK_LEVELS, RISK_MATRIX, matrixCounts, safetyCodes } from '@/domain/safety';
 import type { EndUseCategory } from '@/domain/types';
 import { MONTHS_SHORT, periodLabel } from '@/utils/dates';
 import type { AuditModel } from './model';
@@ -221,6 +222,26 @@ export function auditFigures(m: AuditModel): ReportFigure[] {
       option: diagram.option,
       width: diagram.width,
       height: diagram.height,
+    });
+  }
+  // Matriz de riesgos del RETIE con los hallazgos abiertos y valorados
+  const safetyCells = matrixCounts(m.data.safetyFindings);
+  if (safetyCells.size) {
+    const codes = safetyCodes(m.data.safetyFindings);
+    const order = ['e', 'd', 'c', 'b', 'a'] as const;
+    add({
+      id: 'matriz-riesgos',
+      title: 'Matriz de riesgos de origen eléctrico',
+      source: 'Matriz del RETIE (art. 1.5.1.4.1): consecuencia frente a frecuencia; en cada celda, los hallazgos abiertos.',
+      option: riskMatrixChart({
+        dark: false,
+        frequencyLabels: order.map((f) => `${f.toUpperCase()}\n${FREQUENCIES.find((x) => x.id === f)?.label.replace('Sucede varias veces', 'Varias veces').replace(' en la empresa', '') ?? ''}`),
+        consequenceLabels: ['1 · Molestia', '2 · Lesión menor', '3 · Incapacidad temporal', '4 · Incapacidad permanente', '5 · Muertes'],
+        levels: ([1, 2, 3, 4, 5] as const).flatMap((c) => order.map((f, x) => ({ consequence: c, frequency: x, key: `${c}${f}`, level: RISK_MATRIX[c][f], label: RISK_LEVELS[RISK_MATRIX[c][f]].label }))),
+        codes: new Map([...safetyCells].map(([key, list]) => [key, list.map((f) => codes.get(f.id) ?? '')])),
+      }),
+      width: 960,
+      height: 460,
     });
   }
   // Matriz de priorización de todas las medidas evaluadas (el PGEE muestra solo las del plan)

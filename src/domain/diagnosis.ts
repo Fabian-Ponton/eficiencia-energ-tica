@@ -10,7 +10,8 @@ import type { Finding, Severity } from './types';
 /** Hallazgo sugerido por las reglas (misma forma que los hallazgos automáticos del informe). */
 export interface SuggestedFinding {
   tone: 'critical' | 'serious' | 'warning' | 'good' | 'info';
-  topic: 'consumo' | 'climatizacion' | 'iluminacion' | 'electrico' | 'datos';
+  /** `seguridad`: situaciones del sistema eléctrico que el RETIE trata como factor de riesgo; se valoran en «Seguridad eléctrica», no aquí. */
+  topic: 'consumo' | 'climatizacion' | 'iluminacion' | 'electrico' | 'datos' | 'seguridad';
   title: string;
   detail: string;
 }
@@ -25,10 +26,13 @@ export const ruleIdOf = (title: string): string =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
 
-/** Sugerencias que vale la pena revisar: lo crítico, importante y a vigilar, sin las ya adoptadas. */
+/**
+ * Sugerencias que vale la pena revisar: lo crítico, importante y a vigilar, sin las ya adoptadas. Los riesgos de origen eléctrico
+ * (sobrecarga, desbalance) no se ofrecen aquí: los hallazgos de seguridad van aparte de los energéticos.
+ */
 export function pendingSuggestions(suggestions: readonly SuggestedFinding[], findings: readonly Pick<Finding, 'ruleId'>[]): SuggestedFinding[] {
   const adopted = new Set(findings.map((f) => f.ruleId).filter(Boolean));
-  return suggestions.filter((s) => s.tone !== 'good' && s.tone !== 'info' && !adopted.has(ruleIdOf(s.title)));
+  return suggestions.filter((s) => s.tone !== 'good' && s.tone !== 'info' && s.topic !== 'seguridad' && !adopted.has(ruleIdOf(s.title)));
 }
 
 /** Borrador de hallazgo a partir de una sugerencia. */

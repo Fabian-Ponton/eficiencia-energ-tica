@@ -21,6 +21,7 @@ import { endUseOf } from '@/domain/catalogs';
 import { estimatedProfiles } from '@/domain/estimate';
 import { areaCooling, areaLighting, capacityAnalysis, resolveSizing, type AreaCooling, type AreaLighting, type CapacityResult, type SizingParameters } from '@/domain/sizing';
 import { fncePotential, fnceStatement } from '@/domain/fncePotential';
+import { pendingSafetySuggestions, safetySuggestions, summarizeSafety, type SafetySuggestion, type SafetySummary } from '@/domain/safety';
 import { planSummary, type PlanSummary } from '@/domain/measures';
 import { computeUpmeBaseline, type UpmeBaseline } from '@/domain/upmeBaseline';
 import type {
@@ -40,6 +41,7 @@ import type {
   OccupancyRecord,
   Photo,
   Project,
+  SafetyFinding,
   Task,
 } from '@/domain/types';
 import { formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
@@ -66,6 +68,8 @@ export interface ReportData {
   collection: CollectionItem[];
   /** Ajustes rutinarios, no rutinarios y actualizaciones de la línea base (Res. UPME 016, §7.6). */
   baselineAdjustments: BaselineAdjustment[];
+  /** Hallazgos de seguridad eléctrica (RETIE 1.5.1): aparte de los energéticos y sin ahorros. */
+  safetyFindings: SafetyFinding[];
   series: IntervalSeries[];
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };
@@ -84,7 +88,7 @@ export type FindingTone = 'critical' | 'serious' | 'warning' | 'good' | 'info';
 /** Hallazgo que sale de los datos, no escrito por el auditor: el diagnóstico lo ofrece como sugerencia. */
 export interface AutoFinding {
   tone: FindingTone;
-  topic: 'consumo' | 'climatizacion' | 'iluminacion' | 'electrico' | 'datos';
+  topic: 'consumo' | 'climatizacion' | 'iluminacion' | 'electrico' | 'datos' | 'seguridad';
   title: string;
   detail: string;
 }
@@ -117,6 +121,8 @@ export interface AuditModel {
   plan: PlanSummary;
   /** Párrafo de FNCER: el potencial de referencia, la exclusión motivada o el aviso de que falta decidirlo. */
   fnce: ReturnType<typeof fnceStatement>;
+  /** Seguridad eléctrica: el resumen de los hallazgos registrados y las situaciones de los datos que aún no se valoraron. */
+  safety: { summary: SafetySummary; suggestions: SafetySuggestion[] };
   daily: DailyAnalysis | null;
   estimated: ReturnType<typeof estimatedProfiles>;
   cooling: AreaCooling[];
@@ -181,6 +187,10 @@ export function buildAuditModel(data: ReportData): AuditModel {
     baseline: defaultBaseline(bills),
     upme: computeUpmeBaseline({ bills, config: project.baseline, adjustments: data.baselineAdjustments, project }),
     plan: planSummary(data.measures, billedAnnualKwh ?? (estimatedAnnualKwh || null)),
+    safety: {
+      summary: summarizeSafety(data.safetyFindings),
+      suggestions: pendingSafetySuggestions(safetySuggestions({ checks: capacity.checks, imbalance: capacity.imbalance, equipment, areas }), data.safetyFindings),
+    },
     fnce: fnceStatement(project.scope, fncePotential({ areas, peakSunHours: project.peakSunHours, annualKwh: billedAnnualKwh ?? (estimatedAnnualKwh || null), tariffCopPerKwh: project.economics.tariffCopPerKwh })),
     daily,
     estimated: estimatedProfiles(equipment),
@@ -290,7 +300,7 @@ export function autoFindings(m: AuditModel): AutoFinding[] {
     const what = check.node.kind === 'transformador' ? 'El transformador' : check.node.kind === 'acometida' ? 'La acometida' : `«${check.node.name}»`;
     out.push({
       tone: critical ? 'critical' : 'warning',
-      topic: 'electrico',
+      topic: 'seguridad',
       title: `${check.node.name}: carga ${critical ? 'crítica' : 'alta'}`,
       detail: `${what} trabaja al ${formatPercent(check.ratio, 0)} de su capacidad (${formatNumber(check.load, 1)} de ${formatNumber(check.capacity, 1)} ${check.unit}). ${critical ? 'No admite cargas nuevas sin ampliar la capacidad o reducir la demanda.' : 'Queda poco margen para cargas nuevas.'}`,
     });
@@ -299,7 +309,7 @@ export function autoFindings(m: AuditModel): AutoFinding[] {
     if (row.level === 'normal') continue;
     out.push({
       tone: row.level === 'critico' ? 'serious' : 'warning',
-      topic: 'electrico',
+      topic: 'seguridad',
       title: `Desbalance de fases en ${row.point}`,
       detail: `Las corrientes por fase se apartan hasta un ${formatPercent(row.imbalance, 1)} del promedio (${row.currents.map((c) => formatNumber(c, 0)).join(' / ')} A): conviene redistribuir cargas monofásicas.`,
     });

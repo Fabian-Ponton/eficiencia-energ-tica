@@ -16,6 +16,7 @@ const STEP_VIEWS = {
   dimensionamiento: () => import('@/views/project/steps/SizingView.vue'),
   informes: () => import('@/views/project/steps/ReportsView.vue'),
   diagnostico: () => import('@/views/project/steps/DiagnosisView.vue'),
+  seguridad: () => import('@/views/project/steps/SafetyView.vue'),
   oportunidades: () => import('@/views/project/steps/OpportunitiesView.vue'),
   pgee: () => import('@/views/project/steps/PgeeView.vue'),
   implementacion: () => import('@/views/project/steps/ImplementationView.vue'),

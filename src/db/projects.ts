@@ -126,7 +126,7 @@ export interface ProjectSummary {
 
 export async function summarizeProject(db: PontiaDb, project: Project): Promise<ProjectSummary> {
   const id = project.id;
-  const [areas, allEquipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks, occupancy, maintenance, collection, photos] = await Promise.all([
+  const [areas, allEquipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks, occupancy, maintenance, collection, photos, safety] = await Promise.all([
     db.areas.where('projectId').equals(id).filter(isActive).toArray(),
     db.equipment.where('projectId').equals(id).filter(isActive).toArray(),
     db.electrical.where('projectId').equals(id).filter(isActive).count(),
@@ -142,6 +142,7 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     db.maintenance.where('projectId').equals(id).filter(isActive).toArray(),
     db.collection.where('projectId').equals(id).filter(isActive).toArray(),
     db.photos.where('projectId').equals(id).filter(isActive).count(),
+    db.safetyFindings.where('projectId').equals(id).filter(isActive).count(),
   ]);
   const equipment = allEquipment.filter(isElectric);
   const counts: ProjectCounts = {
@@ -158,6 +159,7 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     pgeeObjectives: pgee.reduce((total, p) => total + p.objectives.length, 0),
     tasks,
     reports: project.reports?.length ?? 0,
+    safetyDone: safety > 0 || Boolean(project.safetyReviewed),
     collectionResolved: collectionResolved(
       buildCollection({
         project,

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { IconCamera, IconLoader2, IconPlus, IconSparkles, IconZoomCheck } from '@tabler/icons-vue';
+import { IconCamera, IconLoader2, IconPlus, IconShieldBolt, IconSparkles, IconZoomCheck } from '@tabler/icons-vue';
 import { useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref, shallowRef } from 'vue';
+import { RouterLink } from 'vue-router';
 import EmptyState from '@/components/EmptyState.vue';
 import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import FormSheet from '@/components/ui/FormSheet.vue';
@@ -45,6 +46,8 @@ onMounted(async () => {
   }
 });
 const pending = computed(() => pendingSuggestions(suggestions.value, findings.value));
+// Los riesgos de origen eléctrico se valoran en su propio paso, con la matriz del RETIE
+const electricalCount = computed(() => suggestions.value.filter((s) => s.topic === 'seguridad').length);
 const TONE_SEVERITY = { critical: 'critico', serious: 'alto', warning: 'medio', info: 'bajo', good: 'bajo' } as const;
 
 const adopting = ref(false);
@@ -99,6 +102,14 @@ useQuickAdd(() => openNew());
         </Button>
       </template>
     </PageHeader>
+
+    <p v-if="electricalCount" class="aviso-linea">
+      <IconShieldBolt :size="16" />
+      <span>
+        {{ electricalCount }} {{ electricalCount === 1 ? 'situación del sistema eléctrico (carga o desbalance) se valora' : 'situaciones del sistema eléctrico (carga o desbalance) se valoran' }} en
+        <RouterLink :to="{ name: 'seguridad', params: { projectId } }">Seguridad eléctrica</RouterLink>, con la matriz del RETIE y aparte de los ahorros.
+      </span>
+    </p>
 
     <section v-if="loadingSuggestions || pending.length" class="card seccion sugerencias">
       <div class="cabecera-seccion">

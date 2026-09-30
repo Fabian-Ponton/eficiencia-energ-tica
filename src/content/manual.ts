@@ -35,7 +35,7 @@ export const MANUAL_WHAT =
 export const MANUAL_HIGHLIGHTS: { title: string; text: string }[] = [
   { title: 'Funciona sin internet', text: 'Solo necesitas conexión la primera vez. En la planta o en el sótano sigue registrando y calculando igual.' },
   { title: 'Todo queda en tu equipo', text: 'Los datos y las fotos se guardan en el celular o el PC donde trabajas. PONTIA no los envía a ningún lado.' },
-  { title: 'Toda la auditoría en un sitio', text: 'Catorce pantallas encadenadas: lo que registras en campo alimenta el análisis, el plan y el informe.' },
+  { title: 'Toda la auditoría en un sitio', text: 'Todas las pantallas van encadenadas: lo que registras en campo alimenta el análisis, el plan y el informe.' },
   { title: 'Entrega lista para el cliente', text: 'Informe de auditoría, PGEE y plan de implementación en Word, además de CSV, Excel y las gráficas en PNG.' },
 ];
 
@@ -257,6 +257,21 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         ],
         result: 'Lista de hallazgos con evidencia, la sección de diagnóstico del informe y el vínculo con las medidas que los resuelven.',
         tip: 'Las sugerencias automáticas salen de reglas: factor de potencia bajo, equipos deficientes, iluminación fuera de rango, tableros al límite, carga base nocturna alta. Son un punto de partida, no una conclusión.',
+      },
+      {
+        id: 'seguridad',
+        what: 'Registra los riesgos de origen eléctrico que ves en la instalación y los valora con la matriz de análisis de riesgos del RETIE. Va aparte de los hallazgos energéticos: un riesgo grave se atiende aunque no ahorre nada.',
+        inputs: [
+          { label: 'Factor de riesgo y qué se encontró', need: 'obligatorio', source: 'De los doce factores del RETIE (art. 1.5.1.3): arcos eléctricos, contacto directo o indirecto, cortocircuito, sobrecarga, tensión de paso o de contacto y rayos, entre otros. La app muestra sus causas y sus medidas de protección.' },
+          { label: 'Si el riesgo es real o potencial y dónde está', need: 'recomendado', source: 'Real es el que ya se presenta; potencial, el que puede presentarse si no se controla. La ubicación puede ser un espacio, un equipo o un tablero del proyecto.' },
+          { label: 'Consecuencia (1 a 5) y frecuencia (A a E)', need: 'recomendado', source: 'Se valoran con tu criterio de campo, por clase de pérdida (personas, económicas, ambientales, imagen). Se toma la consecuencia más grave y se cruza con la frecuencia en la matriz del RETIE (art. 1.5.1.4.1).' },
+          { label: 'Alto riesgo o peligro inminente', need: 'recomendado', source: 'Lo determina una persona competente en electrotecnia con los criterios del RETIE (1.5.1.4.2). Si marcas alguno, la app pide el antecedente comparable y quién evaluó, y el hallazgo pasa al inicio de la lista.' },
+          { label: 'Tipo de control, acción inmediata y acción recomendada', need: 'recomendado', source: 'Eliminación, sustitución, control de ingeniería, administrativo o protección personal: es la jerarquía de controles. La acción inmediata reduce el riesgo mientras se corrige.' },
+          { label: 'Responsable, fecha compromiso, estado y fotos', need: 'recomendado', source: 'Quién lo corrige y para cuándo; la evidencia va junto al hallazgo.' },
+          { label: 'Referencia en el SG-SST de la entidad', need: 'opcional', source: 'Texto libre: cómo aparece ese peligro en la matriz de peligros de la entidad (por ejemplo, con la GTC 45). PONTIA no valora con esa guía.' },
+        ],
+        result: 'Lista de hallazgos ordenada por urgencia, la matriz de riesgos del RETIE con el código de cada hallazgo, un aviso en el inicio del proyecto cuando algo pide atención inmediata y el capítulo «Seguridad eléctrica» del informe, aparte de los ahorros.',
+        tip: 'Es un apoyo para la auditoría, no un dictamen: no reemplaza la inspección de la instalación con un inspector acreditado ni el sistema de gestión de la seguridad y salud en el trabajo de la entidad. Las sugerencias de sobrecarga o desbalance salen de tus datos y se valoran aquí, no en Diagnóstico.',
       },
       {
         id: 'oportunidades',

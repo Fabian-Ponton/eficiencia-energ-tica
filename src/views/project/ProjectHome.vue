@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconAlertCircle, IconArrowDown, IconArrowUp, IconCamera, IconChevronRight, IconCircleCheck, IconDownload, IconFileZip, IconPlug, IconReceipt } from '@tabler/icons-vue';
+import { IconAlertCircle, IconAlertTriangle, IconArrowDown, IconArrowUp, IconCamera, IconChevronRight, IconCircleCheck, IconDownload, IconFileZip, IconPlug, IconReceipt, IconShieldBolt } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { computed, ref } from 'vue';
@@ -22,6 +22,7 @@ import { sum } from '@/domain/calc/stats';
 import { isElectric } from '@/domain/carriers';
 import { checkCompliance, groupStatus } from '@/domain/compliance';
 import { currentStage } from '@/domain/progress';
+import { summarizeSafety } from '@/domain/safety';
 import type { EndUseCategory } from '@/domain/types';
 import { ALL_STEPS, STAGES } from '@/navigation';
 import { formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
@@ -34,6 +35,7 @@ const { projectId, project, summary } = useCurrentProject();
 const bills = useLiveQuery(() => db.bills.where('projectId').equals(projectId.value).filter((b) => isActive(b) && isElectric(b)).sortBy('period'), [projectId], []);
 const equipment = useLiveQuery(() => db.equipment.where('projectId').equals(projectId.value).filter((e) => isActive(e) && isElectric(e)).toArray(), [projectId], []);
 const photos = useLiveQuery(() => db.photos.where('projectId').equals(projectId.value).filter(isActive).reverse().sortBy('takenAt'), [projectId], []);
+const safetyFindings = useLiveQuery(() => db.safetyFindings.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const monthOf = (period: string) => MONTHS[Number(period.slice(5, 7)) - 1] ?? period;
@@ -82,6 +84,9 @@ const compliance = computed(() =>
       }))
     : [],
 );
+
+// Seguridad eléctrica (RETIE 1.5.1): lo de alto riesgo o peligro inminente se avisa en el inicio, sin importar el ahorro
+const safety = computed(() => summarizeSafety(safetyFindings.value ?? []));
 
 const progress = computed(() => summary.value?.progress ?? []);
 const current = computed(() => currentStage(progress.value));
@@ -225,6 +230,21 @@ async function downloadBackup() {
               <span v-if="row.status.missing.length" class="req-faltan">Faltan: {{ row.status.missing.map((item) => item.label.toLowerCase()).join(', ') }}.</span>
             </span>
             <RouterLink v-if="!row.status.complete" :to="{ name: row.group.step, params: { projectId } }" class="req-completar">Completar</RouterLink>
+          </li>
+          <li v-if="safety.total" class="seguridad" :class="{ urgente: safety.attention > 0, completo: safety.attention === 0 && safety.unevaluated === 0 }">
+            <span class="req-icono">
+              <IconAlertTriangle v-if="safety.attention > 0" :size="20" />
+              <IconShieldBolt v-else :size="20" />
+            </span>
+            <span class="req-texto">
+              <strong>Seguridad eléctrica</strong>
+              <span>RETIE · art. 1.5.1 · {{ safety.open }} {{ safety.open === 1 ? 'hallazgo abierto' : 'hallazgos abiertos' }}</span>
+              <span v-if="safety.attention" class="req-faltan">
+                {{ safety.attention }} {{ safety.attention === 1 ? 'pide' : 'piden' }} atención inmediata: peligro inminente, alto riesgo o nivel alto en la matriz. No dependen del ahorro.
+              </span>
+              <span v-else-if="safety.unevaluated" class="req-faltan">{{ safety.unevaluated }} {{ safety.unevaluated === 1 ? 'falta valorarlo' : 'faltan por valorar' }} con la matriz de riesgos.</span>
+            </span>
+            <RouterLink :to="{ name: 'seguridad', params: { projectId } }" class="req-completar">{{ safety.attention || safety.unevaluated ? 'Atender' : 'Ver' }}</RouterLink>
           </li>
         </ul>
       </section>
@@ -552,6 +572,14 @@ h1 {
 .requisitos li.completo .req-icono {
   background: var(--accent-wash);
   color: var(--accent-strong);
+}
+.requisitos li.urgente .req-icono {
+  background: var(--critical-wash);
+  color: var(--critical-text);
+}
+.requisitos li.urgente .req-faltan {
+  color: var(--critical-text);
+  font-weight: 600;
 }
 .req-texto {
   display: flex;

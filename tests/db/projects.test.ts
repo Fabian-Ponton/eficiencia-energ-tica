@@ -58,6 +58,24 @@ describe('proyectos en la base local', () => {
     db.close();
   });
 
+  it('el paso de seguridad eléctrica cuenta con un hallazgo o con la revisión declarada sin hallazgos', async () => {
+    const db = createDb('pontia-prueba-seguridad-avance');
+    const ejemplo = await createSampleProject(db);
+    const hecho = async () => (await summarizeProject(db, (await db.projects.get(ejemplo.id))!)).progress.find((p) => p.id === 'plan')?.steps.find((s) => s.id === 'seguridad')?.done;
+    expect(await hecho()).toBe(false);
+    // Revisar y no encontrar nada también es un resultado
+    await updateProject(db, ejemplo.id, { safetyReviewed: true });
+    expect(await hecho()).toBe(true);
+    await updateProject(db, ejemplo.id, { safetyReviewed: undefined });
+    expect(await hecho()).toBe(false);
+    await db.safetyFindings.add({ id: 's1', projectId: ejemplo.id, createdAt: 1, updatedAt: 1, foundAt: '2026-09-10', riskFactor: 'sobrecarga', real: false, highRisk: false, imminent: false, description: 'Prueba', status: 'abierto', auto: false });
+    expect(await hecho()).toBe(true);
+    // Un hallazgo eliminado no cuenta
+    await db.safetyFindings.update('s1', { deletedAt: 2 });
+    expect(await hecho()).toBe(false);
+    db.close();
+  });
+
   it('las lecturas del ejemplo son crecientes y el sistema eléctrico tiene un solo origen', async () => {
     const db = createDb('pontia-prueba-ejemplo-2');
     const ejemplo = await createSampleProject(db);

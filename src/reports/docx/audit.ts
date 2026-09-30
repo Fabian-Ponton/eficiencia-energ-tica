@@ -10,6 +10,7 @@ import { formatDate, formatDateTime, periodLabel, periodLabelLong } from '@/util
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { characterizationFacts, characterizationNotes } from '../characterization';
 import { opportunitiesSection } from './opportunitiesSection';
+import { safetySection } from './safetySection';
 import { upmeBaselineSection } from './upmeBaselineSection';
 import type { ReportFigure } from '../figures';
 import { billedDailyKwh, measuredWeekdayKwh, type AuditModel, type AutoFinding, type FindingTone } from '../model';
@@ -107,7 +108,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
   const recorded = m.data.findings.filter((f) => f.status !== 'cerrado' && (f.severity === 'critico' || f.severity === 'alto'));
   const adopted = new Set(m.data.findings.map((f) => f.ruleId).filter(Boolean));
   const automatic = m.findings.filter(
-    (f) => f.tone !== 'good' && f.tone !== 'info' && (!recorded.length || f.tone === 'critical' || f.tone === 'serious') && !adopted.has(ruleIdOf(f.title)),
+    (f) => f.tone !== 'good' && f.tone !== 'info' && f.topic !== 'seguridad' && (!recorded.length || f.tone === 'critical' || f.tone === 'serious') && !adopted.has(ruleIdOf(f.title)),
   );
   const main = [...recorded.map(recordedFindingBullet), ...automatic.map(findingBullet)].slice(0, 6);
   const plan = m.data.measures.filter((x) => x.selected);
@@ -129,6 +130,21 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     heading('Hallazgos principales', 2),
     ...(main.length ? main : [para('No se encontraron hallazgos críticos con los datos registrados.')]),
   );
+  // La seguridad eléctrica va aparte de los hallazgos energéticos: solo se avisa aquí de lo que pide atención
+  const safety = m.safety;
+  if (safety.summary.total || safety.suggestions.length) {
+    body.push(
+      heading('Seguridad eléctrica', 2),
+      para(
+        safety.summary.attention
+          ? `${safety.summary.attention} ${safety.summary.attention === 1 ? 'hallazgo de seguridad eléctrica pide' : 'hallazgos de seguridad eléctrica piden'} atención inmediata (peligro inminente, alto riesgo o nivel alto en la matriz del RETIE). Se tratan en su propio capítulo, sin importar el ahorro.`
+          : safety.summary.total
+            ? `Se registraron ${safety.summary.total} ${safety.summary.total === 1 ? 'hallazgo' : 'hallazgos'} de seguridad eléctrica, ninguno con alto riesgo o peligro inminente abierto. Se tratan en su propio capítulo.`
+            : 'No hay hallazgos de seguridad eléctrica registrados.',
+      ),
+      ...(safety.suggestions.length ? [para(`${safety.suggestions.length} ${safety.suggestions.length === 1 ? 'situación' : 'situaciones'} de los datos (carga, desbalance o equipos deficientes) está${safety.suggestions.length === 1 ? '' : 'n'} por valorar con la matriz del RETIE.`)] : []),
+    );
+  }
   if (plan.length) {
     body.push(
       heading('Oportunidades de ahorro', 2),
@@ -592,9 +608,13 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
   // Oportunidades de ahorro (art. 4, literales d, e y g): potencial por clase, FNCER, tenencia, VPN y TIR, y priorización con criterios
   if (m.data.measures.length || m.data.project.scope) body.push(...opportunitiesSection(m, { fig, table, title: `${section++}. Oportunidades de ahorro` }));
 
+  // Seguridad eléctrica: capítulo propio, aparte de los ahorros
+  body.push(...safetySection(m, { fig, table, title: `${section}. Seguridad eléctrica` }));
+  if (m.data.safetyFindings.length || m.safety.suggestions.length || m.data.project.safetyReviewed) section += 1;
+
   // Conclusiones
   body.push(heading(`${section}. Conclusiones y recomendaciones`));
-  const concluding = m.findings.filter((x) => x.tone !== 'info');
+  const concluding = m.findings.filter((x) => x.tone !== 'info' && x.topic !== 'seguridad');
   body.push(...(concluding.length ? concluding.map(findingBullet) : [para('Los datos registrados no muestran desviaciones importantes.')]));
   const recommendations = recommend(m);
   if (recommendations.length) body.push(heading('Recomendaciones', 2), ...recommendations.map((r) => bullet(r)));

@@ -1,6 +1,6 @@
 import { useToast } from 'primevue/usetoast';
 import { computed, ref, toRaw, watch, type Ref } from 'vue';
-import { discardPhotos, restoreRecords, saveRecord, softDeleteRecords, type Draft, type RecordTable, type RecordTables } from '@/db/records';
+import { discardPhotos, plain, restoreRecords, saveRecord, softDeleteRecords, type Draft, type RecordTable, type RecordTables } from '@/db/records';
 import { getDb } from '@/db/schema';
 import type { EntityType } from '@/domain/types';
 import { offerUndo } from './useUndo';
@@ -39,9 +39,12 @@ export function useRecordEditor<K extends RecordTable>(table: K, options: NoInfe
 
   const errors = computed<FieldErrors>(() => (submitted.value && options.validate ? options.validate(draft.value) : {}));
 
-  /** Copia editable: el formulario nunca modifica el registro que muestra la lista. */
+  /**
+   * Copia editable: el formulario nunca modifica el registro que muestra la lista. `plain` quita los proxies de Vue que queden dentro
+   * (un `prepare` que copia el borrador con `{ ...d }` conserva los objetos y arrays internos como proxies, y `structuredClone` no los copia).
+   */
   function editable(record: RecordTables[K] | D): D {
-    const copy = structuredClone(toRaw(record)) as Partial<RecordTables[K]>;
+    const copy = structuredClone(plain(toRaw(record))) as Partial<RecordTables[K]>;
     delete copy.updatedAt;
     delete copy.deletedAt;
     return copy as unknown as D;
