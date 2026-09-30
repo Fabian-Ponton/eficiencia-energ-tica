@@ -150,7 +150,7 @@ const monthsText = (months?: string[]) => {
     <section class="card seccion">
       <div class="cabecera-seccion">
         <h2><IconChartAreaLine :size="18" />Línea base UPME 016</h2>
-        <span class="eyebrow">Res. UPME 016 de 2024 · promedio del mismo mes · banda de ±10 %</span>
+        <span class="eyebrow">Res. UPME 016 de 2024 · promedio del mismo mes · banda de ±10 %{{ baseline?.monthly?.months.some((m) => m.band === 'desviacion') ? ' o dos desviaciones estándar' : '' }}</span>
         <PngButton v-if="figure" :option="() => (baseline ? (upmeBaselineFigure(baseline, false)?.option ?? null) : null)" :name="pngName" />
       </div>
 

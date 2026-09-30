@@ -8,7 +8,7 @@ Cada fila de la matriz de cumplimiento (`MATRIZ_CUMPLIMIENTO.md`) queda como **c
 
 | Prueba | Resultado |
 |---|---|
-| Pruebas automáticas (`npm test`) | **67 archivos y 463 pruebas pasan** (al empezar: 36 archivos y 146 pruebas) |
+| Pruebas automáticas (`npm test`) | **67 archivos y 469 pruebas pasan** (al empezar: 36 archivos y 146 pruebas); la suite se repitió varias veces, también con la hora del servidor de publicación (UTC), sin fallas |
 | Tipos y compilación (`vue-tsc` y `npm run build`) | Sin errores |
 | Ejemplo «Laboratorios · Sede Riohacha» | 5 laboratorios de tipos distintos, equipos de 24 horas, gas natural, horarios de dos periodos, cuatro hallazgos de seguridad, cinco medidas (una por clase de potencial), ruta anual con el 15 % legal superado en 2027 (16,6 %) y tareas con verificación del RETIE; probado con `sampleLab.test.ts` |
 | Navegador real (PC de 1280 px y celular de 390 px) | Las 12 pantallas recorridas del ejemplo (inicio y once pasos) abren sin errores ni desbordamiento; se generan el informe de auditoría (14 figuras), el PGEE, el plan de implementación y el paquete de datos de la UPME |
@@ -18,8 +18,8 @@ Cada fila de la matriz de cumplimiento (`MATRIZ_CUMPLIMIENTO.md`) queda como **c
 
 | Estado | Filas |
 |---|---|
-| ✅ Cumplido | 63 |
-| 🟡 Parcial | 13 |
+| ✅ Cumplido | 65 |
+| 🟡 Parcial | 11 |
 | ❌ Pendiente | 4 |
 | Total | 80 |
 
@@ -49,7 +49,7 @@ Lo cumplido cubre todo lo que la aplicación puede hacer por sí sola. Lo parcia
 | R-4f | Indicadores de desempeño energético y propuesta de seguimiento | ✅ Cumplido | M5, M10 y M11. Indicadores por área, por usuario, por persona atendida, por hora de práctica y por laboratorio; tabla de qué se evalúa, cómo y cada cuánto, con el gestor del PGEE. `indicators.test.ts`, `auditSections.test.ts`. |
 | R-4g | Priorización de medidas | ✅ Cumplido | M6. Tabla de priorización con el criterio (retorno), responsable y plazo; el auditor ajusta la prioridad. `docx.test.ts`. |
 | R-4p1 | NTC-ISO 50002 como referente | 🟡 Parcial | M11. Sección «Alcance, frontera y limitaciones» (con limitaciones calculadas de los datos), metodología y verificación del artículo 4. **No hay mapeo cláusula por cláusula**: la norma es de pago y no se pudo consultar; el informe la cita solo como referente. |
-| R-4p2 | Línea base y ahorro según la Res. UPME 016 de 2024 | 🟡 Parcial | M5. Tres modelos, normalización a 30 días, banda de ±10 %, regresión con p-valores, ajustes y mejor desempeño (ver sección 3). Las ecuaciones 4 y 5 de la resolución no se pudieron leer: la banda por desviación estándar no se aplica. |
+| R-4p2 | Línea base y ahorro según la Res. UPME 016 de 2024 | ✅ Cumplido | M5 y complemento posterior. Tres modelos, normalización a 30 días, banda de ±10 % o de dos desviaciones estándar, regresión con p-valores, ajustes y mejor desempeño (ver sección 3). |
 | R-4p3 | PGEE con ruta de cumplimiento anual y responsable designado | ✅ Cumplido | M8. Gestor energético con acto y fecha de designación, meta legal y ruta anual propuesta o confirmada. `route.test.ts`, `compliance.test.ts`, `pgee.test.ts`. |
 | R-4p4 | Guía UPME de PGEE (siete etapas) | ✅ Cumplido | M8. El documento del PGEE sigue las siete etapas de la guía. `reports/docx/pgee.ts` · `pgee.test.ts`. |
 | R-05 | Reporte a la UPME: informe de auditoría y resultados de las medidas | 🟡 Parcial | M10. Igual que L-06: todo listo para diligenciar; no se envía. |
@@ -65,7 +65,7 @@ Lo cumplido cubre todo lo que la aplicación puede hacer por sí sola. Lo parcia
 | U-03 | §7.3: variables relevantes y significancia p < 5 % | ✅ Cumplido | M1 y M5. Personas atendidas, horas de práctica, grados-día, días hábiles, temperatura y ocupación, con p-valores. `lben.test.ts`. |
 | U-04 | §7.4–7.5: valor absoluto, cociente o estadístico, según los datos | ✅ Cumplido | M5. Los tres modelos y la recomendación automática. Reproducen los Anexos 1 a 4 de la resolución. `lben.test.ts`. |
 | U-05 | §7.5: normalizar a 30 días | ✅ Cumplido | M5. `(kWh ÷ días facturados) × 30`. `lben.test.ts`. |
-| U-06 | §7.5.1–7.5.2: promedio del mismo mes, banda de ±10 % y depuración | 🟡 Parcial | M5. Implementado; la banda con desviación estándar para 10 o más datos (ecuaciones 4 y 5) no se pudo leer y se usa siempre ±10 %. |
+| U-06 | §7.5.1–7.5.2: promedio del mismo mes, banda de ±10 % y depuración; con 10 o más datos, dos desviaciones estándar | ✅ Cumplido | M5 y complemento posterior. Las ecuaciones 4 y 5 se leyeron en las imágenes del texto oficial (banda de dos desviaciones estándar de la población). Se aplican mes por mes, porque la resolución no dice si los diez datos son del mes o de toda la serie. `lben.test.ts`. |
 | U-07 | §7.5.3: regresión al 95 %, descartar variables con p > 0,05, reportar R² | ✅ Cumplido | M5. `lben.test.ts` (Anexo 3: potencial de 3,44 %, R² 0,2493). |
 | U-08 | §7.6: ajustes rutinarios, no rutinarios y actualizaciones, documentados | ✅ Cumplido | M5. Bitácora de ajustes y ajuste no rutinario aplicado a la línea base. `lben.test.ts` (Anexo 4). |
 | U-09 | §8.1: potencial por mejor desempeño energético | ✅ Cumplido | M5. Cálculo mensual y porcentaje. `upmeBaseline.test.ts`. |
@@ -89,7 +89,7 @@ Lo cumplido cubre todo lo que la aplicación puede hacer por sí sola. Lo parcia
 
 | ID | Requisito | Estado | Evidencia |
 |---|---|---|---|
-| X-01 | RETIE 1.5.1: análisis de riesgos de origen eléctrico | ✅ Cumplido | M7. Doce factores de riesgo, matriz de consecuencia y frecuencia, alto riesgo y peligro inminente, capítulo aparte del informe. `safety.test.ts`, `docx.test.ts`. La matriz de 2013 está verificada; falta cotejarla con el PDF de 2026. |
+| X-01 | RETIE 1.5.1: análisis de riesgos de origen eléctrico | ✅ Cumplido | M7. Doce factores de riesgo, matriz de consecuencia y frecuencia, alto riesgo y peligro inminente, capítulo aparte del informe. `safety.test.ts`, `docx.test.ts`. La matriz y la tabla de decisiones se cotejaron celda por celda con las imágenes del texto de 2026 (Tablas 1.5.1.4.1.a y b): son iguales a las de 2013. |
 | X-02 | RETIE: cumplimiento en cada intervención según la fecha de inicio de obra | ✅ Cumplido | M9. Régimen por fecha de inicio, documentos, estado de la verificación y regla para marcar «Implementada». La app registra y recuerda; no decide qué documento aplica. `retie.test.ts`. |
 | X-03 | RETILAP: iluminancia y VEEI | ✅ Cumplido | M0 y M3. VEEI de aulas y laboratorios corregido a 4,0 (Res. 40286 de 2026) y catálogo de ocho laboratorios con su fila del RETILAP 2026 para centros educativos. No cubre laboratorios de industria ni de salud. `catalogs.test.ts`, `sizing.test.ts`. |
 | X-04 | NTC 2050 (criterio del 80 % de la protección) | 🟡 Parcial | El criterio es un parámetro editable (`breakerCriterion`); la sección exacta de la NTC 2050 no se pudo verificar y no se cita. |
@@ -163,11 +163,9 @@ Lo cumplido cubre todo lo que la aplicación puede hacer por sí sola. Lo parcia
 | Circular de la UPME para el ciclo 2026 | Fabián y la UPME | No se halló una circular de 2026. Con ella se agrega el recordatorio de la ventana de reporte (C-07). |
 | Certificado de experiencia del auditor (art. 6) | Fabián | Un tercero debe certificar al menos una auditoría realizada. La aplicación solo la registra y avisa (R-06). |
 | Año de referencia del 15 % y plazo de las metas sostenibles | Fabián y la UPME | La ley no precisa cuál es «el año anterior» ni interpreta «a más tardar en 2026». PONTIA propone el año de la auditoría y lo deja editable (L-03, L-04). |
-| Ecuaciones 4 y 5 de la Res. UPME 016 | Fuentes oficiales | No se pudieron leer; la banda por desviación estándar no se aplica (U-06, R-4p2). |
 | Mapeo cláusula por cláusula de la NTC-ISO 50002 | Fabián | La norma es de pago; el informe la cita como referente (R-4p1). |
 | Factura reciente de gas natural | Fabián | Para confirmar los campos y el factor de conversión; el CO₂ del gas no se calcula sin un factor verificado (LAB-08). |
 | Lista real de laboratorios de la Universidad | Fabián | Para ajustar el catálogo de tipos y reemplazar el ejemplo por el proyecto real. |
-| Matriz de riesgos del RETIE de 2026 | Fuentes oficiales | La de 2013 está verificada; falta cotejarla con el PDF de 2026 (X-01). |
 | Abrir los .xlsx en Excel y en LibreOffice | Fabián | Confirmar las listas desplegables de los formatos (F-14). |
 | Revisión técnica de campanas de extracción | Auditor | Validar el cálculo de la carga térmica con datos reales (LAB-10). |
 | Publicación en `main` y en GitHub Pages | Fabián | Nada de esta tarea está publicado. Se publica solo con su autorización expresa. |

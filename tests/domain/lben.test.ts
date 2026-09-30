@@ -7,6 +7,7 @@ import {
   monthlyModel,
   nonRoutineProportion,
   normalizeTo30Days,
+  populationStdDev,
   ratioModel,
   recommendModel,
   savingsWithAdjustments,
@@ -313,5 +314,67 @@ describe('información que se reporta a la UPME (Paso 7)', () => {
     expect(filas.find((f) => f.attribute === 'Variable relevante')?.description).toBe('Personas atendidas por mes');
     expect(filas.find((f) => f.attribute === 'Periodo base')?.description).toBe('2 años');
     expect(filas.find((f) => f.attribute === 'Ahorro estimado')).toBeUndefined();
+  });
+});
+
+describe('banda de dos desviaciones estándar con diez o más datos (ecuaciones 4 y 5)', () => {
+  /** Enero de diez años: promedio 100 y desviación estándar de la población de √285 ≈ 16,88. */
+  const enero = [100, 120, 80, 105, 95, 130, 70, 110, 90, 100];
+  const serie = (values: readonly number[]) => values.map((value, i) => ({ period: `${2010 + i}-01`, value }));
+
+  it('la desviación estándar de la ecuación 5 divide entre N, no entre N − 1', () => {
+    expect(populationStdDev(enero)).toBeCloseTo(Math.sqrt(285), 10);
+    expect(populationStdDev([5])).toBe(0);
+    expect(populationStdDev([])).toBeNull();
+  });
+
+  it('con diez datos del mes la banda es el promedio ± 2 desviaciones y conserva datos que la banda de ±10 % eliminaría', () => {
+    const mes = monthlyModel(serie(enero)).months[0];
+    expect(mes.band).toBe('desviacion');
+    expect(mes.initialAverage).toBeCloseTo(100, 10);
+    expect(mes.upper).toBeCloseTo(100 + 2 * Math.sqrt(285), 8);
+    expect(mes.lower).toBeCloseTo(100 - 2 * Math.sqrt(285), 8);
+    // Ninguno sale de la banda: 70 y 130 quedarían por fuera de ±10 %, pero están a menos de dos desviaciones
+    expect(mes.data.some((d) => d.outside)).toBe(false);
+    expect(mes.finalCount).toBe(10);
+    expect(mes.baseline).toBeCloseTo(100, 10);
+    // Los demás meses no tienen datos
+    expect(monthlyModel(serie(enero)).months[1].band).toBeNull();
+  });
+
+  it('un dato a más de dos desviaciones sale de la banda y se depura', () => {
+    const mes = monthlyModel(serie([...enero, 200])).months[0];
+    expect(mes.band).toBe('desviacion');
+    expect(mes.data.find((d) => d.value === 200)?.outside).toBe(true);
+    expect(mes.data.filter((d) => d.outside)).toHaveLength(1);
+    expect(mes.finalCount).toBe(10);
+    // Sin el dato atípico, la LBEn del mes vuelve al promedio de los diez
+    expect(mes.baseline).toBeCloseTo(100, 10);
+    // Conservarlo solo lo marca
+    const conservado = monthlyModel(serie([...enero, 200]), { removeOutliers: false }).months[0];
+    expect(conservado.finalCount).toBe(11);
+    expect(conservado.data.find((d) => d.value === 200)).toMatchObject({ outside: true, removed: false });
+  });
+
+  it('con nueve datos se mantiene la banda de ±10 %', () => {
+    const mes = monthlyModel(serie(enero.slice(0, 9))).months[0];
+    expect(mes.band).toBe('porcentaje');
+    // Promedio de los nueve: 100; con ±10 % quedan fuera 120, 80, 130 y 70
+    expect(mes.upper).toBeCloseTo(110, 10);
+    expect(mes.lower).toBeCloseTo(90, 10);
+    expect(mes.data.filter((d) => d.outside).map((d) => d.value).sort((a, b) => a - b)).toEqual([70, 80, 120, 130]);
+  });
+
+  it('se puede pedir siempre la banda de ±10 %', () => {
+    const mes = monthlyModel(serie(enero), { deviationBand: false }).months[0];
+    expect(mes.band).toBe('porcentaje');
+    expect(mes.data.filter((d) => d.outside).length).toBeGreaterThan(0);
+  });
+
+  it('el modelo de cociente usa la misma regla con los cocientes de cada mes', () => {
+    const puntos = enero.map((value, i) => ({ period: `${2010 + i}-01`, year: 2010 + i, month: 1, kwh: value * 10, billedKwh: value * 10, normalized: true, variables: { personas: 10 } }));
+    const modelo = ratioModel(puntos, 'personas');
+    expect(modelo.months[0].band).toBe('desviacion');
+    expect(modelo.months[0].initialAverage).toBeCloseTo(100, 10);
   });
 });

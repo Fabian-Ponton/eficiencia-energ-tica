@@ -5,12 +5,20 @@ import { mean, sum } from './stats';
 /**
  * Línea base de consumo energético (LBEn) con el método de la Res. UPME 016 de 2024, §7 y §8 y sus Anexos 1 a 4:
  * modelo de valor absoluto, de cociente de valores medido y estadístico, con el consumo normalizado a 30 días,
- * banda de verificación de ±10 % del promedio del mes, depuración de los datos que quedan por fuera, mejor desempeño
- * y ajustes no rutinarios. Todas son funciones puras.
+ * banda de verificación de ±10 % del promedio del mes (o de dos desviaciones estándar con diez o más datos del mes),
+ * depuración de los datos que quedan por fuera, mejor desempeño y ajustes no rutinarios. Todas son funciones puras.
  */
 
 /** Banda de verificación (ecuaciones 3 y 7): ±10 % del promedio de cada mes. */
 export const CONFIDENCE_BAND = 0.1;
+/**
+ * Con diez o más datos de consumo, la resolución sugiere verificar con dos desviaciones estándar en vez de ±10 % (§7.5.1 y §7.5.2,
+ * ecuaciones 4 y 5). El texto no dice si el número de datos es el del mes o el de toda la serie; PONTIA lo aplica mes por mes: el
+ * promedio de cada mes (LBEn) es el centro de la banda y las desviaciones salen de los datos de ese mismo mes.
+ */
+export const STD_BAND_MIN_DATA = 10;
+/** Desviaciones estándar a cada lado del promedio (ecuación 4). */
+export const STD_BAND_FACTOR = 2;
 /** Nivel de significancia del modelo estadístico (§7.5.3): una variable con probabilidad mayor a 0,05 se descarta. */
 export const SIGNIFICANCE = 0.05;
 /** Meses de datos que recomienda la resolución para el periodo base (§7.1 y §7.2: tres años de datos mensuales). */
@@ -21,6 +29,13 @@ export function standardDeviation(values: readonly number[]): number | null {
   if (values.length < 2) return null;
   const average = mean(values);
   return Math.sqrt(sum(values.map((v) => (v - average) ** 2)) / (values.length - 1));
+}
+
+/** Desviación estándar de la población (ecuación 5 de la resolución: la suma de los cuadrados de las diferencias entre N); `null` sin datos. */
+export function populationStdDev(values: readonly number[]): number | null {
+  if (!values.length) return null;
+  const average = mean(values);
+  return Math.sqrt(sum(values.map((v) => (v - average) ** 2)) / values.length);
 }
 
 // ——— Variables relevantes y serie mensual ———
@@ -100,11 +115,14 @@ export const completeVariables = (points: readonly BaselinePoint[]): UpmeVariabl
 
 // ——— Modelos de valor absoluto y de cociente (promedio del mismo mes) ———
 
+/** Cómo se verificó el mes: ±10 % del promedio o, con diez o más datos, dos desviaciones estándar. */
+export type BandKind = 'porcentaje' | 'desviacion';
+
 export interface MonthDatum {
   period: string;
   year: number;
   value: number;
-  /** Quedó por fuera de la banda de ±10 % del promedio del mes. */
+  /** Quedó por fuera de la banda del mes (±10 % o dos desviaciones estándar). */
   outside: boolean;
   /** Se eliminó: no entra a la LBEn. Solo ocurre si se pidió depurar. */
   removed: boolean;
@@ -119,6 +137,8 @@ export interface BaselineMonth {
   initialAverage: number | null;
   upper: number | null;
   lower: number | null;
+  /** Qué banda se usó en el mes; `null` si el mes no tiene datos. */
+  band: BandKind | null;
   /** LBEn del mes con los datos depurados. */
   baseline: number | null;
   minimum: number | null;
@@ -151,6 +171,8 @@ export interface MonthlyModel {
 export interface MonthlyOptions {
   /** Banda alrededor del promedio; 0,10 por omisión. */
   band?: number;
+  /** Con diez o más datos del mes, usar dos desviaciones estándar (ecuaciones 4 y 5); `false` mantiene siempre la banda porcentual. */
+  deviationBand?: boolean;
   /** Eliminar los datos por fuera de la banda (lo que pide el §7.5.1); `false` para conservarlos y solo marcarlos. */
   removeOutliers?: boolean;
   /** Grupos de meses anómalos (AAAA-MM) declarados como ajuste no rutinario: cada uno se corrige con el procedimiento del Anexo 4 antes de calcular. */
@@ -162,6 +184,7 @@ const EPS = 1e-9;
 /** Tabla mensual de los Anexos 1 y 2: promedio del mismo mes, banda de ±10 %, depuración, mínimo y ahorro por mejor desempeño. */
 export function monthlyModel(source: readonly { period: string; value: number }[], options: MonthlyOptions = {}): MonthlyModel {
   const band = options.band ?? CONFIDENCE_BAND;
+  const deviationBand = options.deviationBand ?? true;
   const remove = options.removeOutliers ?? true;
   let entries = source;
   const adjustments: NonRoutineProportion[] = [];
@@ -175,13 +198,17 @@ export function monthlyModel(source: readonly { period: string; value: number }[
     const month = i + 1;
     const data = entries.filter((e) => Number(e.period.slice(5, 7)) === month && Number.isFinite(e.value));
     if (!data.length) {
-      return { month, data: [], initialCount: 0, finalCount: 0, initialAverage: null, upper: null, lower: null, baseline: null, minimum: null, stdDev: null, saving: null, savingPct: null, allRemoved: false };
+      return { month, data: [], initialCount: 0, finalCount: 0, initialAverage: null, upper: null, lower: null, band: null, baseline: null, minimum: null, stdDev: null, saving: null, savingPct: null, allRemoved: false };
     }
     const initialAverage = mean(data.map((d) => d.value));
-    const upper = initialAverage * (1 + band);
-    const lower = initialAverage * (1 - band);
+    // Con diez o más datos del mes, dos desviaciones estándar (ecuaciones 4 y 5); si no, ±10 % del promedio (ecuaciones 3 y 7)
+    const sigma = deviationBand && data.length >= STD_BAND_MIN_DATA ? populationStdDev(data.map((d) => d.value)) : null;
+    const bandKind: BandKind = sigma !== null ? 'desviacion' : 'porcentaje';
+    const upper = sigma !== null ? initialAverage + STD_BAND_FACTOR * sigma : initialAverage * (1 + band);
+    const lower = sigma !== null ? initialAverage - STD_BAND_FACTOR * sigma : initialAverage * (1 - band);
+    const tolerance = EPS * Math.max(Math.abs(upper), Math.abs(lower), 1);
     const flagged: MonthDatum[] = data.map((d) => {
-      const outside = d.value > upper * (1 + EPS) || d.value < lower * (1 - EPS);
+      const outside = d.value > upper + tolerance || d.value < lower - tolerance;
       return { period: d.period, year: Number(d.period.slice(0, 4)), value: d.value, outside, removed: remove && outside };
     });
     const kept = flagged.filter((d) => !d.removed);
@@ -196,6 +223,7 @@ export function monthlyModel(source: readonly { period: string; value: number }[
       initialAverage,
       upper,
       lower,
+      band: bandKind,
       baseline,
       minimum,
       stdDev: standardDeviation((kept.length ? kept : flagged).map((d) => d.value)),

@@ -323,12 +323,14 @@ export function baselineBandChart(opts: {
   years: { name: string; values: (number | null)[]; outside?: boolean[] }[];
   unit?: string;
   decimals?: number;
+  /** Nombre de la banda en la leyenda; «Banda de ±10 %» por omisión. */
+  bandLabel?: string;
   dark: boolean;
 }): ChartOption {
   const p = chartPalette(opts.dark);
   const decimals = opts.decimals ?? 0;
   const unit = opts.unit ?? 'kWh';
-  const names = { baseline: 'LBEn (promedio del mes)', band: 'Banda de ±10 %', minimum: 'Mejor desempeño (mínimo)' };
+  const names = { baseline: 'LBEn (promedio del mes)', band: opts.bandLabel ?? 'Banda de ±10 %', minimum: 'Mejor desempeño (mínimo)' };
   const yearNames = opts.years.map((y) => y.name);
   const fmt = (v: number | null | undefined) => (typeof v === 'number' ? `${formatNumber(v, decimals)} ${unit}` : '—');
   const legendNames = [names.baseline, names.band, ...(opts.minimum ? [names.minimum] : []), ...yearNames];

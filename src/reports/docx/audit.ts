@@ -252,7 +252,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     ...(m.data.measurements.length ? [bullet(`${m.data.measurements.length} mediciones puntuales de tensión, corriente y potencia.`)] : []),
     bullet(
       m.upme
-        ? 'Línea base de consumo energético con el método de la Res. UPME 016 de 2024 (promedio del mismo mes, banda de ±10 % y mejor desempeño); la regresión de la ISO 50006 con los criterios de ASHRAE Guideline 14 queda como complemento. Los ahorros se verificarán con el protocolo IPMVP.'
+        ? 'Línea base de consumo energético con el método de la Res. UPME 016 de 2024 (promedio del mismo mes, banda de ±10 % o de dos desviaciones estándar con diez o más datos del mes, y mejor desempeño); la regresión de la ISO 50006 con los criterios de ASHRAE Guideline 14 queda como complemento. Los ahorros se verificarán con el protocolo IPMVP.'
         : 'Línea base por regresión con variables relevantes (ISO 50006) y criterios de ASHRAE Guideline 14; los ahorros se verificarán con el protocolo IPMVP.',
     ),
     bullet('Carga térmica simplificada y método de los lúmenes para verificar la climatización y la iluminación de cada espacio.'),

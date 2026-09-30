@@ -144,13 +144,18 @@ export function computeUpmeBaseline(input: UpmeBaselineInput): UpmeBaseline | nu
     }
     const thin = monthly.months.filter((m) => m.initialCount > 0 && m.initialCount < 3).length;
     if (thin) warnings.push({ tone: 'info', text: `${thin} ${thin === 1 ? 'mes tiene' : 'meses tienen'} menos de 3 datos; el §7.5.1 sugiere al menos tres valores del mismo mes.` });
+    const deviationMonths = monthly.months.filter((m) => m.band === 'desviacion').length;
+    const bandText = deviationMonths ? 'la banda de verificación (±10 %, o dos desviaciones estándar en los meses con 10 o más datos)' : 'la banda de ±10 %';
+    if (deviationMonths) {
+      warnings.push({ tone: 'info', text: `${deviationMonths} ${deviationMonths === 1 ? 'mes tiene' : 'meses tienen'} 10 o más datos: se verificaron con dos desviaciones estándar en vez de ±10 % (ecuaciones 4 y 5).` });
+    }
     const outside = monthly.months.flatMap((m) => m.data).filter((d) => d.outside);
     if (outside.length) {
       const which = `${list(outside.slice(0, 6).map((d) => periodLabel(d.period)))}${outside.length > 6 ? '…' : ''}`;
       const verb = config.keepOutliers ? (outside.length === 1 ? 'se conservó' : 'se conservaron') : outside.length === 1 ? 'se eliminó' : 'se eliminaron';
       warnings.push({
         tone: 'warning',
-        text: `${outside.length} ${outside.length === 1 ? 'dato quedó' : 'datos quedaron'} fuera de la banda de ±10 % y ${verb} (${which}). Si hubo una causa conocida (remodelación, paro, aires fuera de servicio), registra un ajuste no rutinario en vez de eliminar el dato.`,
+        text: `${outside.length} ${outside.length === 1 ? 'dato quedó' : 'datos quedaron'} fuera de ${bandText} y ${verb} (${which}). Si hubo una causa conocida (remodelación, paro, aires fuera de servicio), registra un ajuste no rutinario en vez de eliminar el dato.`,
       });
     }
     const empty = monthly.months.filter((m) => m.allRemoved).length;

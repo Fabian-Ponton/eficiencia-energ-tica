@@ -4,8 +4,9 @@ import type { Area, ElectricalNode, Equipment, EntityType, RetieRiskFactor, Risk
  * Seguridad eléctrica: el análisis de riesgos de origen eléctrico del RETIE (Res. MME 40284 de 2026, art. 1.5.1).
  * Los 12 factores de riesgo y sus causas y medidas son la Tabla 1.5.1.3.a (texto verificado en la resolución). La matriz de riesgos y
  * la tabla de decisiones son la Tabla 1.5.1.4.1.a y b, que la resolución dice «adoptada de la Resolución 90708 de 2013»; se transcribieron de
- * las Tablas 9.3 y 9.4 del Anexo General de esa resolución (página 44 del PDF, comprobadas contra la imagen). Los hallazgos de seguridad van
- * aparte de los energéticos y nunca entran en los ahorros.
+ * las Tablas 9.3 y 9.4 del Anexo General de esa resolución (página 44 del PDF, comprobadas contra la imagen) y se cotejaron después, celda
+ * por celda, con las imágenes de las Tablas 1.5.1.4.1.a y b del texto de 2026 (30 de septiembre de 2026): son iguales. Los hallazgos de
+ * seguridad van aparte de los energéticos y nunca entran en los ahorros.
  */
 
 // ——— Factores de riesgo (RETIE 1.5.1.3, Tabla a) ———

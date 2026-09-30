@@ -35,10 +35,13 @@ export function upmeBaselineFigure(baseline: UpmeBaseline, dark: boolean): UpmeB
   const years = [...new Set(monthly.months.flatMap((m) => m.data.map((d) => d.year)))].sort((a, b) => a - b);
   const ratio = baseline.ratio;
   const decimals = ratio ? 1 : 0;
+  // Con diez o más datos del mes la banda es de dos desviaciones estándar: la leyenda y el título no dicen «±10 %»
+  const withDeviation = monthly.months.some((m) => m.band === 'desviacion');
   return {
-    title: ratio ? `Línea base mensual del cociente (${ratio.ratioUnit})` : 'Línea base mensual de la energía con su banda de ±10 %',
+    title: ratio ? `Línea base mensual del cociente (${ratio.ratioUnit})` : withDeviation ? 'Línea base mensual de la energía con su banda de verificación' : 'Línea base mensual de la energía con su banda de ±10 %',
     source: 'Promedio del mismo mes en el periodo base (Res. UPME 016 de 2024, §7.5); los rombos son datos por fuera de la banda.',
     option: baselineBandChart({
+      ...(withDeviation ? { bandLabel: 'Banda de verificación' } : {}),
       labels: MONTHS_SHORT,
       baseline: monthly.months.map((m) => m.baseline),
       upper: monthly.months.map((m) => m.upper),
