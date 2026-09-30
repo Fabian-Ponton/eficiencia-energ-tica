@@ -68,6 +68,37 @@ describe('sincronización con la nube', () => {
       thumb: new Blob([bytes], { type: 'image/jpeg' }),
     });
 
+    // Las tablas del cumplimiento normativo también viajan
+    await saveRecord(pc, 'maintenance', { id: 'mto-1', projectId: project.id, equipmentId: equipo.id, type: 'preventivo', lastAt: '2026-05-10' });
+    await saveRecord(pc, 'occupancy', {
+      id: 'ocu-1',
+      projectId: project.id,
+      areaId: equipo.areaId ?? 'sin-area',
+      term: '2026-1',
+      activity: 'Práctica',
+      day: 'L-V',
+      start: '07:00',
+      end: '11:00',
+      hours: 4,
+    });
+    await saveRecord(pc, 'collection', { id: 'ctl-1', projectId: project.id, key: 'general', label: 'Información general', status: 'obtenido' });
+    await saveRecord(pc, 'safetyFindings', {
+      id: 'seg-1',
+      projectId: project.id,
+      foundAt: '2026-09-10',
+      riskFactor: 'sobrecarga',
+      real: false,
+      consequence: 3,
+      frequency: 'c',
+      highRisk: false,
+      imminent: false,
+      description: 'Circuito sin rotular',
+      status: 'abierto',
+      auto: false,
+    });
+    await saveRecord(pc, 'baselineAdjustments', { id: 'adj-1', projectId: project.id, carrier: 'electricidad', kind: 'no-rutinario', date: '2026-09-01', cause: 'Remodelación de un piso' });
+    await saveRecord(pc, 'upmeCycles', { id: 'upme-1', projectId: project.id, year: 2026 });
+
     const pcState = fresh();
     const first = await synchronize(pc, cloud.client, SESSION, pcState);
     expect(first.photosUp).toBe(1);
@@ -79,7 +110,7 @@ describe('sincronización con la nube', () => {
     expect(second.pulled).toBe(cloud.rows.size);
     expect(second.photosDown).toBe(1);
     expect((await celular.projects.get(project.id))?.name).toBe(project.name);
-    for (const table of ['areas', 'equipment', 'electrical', 'bills', 'findings', 'measures', 'pgee', 'tasks', 'intervalSeries', 'intervalDays']) {
+    for (const table of ['areas', 'equipment', 'electrical', 'bills', 'findings', 'measures', 'pgee', 'tasks', 'intervalSeries', 'intervalDays', 'occupancy', 'maintenance', 'collection', 'safetyFindings', 'baselineAdjustments', 'upmeCycles']) {
       expect(await count(celular, table, project.id)).toBe(await count(pc, table, project.id));
     }
     const photo = (await celular.photos.get('foto-1'))!;

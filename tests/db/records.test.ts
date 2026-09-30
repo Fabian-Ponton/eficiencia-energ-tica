@@ -71,4 +71,50 @@ describe('registros del levantamiento', () => {
     expect(await db.photos.count()).toBe(0);
     db.close();
   });
+
+  it('las tablas del cumplimiento normativo se guardan como cualquier registro', async () => {
+    const db = createDb('pontia-prueba-tablas-nuevas');
+    const project = await addProject(db, { name: 'Prueba' });
+    const base = { projectId: project.id };
+    await saveRecord(db, 'collection', { ...base, id: 'c1', key: 'general', label: 'Información general', status: 'pendiente' });
+    await saveRecord(db, 'occupancy', { ...base, id: 'o1', areaId: 'a1', term: '2026-1', activity: 'Práctica de química', day: 'L-V', start: '07:00', end: '11:00', hours: 4 });
+    await saveRecord(db, 'upmeCycles', { ...base, id: 'u1', year: 2026 });
+    expect(await db.collection.where('projectId').equals(project.id).count()).toBe(1);
+    expect((await db.occupancy.where('areaId').equals('a1').toArray())[0].hours).toBe(4);
+    // Un campo vacío no se guarda
+    expect('caseNumber' in (await db.upmeCycles.get('u1'))!).toBe(false);
+    db.close();
+  });
+
+  it('al eliminar un hallazgo de seguridad o un mantenimiento se ocultan también sus fotos', async () => {
+    const db = createDb('pontia-prueba-fotos-nuevas');
+    const project = await addProject(db, { name: 'Prueba' });
+    await saveRecord(db, 'safetyFindings', {
+      id: 's1',
+      projectId: project.id,
+      foundAt: '2026-09-10',
+      riskFactor: 'contacto-directo',
+      real: true,
+      consequence: 4,
+      frequency: 'c',
+      highRisk: true,
+      imminent: false,
+      description: 'Tablero sin tapa',
+      status: 'abierto',
+      auto: false,
+    });
+    await saveRecord(db, 'maintenance', { id: 'm1', projectId: project.id, equipmentId: 'e1', type: 'correctivo' });
+    const photo = { projectId: project.id, kind: 'estado-fisico' as const, takenAt: '2026-09-10T10:00', blob: new Blob(['x']) };
+    await saveRecord(db, 'photos', { ...photo, id: 'fs', entityType: 'seguridad', entityId: 's1' });
+    await saveRecord(db, 'photos', { ...photo, id: 'fm', entityType: 'mantenimiento', entityId: 'm1' });
+
+    await softDeleteRecords(db, 'safetyFindings', ['s1']);
+    await softDeleteRecords(db, 'maintenance', ['m1']);
+    expect((await db.photos.get('fs'))?.deletedAt).toBeDefined();
+    expect((await db.photos.get('fm'))?.deletedAt).toBeDefined();
+    await restoreRecords(db, 'safetyFindings', ['s1']);
+    expect((await db.photos.get('fs'))?.deletedAt).toBeUndefined();
+    expect((await db.photos.get('fm'))?.deletedAt).toBeDefined();
+    db.close();
+  });
 });

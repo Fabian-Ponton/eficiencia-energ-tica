@@ -10,7 +10,27 @@ import type { CloudClient, CloudRow } from './client';
  */
 
 /** Tablas que se sincronizan; las fotos al final, para que sus registros lleguen después de lo que documentan. */
-export const SYNC_TABLES = ['projects', 'areas', 'equipment', 'electrical', 'measurements', 'meterReadings', 'intervalSeries', 'bills', 'findings', 'measures', 'pgee', 'tasks', 'photos'] as const;
+export const SYNC_TABLES = [
+  'projects',
+  'areas',
+  'equipment',
+  'electrical',
+  'measurements',
+  'meterReadings',
+  'intervalSeries',
+  'bills',
+  'findings',
+  'measures',
+  'pgee',
+  'tasks',
+  'occupancy',
+  'maintenance',
+  'collection',
+  'safetyFindings',
+  'baselineAdjustments',
+  'upmeCycles',
+  'photos',
+] as const;
 type SyncTable = (typeof SYNC_TABLES)[number];
 type AnyRecord = { id: string; projectId?: string; createdAt: number; updatedAt: number; deletedAt?: number } & Record<string, unknown>;
 

@@ -5,10 +5,28 @@ import type { PontiaDb } from './schema';
 
 /** Respaldo de un proyecto en un .zip: sirve para guardar copias y para pasar el proyecto del celular al PC. */
 export const BACKUP_FORMAT = 'pontia-respaldo';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 /** Tablas con registros del proyecto; las fotos y los días de las series se guardan aparte. */
-const TABLES = ['areas', 'equipment', 'electrical', 'measurements', 'meterReadings', 'intervalSeries', 'bills', 'findings', 'measures', 'pgee', 'tasks'] as const;
+const TABLES = [
+  'areas',
+  'equipment',
+  'electrical',
+  'measurements',
+  'meterReadings',
+  'intervalSeries',
+  'bills',
+  'findings',
+  'measures',
+  'pgee',
+  'tasks',
+  'occupancy',
+  'maintenance',
+  'collection',
+  'safetyFindings',
+  'baselineAdjustments',
+  'upmeCycles',
+] as const;
 type TableName = (typeof TABLES)[number];
 type StoredRecord = Record<string, unknown>;
 
@@ -131,7 +149,7 @@ export interface RestoreResult {
 }
 
 /** Campos que guardan identificadores de otros registros del proyecto. */
-const REFERENCE_FIELDS = ['id', 'projectId', 'areaId', 'panelId', 'parentId', 'pointId', 'measureId', 'entityId', 'seriesId', 'clientLogoPhotoId'];
+const REFERENCE_FIELDS = ['id', 'projectId', 'areaId', 'equipmentId', 'panelId', 'parentId', 'pointId', 'measureId', 'entityId', 'seriesId', 'taskId', 'clientLogoPhotoId'];
 
 export async function restoreBackup(
   db: PontiaDb,

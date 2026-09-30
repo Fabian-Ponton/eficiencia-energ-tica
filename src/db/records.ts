@@ -1,18 +1,24 @@
 import type { Table } from 'dexie';
 import type {
   Area,
+  BaselineAdjustment,
   Bill,
+  CollectionItem,
   ElectricalNode,
   EntityType,
   Equipment,
   Finding,
   IntervalSeries,
+  MaintenanceRecord,
   Measure,
   Measurement,
   MeterReadingRecord,
+  OccupancyRecord,
   Pgee,
   Photo,
+  SafetyFinding,
   Task,
+  UpmeCycle,
 } from '@/domain/types';
 import type { PontiaDb } from './schema';
 
@@ -30,6 +36,12 @@ export interface RecordTables {
   measures: Measure;
   pgee: Pgee;
   tasks: Task;
+  occupancy: OccupancyRecord;
+  maintenance: MaintenanceRecord;
+  collection: CollectionItem;
+  safetyFindings: SafetyFinding;
+  baselineAdjustments: BaselineAdjustment;
+  upmeCycles: UpmeCycle;
 }
 export type RecordTable = keyof RecordTables;
 
@@ -49,6 +61,8 @@ const PHOTO_ENTITY: Partial<Record<RecordTable, EntityType>> = {
   findings: 'hallazgo',
   measures: 'medida',
   tasks: 'tarea',
+  safetyFindings: 'seguridad',
+  maintenance: 'mantenimiento',
 };
 
 /** Quita los campos vacíos (null, undefined o texto en blanco) y recorta los textos. */

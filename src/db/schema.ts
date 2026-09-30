@@ -1,20 +1,26 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
 import type {
   Area,
+  BaselineAdjustment,
   Bill,
+  CollectionItem,
   ElectricalNode,
   Equipment,
   Finding,
   IntervalDay,
   IntervalSeries,
+  MaintenanceRecord,
   Measure,
   Measurement,
   MeterReadingRecord,
+  OccupancyRecord,
   Pgee,
   Photo,
   Project,
+  SafetyFinding,
   Settings,
   Task,
+  UpmeCycle,
 } from '@/domain/types';
 
 export type PontiaDb = Dexie & {
@@ -33,6 +39,15 @@ export type PontiaDb = Dexie & {
   pgee: EntityTable<Pgee, 'id'>;
   tasks: EntityTable<Task, 'id'>;
   settings: EntityTable<Settings, 'id'>;
+  /** Formato 6: horarios y ocupación por semestre. */
+  occupancy: EntityTable<OccupancyRecord, 'id'>;
+  /** Formato 9: mantenimiento de los equipos. */
+  maintenance: EntityTable<MaintenanceRecord, 'id'>;
+  /** Formato 13: control de recolección. */
+  collection: EntityTable<CollectionItem, 'id'>;
+  safetyFindings: EntityTable<SafetyFinding, 'id'>;
+  baselineAdjustments: EntityTable<BaselineAdjustment, 'id'>;
+  upmeCycles: EntityTable<UpmeCycle, 'id'>;
 };
 
 /** Base local en IndexedDB. Cada cambio de estructura debe agregar una versión nueva, nunca editar la 1. */
@@ -54,6 +69,15 @@ export function createDb(name = 'pontia'): PontiaDb {
     pgee: 'id, projectId',
     tasks: 'id, projectId, measureId',
     settings: 'id',
+  });
+  // Versión 2 (cumplimiento normativo): solo agrega tablas. No hay datos que transformar: los campos nuevos de los registros son opcionales.
+  db.version(2).stores({
+    occupancy: 'id, projectId, areaId, term',
+    maintenance: 'id, projectId, equipmentId',
+    collection: 'id, projectId, key',
+    safetyFindings: 'id, projectId, entityId',
+    baselineAdjustments: 'id, projectId, carrier',
+    upmeCycles: 'id, projectId, year',
   });
   return db;
 }

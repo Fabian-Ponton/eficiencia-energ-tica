@@ -50,7 +50,7 @@
 
 - La **Resolución UPME 563 de 2026 existe** y derogó la 135 de 2025.
 - **RETIE y RETILAP se modificaron el 23-jun-2026** (Res. 40284 y 40286 de 2026): todo parámetro que dependa de ellos debe revalidarse.
-- El **VEEI** que usa PONTIA para aulas y laboratorios (3,5) es más estricto que el del RETILAP que leí (4,0): el informe puede marcar como «supera el límite» algo que la norma permite.
+- El **VEEI** que usa PONTIA para aulas y laboratorios (3,5) es más estricto que el del RETILAP vigente (4,0, Tabla 3.2.5.a de la Res. 40286/2026, verificada en el texto oficial): el informe puede marcar como «supera el límite» algo que la norma permite. Se corrige en el módulo M3.
 - La **guía del Excel excluye la solar FV**, pero la ley y el art. 4(d) mencionan las FNCER: hay que decidir cómo se declara.
 - La UPME 016 **recomienda** 3 años de datos; no los exige. PONTIA puede trabajar con menos, pero debe advertirlo y justificarlo.
 
@@ -182,12 +182,12 @@ PONTIA **no puede enviar** el reporte: el SUU exige usuario de la entidad y no s
 | X-05 | **SST**: SG-SST y riesgo eléctrico (Res. 5018/2019) | ❌ | Ver 6.1 | P1 |
 | X-06 | **Datos personales** (Ley 1581/2012) | ❌ hoy no se guardan datos personales | Guardar en el equipo, excluir de la nube por defecto, no imprimir la cédula | P1 |
 
-**Nota sobre el RETILAP.** Según el texto de 2010, que fue el que leí completo:
+**Nota sobre el RETILAP.** Los valores de iluminancia salen del texto de 2010 (Res. 180540). El **VEEI se verificó después en el texto de 2026** (Res. 40286, Libro 3, art. 3.2.5, Tabla 3.2.5.a), y coincide con el de 2010:
 
 - **Laboratorios en centros educativos**: UGR 19; iluminancia 300 / 500 / 750 lx (mínimo / medio / máximo). El valor **medio** es el objetivo de diseño; el catálogo de PONTIA usa 500 lx (coincide).
 - **Otros laboratorios**: «Cuartos de control, laboratorios» (industria): 750 / 1000 / 1500 lx. «Farmacia y laboratorios» (centros de atención médica): otra fila. El valor depende del contexto, así que un solo «laboratorio» no basta.
-- **VEEI (Tabla 440.1)**: «Aulas y laboratorios» = **4,0**; «Administrativa en general» = 3,5 o 6, según el grupo. PONTIA usa 3,5 para aula, laboratorio y sala de cómputo, y 3,0 para oficina: más estrictos que la norma.
-- Las columnas de la tabla salen desordenadas al extraer el PDF: **confirmar en el PDF oficial antes de codificar**.
+- **VEEI (Tabla 3.2.5.a del RETILAP 2026)**: «Aulas y laboratorios» = **4,0**; «Administrativa en general» = **3,0**; «Almacenes, archivos, salas técnicas y cocinas» = 5,0; «Recintos no descritos» = 4,0. PONTIA usa 3,0 para oficina (**coincide**) y 3,5 para aula, laboratorio y sala de cómputo (**más estricto que la norma**: se cambia a 4,0 en M3).
+- Las columnas de la tabla salen desordenadas al extraer el PDF (las filas de «Aulas y laboratorios» y «Administrativa en general» sí se leen sin ambigüedad). Las iluminancias (300 / 500 / 750 lx) siguen pendientes de confirmar en las tablas de 2026 antes de tomarlas como definitivas.
 
 ### 3.6 Módulo para clientes privados (después de las entidades públicas)
 
@@ -331,7 +331,7 @@ Documentos revisados: informe de auditoría, PGEE, plan de implementación y CSV
 **Otras observaciones**
 
 - Los hallazgos «Crítico» de capacidad (transformador 82 %, tablero 85 %) son de **capacidad**, no de seguridad RETIE, pero se mezclan con los energéticos en el resumen ejecutivo.
-- El informe dice «Aula 601 supera el valor límite de VEEI» (3,74 frente a 3,5). Con el 4,0 del RETILAP que leí, cumpliría. Ver X-03.
+- El informe dice «Aula 601 supera el valor límite de VEEI» (3,74 frente a 3,5). Con el 4,0 del RETILAP 2026, cumpliría. Ver X-03.
 - La tabla de calidad del modelo marca «Meses del periodo base: 12 · Cumple». Es un criterio interno; la UPME recomienda 36.
 
 ### 7.2 PGEE
