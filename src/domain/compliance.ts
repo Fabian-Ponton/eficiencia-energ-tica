@@ -1,4 +1,5 @@
-import type { Project } from './types';
+import type { FirstYearCheck } from './route';
+import type { Pgee, Project } from './types';
 
 /**
  * Lo que la norma pide que contenga la auditoría y el informe, verificado contra los datos del proyecto.
@@ -89,13 +90,41 @@ export function characterization(p: CharacterizationSource): ChecklistGroup {
   };
 }
 
+/** Lo del PGEE que revisa el grupo del art. 4, par. 3. */
+export type PgeeSource = Pick<Pgee, 'energyManager' | 'annualRoute' | 'financing'>;
+
+/**
+ * Res. MME 40412 de 2024, art. 4, par. 3: el PGEE incluye «una ruta de cumplimiento anual de ahorro energético» y un responsable «para
+ * el seguimiento y evaluación del PGEE». Ley 1715 de 2014, art. 30: en el año siguiente a la auditoría, estrategias que permitan un
+ * ahorro de mínimo 15 % del consumo del año anterior. La lista dice si lo que el auditor registró lo cubre; no certifica el ahorro real.
+ */
+export function pgeeChecklist(input: { pgee?: PgeeSource; firstYear: FirstYearCheck | null }): ChecklistGroup {
+  const manager = input.pgee?.energyManager;
+  return {
+    id: 'art4-par3',
+    reference: 'Res. 40412/2024, art. 4 par. 3 · Ley 1715, art. 30',
+    title: 'PGEE: responsable y ruta anual',
+    step: 'pgee',
+    items: [
+      { id: 'responsable', label: 'Responsable del seguimiento y evaluación del plan', ok: filled(manager?.name), level: 'obligatorio' },
+      { id: 'ruta', label: 'Ruta de cumplimiento anual de ahorro', ok: Boolean(input.pgee?.annualRoute?.length), level: 'obligatorio' },
+      { id: 'meta-legal', label: 'Ahorro previsto de al menos 15 % el primer año', ok: input.firstYear?.meets === true, level: 'obligatorio' },
+      { id: 'designacion', label: 'Acto y fecha de designación del responsable', ok: filled(manager?.appointmentDoc) && filled(manager?.appointmentDate), level: 'recomendado' },
+      { id: 'financiacion', label: 'Modelo financiero y contractual', ok: Boolean(input.pgee?.financing?.models.length), level: 'recomendado' },
+    ],
+  };
+}
+
 export interface ComplianceInput {
   project: Project;
+  /** PGEE del proyecto y la ruta calculada; sin ellos, el grupo del PGEE sale con todo pendiente. */
+  pgee?: PgeeSource;
+  firstYear?: FirstYearCheck | null;
 }
 
 /** Todos los grupos de verificación del proyecto. */
 export function checkCompliance(input: ComplianceInput): ChecklistGroup[] {
-  return [characterization(input.project)];
+  return [characterization(input.project), pgeeChecklist({ pgee: input.pgee, firstYear: input.firstYear ?? null })];
 }
 
 /** Frase para el informe borrador: «Faltan: entorno de la edificación, edad de la edificación.» Vacía si no falta nada. */

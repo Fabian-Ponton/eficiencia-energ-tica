@@ -201,6 +201,55 @@ export function barsChart(opts: {
   };
 }
 
+/**
+ * Ruta de cumplimiento anual: por año, el ahorro previsto con las medidas que ya operan (barras, en % del consumo del año anterior)
+ * frente a la meta (rombo) y el mínimo legal (línea punteada). El estado se dice también en el rótulo de cada barra, no solo con el color.
+ */
+export function routeChart(opts: {
+  rows: { year: number; plannedPct: number | null; targetPct: number | null }[];
+  legalPct: number;
+  dark: boolean;
+}): ChartOption {
+  const p = chartPalette(opts.dark);
+  const labels = opts.rows.map((r) => String(r.year));
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+  return {
+    animationDuration: 500,
+    grid: { left: 8, right: 10, top: 48, bottom: 4, containLabel: true },
+    legend: legend(p, true),
+    tooltip: { ...tooltip(p, '%', 1), trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: withAlpha(p.axis, 0.12) } } },
+    xAxis: categoryAxis(p, labels),
+    yAxis: valueAxis(p, '% del consumo', 0, { min: 0 }),
+    series: [
+      {
+        type: 'bar',
+        name: 'Ahorro previsto',
+        barMaxWidth: 36,
+        itemStyle: { color: p.series[0], borderRadius: [4, 4, 0, 0] },
+        data: opts.rows.map((r) => (r.plannedPct === null ? null : round1(r.plannedPct))),
+        label: { show: true, position: 'top', ...monoLabel(p), color: p.text, fontWeight: 600, formatter: (params: { value: unknown }) => (params.value === null || params.value === undefined ? '' : `${formatNumber(Number(params.value), 1)} %`) },
+        markLine: {
+          symbol: 'none',
+          silent: true,
+          lineStyle: { color: p.critical, type: 'dashed', width: 1 },
+          label: { ...monoLabel(p), color: p.critical, formatter: () => `mínimo legal ${formatNumber(opts.legalPct, 0)} %`, position: 'insideEndTop', backgroundColor: withAlpha(p.surface, 0.88), padding: [1, 4], borderRadius: 3 },
+          data: [{ yAxis: opts.legalPct }],
+        },
+      },
+      {
+        type: 'line',
+        name: 'Meta del año',
+        symbol: 'diamond',
+        symbolSize: 10,
+        lineStyle: { color: p.series[1], width: 2 },
+        itemStyle: { color: p.series[1] },
+        z: 3,
+        data: opts.rows.map((r) => (r.targetPct === null ? null : round1(r.targetPct))),
+      },
+    ],
+  };
+}
+
 /** Líneas por periodo (suma móvil de 12 meses, real frente a línea base…). */
 export function linesChart(opts: { labels: string[]; series: SeriesSpec[]; unit?: string; decimals?: number; dark: boolean; minZero?: boolean }): ChartOption {
   const p = chartPalette(opts.dark);

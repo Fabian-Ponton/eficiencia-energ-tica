@@ -48,5 +48,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    // Los informes en Word tardan varios segundos cuando el equipo está ocupado: 5 s fallaba sin que hubiera un error
+    testTimeout: 30_000,
   },
 });

@@ -9,6 +9,7 @@ import { derivePower } from '@/domain/measurements';
 import type { Measure, Task } from '@/domain/types';
 import type { CsvColumn } from './csv';
 import type { AuditModel } from './model';
+import { reportRoute } from './route';
 
 /**
  * Tablas que se exportan a CSV y a Excel: los registros del levantamiento, los resultados del análisis
@@ -67,6 +68,7 @@ export function exportTables(m: AuditModel): ExportTable[] {
   const equipmentName = new Map(data.equipment.map((e) => [e.id, e.name]));
   const findingTitle = new Map(data.findings.map((f) => [f.id, f.title]));
   const economics = new Map(data.measures.map((x) => [x.id, measureEconomics(x, data.project.economics)]));
+  const route = reportRoute(m, { pgee: data.pgee, measures: data.measures, tasks: data.tasks });
   const pointName = (type: string, id?: string) =>
     type === 'general' ? 'General' : ((type === 'tablero' ? nodeName : type === 'area' ? areaName : equipmentName).get(id ?? '') ?? '');
   const phase = (values: (number | null)[] | undefined, i: number) => values?.[i] ?? null;
@@ -276,6 +278,19 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Indicador de seguimiento', value: (x) => x.indicator },
       { header: 'Descripción', value: (x) => x.description },
       { header: 'Observaciones', value: (x) => x.notes },
+    ]),
+    table('ruta-anual', 'Ruta anual de ahorro', route.rows, [
+      { header: 'Año', value: (r) => r.year },
+      { header: 'Medidas que entran', value: (r) => r.measureCodes.join(', ') },
+      { header: 'Ahorro previsto acumulado (kWh/año)', value: (r) => r.plannedKwh, decimals: 0 },
+      { header: 'Ahorro previsto (% del consumo)', value: (r) => finite(r.plannedPct), decimals: 1 },
+      { header: 'Meta (%)', value: (r) => finite(r.targetPct), decimals: 1 },
+      { header: 'Meta (kWh/año)', value: (r) => finite(r.targetKwh), decimals: 0 },
+      { header: 'Presupuesto (COP)', value: (r) => r.budgetCop, decimals: 0 },
+      { header: 'Estado', value: (r) => (r.status === 'cumple' ? 'Cumple' : r.status === 'no-cumple' ? 'No alcanza' : '') },
+      { header: 'Mínimo legal', value: (r) => (r.legalMinimum ? 'Sí' : 'No') },
+      { header: 'Origen de la ruta', value: () => (route.route.proposed ? 'Propuesta de PONTIA' : 'Confirmada por el auditor') },
+      { header: 'Nota', value: (r) => r.note },
     ]),
     taskTable(data.tasks, data.measures),
   ].filter((t) => t.rows.length > 0);

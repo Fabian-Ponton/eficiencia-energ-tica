@@ -255,7 +255,7 @@ const stats = computed(() => [
             <span class="eyebrow">Word · {{ planCount === 1 ? '1 medida en el plan' : `${formatNumber(planCount)} medidas en el plan` }}</span>
           </div>
           <p class="texto">
-            Política, objetivos y metas, planes de acción con la matriz de priorización y seguimiento con M&amp;V, según la ISO 50001. Se completa en el
+            Las siete etapas de la guía de la UPME: marco legal y gestor energético, diagnóstico, meta legal del 15 % y ruta anual, medidas por tipo, modelo financiero, implementación y seguimiento con M&amp;V. Se completa en el
             <RouterLink :to="{ name: 'pgee', params: { projectId } }">paso PGEE</RouterLink>.
           </p>
           <div v-if="busy === 'pgee' && progress" class="avance" role="progressbar" :aria-valuenow="progress.done" aria-valuemin="0" :aria-valuemax="progress.total">

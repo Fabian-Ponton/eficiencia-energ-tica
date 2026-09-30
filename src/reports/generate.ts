@@ -13,6 +13,7 @@ import { auditFigures, type ReportFigure } from './figures';
 import { implementationFigures } from './implementationFigures';
 import { buildAuditModel } from './model';
 import { pgeeFigures } from './pgeeFigures';
+import { reportRoute } from './route';
 
 /** Aviso de avance: qué se está haciendo y cuántos pasos van. */
 export type Progress = (step: string, done: number, total: number) => void;
@@ -95,12 +96,13 @@ export async function generatePgeeReport(db: PontiaDb, projectId: string, { onPr
   const model = buildAuditModel(data);
   // Un PGEE por proyecto: si hubiera más de uno, el primero que se creó (el mismo que edita la pantalla)
   const pgee = (await db.pgee.where('projectId').equals(projectId).toArray()).filter((p) => !p.deletedAt).sort((a, b) => a.createdAt - b.createdAt)[0];
-  const figures = pgeeFigures(data.measures.filter((x) => x.selected));
+  const input = { pgee, measures: data.measures, findings: data.findings, tasks: data.tasks };
+  const figures = pgeeFigures(data.measures.filter((x) => x.selected), reportRoute(model, input));
   const total = figures.length + 1;
   const drawn = await drawFigures(figures, onProgress, total);
   onProgress?.('Armando el documento', total - 1, total);
   await nextFrame();
-  const blob = await Packer.toBlob(buildPgeeDocument(model, { pgee, measures: data.measures, findings: data.findings }, figures, { figures: drawn }));
+  const blob = await Packer.toBlob(buildPgeeDocument(model, input, figures, { figures: drawn }));
   return { blob, fileName: reportFileName(data.project, 'PGEE', 'docx', data.generatedAt) };
 }
 

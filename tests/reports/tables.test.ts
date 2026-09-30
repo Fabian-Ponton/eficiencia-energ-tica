@@ -34,6 +34,7 @@ describe('tablas para CSV y Excel', () => {
       capacidad: 9,
       hallazgos: 5,
       medidas: 5,
+      'ruta-anual': 2,
       tareas: 8,
     });
 
@@ -51,6 +52,16 @@ describe('tablas para CSV y Excel', () => {
     expect(findingsHeader).toBe('Hallazgo;Gravedad;Tema;Estado;Origen;Descripción;Fecha;Posible causa;Impacto energético;Acción sugerida');
     // Las columnas nuevas de las medidas van después de las que ya existían
     expect(measuresHeader).toContain('Prioridad;Clase de potencial;Consumo actual del sistema (kWh/año);Hallazgos que atiende;Evidencia;Responsable;Plazo;Indicador de seguimiento');
+  });
+
+  it('la ruta anual sale con la meta, el ahorro previsto y su estado, y dice si es propuesta o está confirmada', async () => {
+    const tables = await sampleTables('pontia-prueba-tablas-ruta');
+    const ruta = tables.find((t) => t.id === 'ruta-anual')!;
+    const [header, y2027, y2028] = csvLines(ruta);
+    expect(header).toBe('Año;Medidas que entran;Ahorro previsto acumulado (kWh/año);Ahorro previsto (% del consumo);Meta (%);Meta (kWh/año);Presupuesto (COP);Estado;Mínimo legal;Origen de la ruta;Nota');
+    // 2027: M1, M3 y M4 ahorran 38.941 kWh (20,9 %) frente a la meta del 20,8 %; es el primer año, con el mínimo legal
+    expect(y2027.startsWith('2027;M1, M3, M4;38941;20,9;20,8;38771;78600000;Cumple;Sí;Confirmada por el auditor;')).toBe(true);
+    expect(y2028.startsWith('2028;M2;40265;21,6;21,6;40262;22400000;Cumple;No;Confirmada por el auditor;')).toBe(true);
   });
 
   it('los hallazgos de seguridad eléctrica salen en su propia tabla, del más urgente al menos urgente, con la valoración del RETIE', async () => {

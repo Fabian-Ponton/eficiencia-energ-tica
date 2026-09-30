@@ -293,15 +293,20 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       },
       {
         id: 'pgee',
-        what: 'Arma el Programa de Gestión de Eficiencia Energética con la estructura de la ISO 50001.',
+        what: 'Arma el Plan de Gestión Eficiente de la Energía con las siete etapas de la guía de la UPME: decisión, diagnóstico, formulación (meta legal y ruta anual), selección de proyectos, modelo financiero y contractual, implementación y seguimiento.',
         inputs: [
           { label: 'Medidas incluidas en el plan', need: 'obligatorio', source: 'Las que marcaste en Oportunidades: son los planes de acción del programa.' },
+          { label: 'Gestor energético: nombre o cargo, rol, acto de designación y fecha', need: 'obligatorio', source: 'La Res. 40412 (art. 4, par. 3) exige definir un responsable del seguimiento y la evaluación del plan. El acto es el documento con que la entidad lo designó (resolución, acta…). Sin designar, el documento lo pide y no inventa a nadie.' },
+          { label: 'Ruta de cumplimiento anual: año en que entra en operación cada medida, meta y presupuesto de cada año', need: 'obligatorio', source: 'PONTIA la propone con las fechas de las tareas y la prioridad de las medidas. Confírmala o ajústala: sin confirmar, el documento la lleva marcada como propuesta para aprobación.' },
+          { label: 'Meta legal: año de referencia, consumo del año anterior y porcentaje', need: 'recomendado', source: 'La ley pide al menos 15 % del consumo del año anterior en el año siguiente a la auditoría. PONTIA propone el año de la auditoría y los últimos 12 meses facturados; puedes cambiarlos. La meta no puede ser menor que el 15 %.' },
           { label: 'Política energética y alcance', need: 'recomendado', source: 'La app propone un texto base que puedes ajustar al cliente.' },
           { label: 'Equipo de gestión: rol, nombre y responsabilidades', need: 'recomendado', source: 'Quién responde por el programa dentro de la institución.' },
           { label: 'Objetivos y metas: descripción, porcentaje y fecha', need: 'recomendado', source: 'Por ejemplo «Reducir 12 % el consumo antes de diciembre de 2027».' },
+          { label: 'Modelo financiero y contractual', need: 'recomendado', source: 'Los caminos que la entidad considera para pagar las medidas (gastos de funcionamiento, proyecto de inversión, leasing, renting, APP, contrato por desempeño, FENOGE…). El instrumento jurídico lo define la entidad con su oficina jurídica y de presupuesto.' },
           { label: 'Seguimiento, comunicación, formación y frecuencia de revisión', need: 'opcional', source: 'Cómo se verifica, se divulga y se revisa el programa.' },
         ],
-        result: 'Documento del PGEE en Word con la revisión energética, los usos significativos, la línea base, los indicadores, las metas y los planes de acción con su ficha técnica.',
+        result: 'Documento del PGEE en Word con el marco legal, el gestor energético, la revisión energética, la meta legal frente a lo que prevé el plan, la ruta anual con su gráfica, las medidas por tipo (A, B o C según el retorno) con su ficha técnica, el modelo financiero, el resumen del cronograma y los indicadores de seguimiento. En el inicio del proyecto, la lista «PGEE: responsable y ruta anual» dice qué falta.',
+        tip: 'La ley pide al menos el 15 % el primer año. Si el plan no lo alcanza, la ruta lo avisa en rojo y dice cuántos kWh/año faltan: adelanta medidas al primer año o suma otras. La ley también habla de metas sostenibles «a más tardar en el año 2026»; PONTIA no interpreta ese plazo, consúltalo con la UPME.',
       },
       {
         id: 'implementacion',

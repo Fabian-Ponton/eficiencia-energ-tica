@@ -14,7 +14,7 @@ const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompar
 export async function loadReportData(db: PontiaDb, projectId: string, generatedAt = new Date()): Promise<ReportData> {
   const project = await db.projects.get(projectId);
   if (!project || project.deletedAt) throw new Error('El proyecto no existe en este equipo.');
-  const [areas, equipment, electrical, measurements, readings, bills, series, photos, findings, measures, tasks, occupancy, maintenance, collection, baselineAdjustments, safetyFindings] = await Promise.all([
+  const [areas, equipment, electrical, measurements, readings, bills, series, photos, findings, measures, tasks, occupancy, maintenance, collection, baselineAdjustments, safetyFindings, pgee] = await Promise.all([
     db.areas.where('projectId').equals(projectId).toArray(),
     db.equipment.where('projectId').equals(projectId).toArray(),
     db.electrical.where('projectId').equals(projectId).toArray(),
@@ -31,6 +31,7 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     db.collection.where('projectId').equals(projectId).toArray(),
     db.baselineAdjustments.where('projectId').equals(projectId).toArray(),
     db.safetyFindings.where('projectId').equals(projectId).toArray(),
+    db.pgee.where('projectId').equals(projectId).toArray(),
   ]);
 
   // Serie principal: la más reciente de toda la instalación; si ninguna lo es, la más reciente
@@ -52,6 +53,8 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     collection: alive(collection),
     baselineAdjustments: alive(baselineAdjustments).sort((a, b) => a.date.localeCompare(b.date)),
     safetyFindings: alive(safetyFindings).sort((a, b) => urgencyOf(b) - urgencyOf(a) || a.createdAt - b.createdAt),
+    // Un PGEE por proyecto: si hubiera más de uno, el primero que se creó (el mismo que edita la pantalla)
+    pgee: alive(pgee).sort((a, b) => a.createdAt - b.createdAt)[0],
     series: activeSeries,
     mainSeries: main ? { series: main, readings: await loadSeriesReadings(db, main) } : undefined,
     photos: alive(photos).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),

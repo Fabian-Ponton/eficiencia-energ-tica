@@ -40,6 +40,7 @@ import type {
   MeterReadingRecord,
   OccupancyRecord,
   Photo,
+  Pgee,
   Project,
   SafetyFinding,
   Task,
@@ -70,6 +71,8 @@ export interface ReportData {
   baselineAdjustments: BaselineAdjustment[];
   /** Hallazgos de seguridad eléctrica (RETIE 1.5.1): aparte de los energéticos y sin ahorros. */
   safetyFindings: SafetyFinding[];
+  /** PGEE del proyecto (uno por proyecto): el gestor, la meta legal, la ruta anual y el modelo financiero. */
+  pgee?: Pgee;
   series: IntervalSeries[];
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };

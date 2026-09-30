@@ -444,6 +444,8 @@ export interface Pgee extends ProjectScoped {
   legalGoal?: { baseYear: number; previousYearKwh?: number; pct: number };
   /** Ruta de cumplimiento anual de ahorro. */
   annualRoute?: RouteYear[];
+  /** Modelos de financiación y de contratación que se consideran (Guía UPME de PGEE, módulo 3) y lo que la entidad decida. */
+  financing?: { models: string[]; note?: string };
 }
 
 export interface RouteYear {

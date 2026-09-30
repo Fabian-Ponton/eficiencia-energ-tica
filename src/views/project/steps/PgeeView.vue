@@ -1,5 +1,19 @@
 <script setup lang="ts">
-import { IconAlertTriangle, IconClipboardList, IconCloudCheck, IconDownload, IconLoader2, IconPlus, IconTarget, IconTrash, IconUsers } from '@tabler/icons-vue';
+import {
+  IconAlertTriangle,
+  IconBuildingBank,
+  IconCheck,
+  IconClipboardList,
+  IconCloudCheck,
+  IconDownload,
+  IconLoader2,
+  IconPlus,
+  IconScale,
+  IconTarget,
+  IconTrash,
+  IconUserCheck,
+  IconUsers,
+} from '@tabler/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
@@ -11,6 +25,7 @@ import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import NumberInput from '@/components/ui/NumberInput.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusChip from '@/components/ui/StatusChip.vue';
+import AnnualRoutePanel from './AnnualRoutePanel.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useProjectRecords } from '@/composables/useProjectRecords';
 import { logReport } from '@/db/projects';
@@ -19,12 +34,14 @@ import { getDb } from '@/db/schema';
 import type { EndUseShare } from '@/domain/calc/balance';
 import { sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
+import { chosenFinancing, FINANCING_GROUPS, FINANCING_MODELS, type FinancingGroup } from '@/domain/financing';
 import { measureEconomics } from '@/domain/measures';
-import type { EndUseCategory, Pgee } from '@/domain/types';
+import { LEGAL_GOAL_PCT, MEASURE_CLASSES, measureClassOf, planRoute, type MeasureClass } from '@/domain/route';
+import type { EndUseCategory, Pgee, RouteYear } from '@/domain/types';
 import { loadReportData } from '@/reports/data';
 import { generatePgeeReport } from '@/reports/generate';
 import { buildAuditModel } from '@/reports/model';
-import { PRIORITY_STATUS } from '@/ui/icons';
+import { PRIORITY_STATUS, type Tone } from '@/ui/icons';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { deliverFile } from '@/utils/share';
 
@@ -33,6 +50,7 @@ const toast = useToast();
 const { projectId, project } = useCurrentProject();
 const { rows: records, ready } = useProjectRecords('pgee', (a, b) => a.createdAt - b.createdAt);
 const { rows: measures } = useProjectRecords('measures');
+const { rows: tasks } = useProjectRecords('tasks');
 
 interface TeamRow {
   key: string;
@@ -49,8 +67,14 @@ interface ObjectiveRow {
 interface Form {
   policy: string;
   scope: string;
+  manager: { name: string; role: string; appointmentDoc: string; appointmentDate: string };
+  /** Lo que el auditor cambió de la meta legal; vacío, se usan el año y el consumo que calcula PONTIA. */
+  legal: { baseYear?: number; previousYearKwh?: number; pct?: number };
   team: TeamRow[];
   objectives: ObjectiveRow[];
+  /** Ruta anual confirmada por el auditor; sin ella se ve la propuesta. */
+  route?: RouteYear[];
+  financing: { models: string[]; note: string };
   monitoring: string;
   communication: string;
   training: string;
@@ -61,6 +85,15 @@ const newKey = () => crypto.randomUUID();
 const fromRecord = (p?: Pgee): Form => ({
   policy: p?.policy ?? '',
   scope: p?.scope ?? '',
+  manager: {
+    name: p?.energyManager?.name ?? '',
+    role: p?.energyManager?.role ?? '',
+    appointmentDoc: p?.energyManager?.appointmentDoc ?? '',
+    appointmentDate: p?.energyManager?.appointmentDate ?? '',
+  },
+  legal: { baseYear: p?.legalGoal?.baseYear, previousYearKwh: p?.legalGoal?.previousYearKwh, pct: p?.legalGoal && p.legalGoal.pct !== LEGAL_GOAL_PCT ? p.legalGoal.pct : undefined },
+  route: p?.annualRoute?.map((r) => ({ ...r, measureCodes: [...r.measureCodes] })),
+  financing: { models: [...(p?.financing?.models ?? [])], note: p?.financing?.note ?? '' },
   team: (p?.team ?? []).map((t) => ({ key: newKey(), role: t.role, name: t.name, responsibilities: t.responsibilities ?? '' })),
   objectives: (p?.objectives ?? []).map((o) => ({ key: newKey(), description: o.description, targetPercent: o.targetPercent, deadline: o.deadline ?? '' })),
   monitoring: p?.monitoring ?? '',
@@ -101,6 +134,20 @@ const persist = useDebounceFn(async () => {
       createdAt: createdAt.value,
       policy: form.policy,
       scope: form.scope,
+      energyManager: form.manager.name.trim()
+        ? {
+            name: form.manager.name.trim(),
+            role: form.manager.role.trim() || undefined,
+            appointmentDoc: form.manager.appointmentDoc.trim() || undefined,
+            appointmentDate: form.manager.appointmentDate || undefined,
+          }
+        : undefined,
+      legalGoal:
+        form.legal.baseYear !== undefined || form.legal.previousYearKwh !== undefined || form.legal.pct !== undefined
+          ? { baseYear: form.legal.baseYear ?? routePlan.value.legal.baseYear, previousYearKwh: form.legal.previousYearKwh, pct: form.legal.pct ?? LEGAL_GOAL_PCT }
+          : undefined,
+      annualRoute: form.route?.length ? form.route.map((r) => ({ ...r, measureCodes: [...r.measureCodes] })) : undefined,
+      financing: form.financing.models.length || form.financing.note.trim() ? { models: [...form.financing.models], note: form.financing.note.trim() || undefined } : undefined,
       team: form.team
         .filter((t) => t.role.trim() || t.name.trim())
         .map((t) => ({ role: t.role.trim(), name: t.name.trim(), responsibilities: t.responsibilities.trim() || undefined })),
@@ -137,11 +184,11 @@ const FREQUENCIES = [
 ] as const;
 
 // Revisión energética: usos significativos y consumo de referencia, los mismos que usa el documento
-const review = shallowRef<{ significant: EndUseShare[]; referenceKwh: number | null }>({ significant: [], referenceKwh: null });
+const review = shallowRef<{ significant: EndUseShare[]; referenceKwh: number | null; lastPeriod?: string }>({ significant: [], referenceKwh: null });
 onMounted(async () => {
   try {
     const model = buildAuditModel(await loadReportData(db, projectId.value));
-    review.value = { significant: model.significant, referenceKwh: model.referenceKwh };
+    review.value = { significant: model.significant, referenceKwh: model.referenceKwh, lastPeriod: model.data.bills.at(-1)?.period };
   } catch {
     // Sin datos del análisis la pantalla sigue funcionando; el documento explica lo que falta
   }
@@ -165,12 +212,44 @@ const totals = computed(() => {
   const reference = review.value.referenceKwh;
   return { kwh, cop, investment, payback: net > 0 ? investment / net : Infinity, share: reference ? kwh / reference : null };
 });
-const objectiveCount = computed(() => form.objectives.filter((o) => o.description.trim()).length);
+// Meta legal y ruta anual: el mismo cálculo que usan el inicio del proyecto y el documento
+const routePlan = computed(() =>
+  planRoute({
+    stored: { annualRoute: form.route, legalGoal: form.legal },
+    auditDate: project.value?.audit?.date,
+    lastPeriod: review.value.lastPeriod,
+    today: new Date(),
+    measures: measures.value,
+    tasks: tasks.value,
+    referenceKwh: review.value.referenceKwh,
+  }),
+);
+const firstRow = computed(() => routePlan.value.rows.find((r) => r.legalMinimum));
+const legalBar = computed(() => (firstRow.value?.targetKwh ? Math.min(100, (firstRow.value.plannedKwh / firstRow.value.targetKwh) * 100) : 0));
+const percentText = (value: number | null | undefined) => (value === null || value === undefined ? '—' : formatPercent(value / 100, 1));
+
+const managerStatus = computed<{ tone: Tone; label: string }>(() => {
+  const m = form.manager;
+  if (!m.name.trim()) return { tone: 'critical', label: 'Sin designar' };
+  return m.appointmentDoc.trim() && m.appointmentDate ? { tone: 'good', label: 'Designado' } : { tone: 'warning', label: 'Falta el acto de designación' };
+});
+
+const CLASS_TONE: Record<MeasureClass, Tone> = { A: 'good', B: 'info', C: 'warning' };
+const classOf = (paybackYears?: number) => measureClassOf(paybackYears ?? Number.POSITIVE_INFINITY);
+
+const groupedModels = (Object.keys(FINANCING_GROUPS) as FinancingGroup[]).map((group) => ({ group, label: FINANCING_GROUPS[group], models: FINANCING_MODELS.filter((m) => m.group === group) }));
+const toggleModel = (id: string) => {
+  const at = form.financing.models.indexOf(id);
+  if (at >= 0) form.financing.models.splice(at, 1);
+  else form.financing.models.push(id);
+};
+const chosenCount = computed(() => chosenFinancing(form.financing.models).length);
+
 const stats = computed(() => [
   { label: 'Medidas del plan', value: formatNumber(plan.value.length), unit: `de ${formatNumber(measures.value.length)}` },
   { label: 'Ahorro del plan', value: formatNumber(totals.value.kwh), unit: totals.value.share === null ? 'kWh/año' : `kWh/año · ${formatPercent(totals.value.share, 1)}` },
   { label: 'Inversión', value: formatMillionsCop(totals.value.investment), unit: 'COP' },
-  { label: 'Objetivos', value: formatNumber(objectiveCount.value) },
+  { label: `Primer año · ${routePlan.value.legal.firstYear}`, value: percentText(firstRow.value?.plannedPct), unit: `mínimo ${formatNumber(routePlan.value.legal.pct, 0)} %` },
 ]);
 
 // PGEE en Word
@@ -221,11 +300,11 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
     <section class="card seccion documento">
       <div class="cabecera-seccion">
         <h2><IconClipboardList :size="20" />Plan de gestión eficiente de la energía</h2>
-        <span class="eyebrow">Word · estructura ISO 50001</span>
+        <span class="eyebrow">Word · siete etapas de la guía de la UPME</span>
       </div>
       <p class="texto">
-        Política, alcance, equipo, revisión energética, objetivos y metas, planes de acción con la matriz de priorización, recursos, comunicación y seguimiento con M&amp;V (IPMVP).
-        Lo que dejes en blanco va como texto propuesto, marcado para que la dirección lo apruebe.
+        Decisión y marco legal, diagnóstico energético, formulación con la meta legal y la ruta anual, selección de proyectos, modelo financiero y contractual, implementación y seguimiento con M&amp;V
+        (IPMVP). Lo que dejes en blanco va como texto propuesto, marcado para que la dirección lo apruebe.
       </p>
       <div v-if="generating && progress" class="avance" role="progressbar" :aria-valuenow="progress.done" aria-valuemin="0" :aria-valuemax="progress.total">
         <span class="pista"><span class="relleno" :style="{ width: `${Math.round(((progress.done + 1) / progress.total) * 100)}%` }" /></span>
@@ -239,8 +318,8 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
     <div class="rejilla">
       <section class="card seccion">
         <div class="cabecera-seccion">
-          <h2>1. Política energética</h2>
-          <span class="eyebrow">compromiso de la dirección</span>
+          <h2>1.2 Política energética</h2>
+          <span class="eyebrow">etapa 1 · compromiso de la dirección</span>
         </div>
         <div class="campo">
           <Textarea v-model="form.policy" auto-resize rows="4" aria-label="Política energética" placeholder="Ej.: La universidad se compromete a mejorar de forma continua su desempeño energético…" />
@@ -248,7 +327,7 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
       </section>
       <section class="card seccion">
         <div class="cabecera-seccion">
-          <h2>2. Alcance y límites</h2>
+          <h2>1.3 Alcance y límites</h2>
           <span class="eyebrow">instalaciones y energéticos que cubre</span>
         </div>
         <div class="campo">
@@ -258,8 +337,38 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
     </div>
 
     <section class="card seccion">
+      <div class="cabecera-seccion apilada">
+        <h2><IconUserCheck :size="18" />1.4 Gestor energético</h2>
+        <span class="eyebrow">responsable del seguimiento y la evaluación · Res. 40412, art. 4, par. 3</span>
+        <StatusChip :tone="managerStatus.tone" :label="managerStatus.label" />
+      </div>
+      <p class="nota">
+        Es la persona que lidera la estructuración y la implementación del PGEE. La resolución exige definir un responsable; la guía de la UPME dice que su nombramiento es lo que materializa el compromiso de
+        la entidad. Deja constancia del acto con que se designó.
+      </p>
+      <div class="form-grid">
+        <label class="campo">
+          <span class="etiqueta">Nombre o cargo del gestor</span>
+          <InputText v-model="form.manager.name" placeholder="Nombre y cargo, o la dependencia que lo asume" />
+        </label>
+        <label class="campo">
+          <span class="etiqueta">Rol en el plan</span>
+          <InputText v-model="form.manager.role" placeholder="Gestor energético" />
+        </label>
+        <label class="campo">
+          <span class="etiqueta">Acto de designación</span>
+          <InputText v-model="form.manager.appointmentDoc" placeholder="Ej.: Resolución rectoral 0123 de 2026" />
+        </label>
+        <label class="campo">
+          <span class="etiqueta">Fecha del acto</span>
+          <input v-model="form.manager.appointmentDate" type="date" class="p-inputtext p-component" />
+        </label>
+      </div>
+    </section>
+
+    <section class="card seccion">
       <div class="cabecera-seccion">
-        <h2><IconUsers :size="18" />3. Equipo de gestión de la energía</h2>
+        <h2><IconUsers :size="18" />1.5 Equipo de gestión de la energía</h2>
         <span class="eyebrow">roles y responsabilidades</span>
         <Button label="Agregar" size="small" severity="secondary" outlined @click="addMember">
           <template #icon><IconPlus :size="16" /></template>
@@ -285,8 +394,8 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
 
     <section class="card seccion">
       <div class="cabecera-seccion">
-        <h2>4. Revisión energética</h2>
-        <span class="eyebrow">usos significativos del análisis</span>
+        <h2>2. Diagnóstico energético: revisión</h2>
+        <span class="eyebrow">etapa 2 · usos significativos del análisis</span>
       </div>
       <template v-if="review.significant.length">
         <div class="barra-usos" role="img" :aria-label="`Los usos significativos suman el ${formatPercent(review.significant[review.significant.length - 1].cumulativeShare, 0)} del consumo`">
@@ -304,9 +413,54 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
       <p class="nota">La línea base y los indicadores del paso de balance van completos en el documento.</p>
     </section>
 
+    <section class="card seccion meta-legal">
+      <div class="cabecera-seccion apilada">
+        <h2><IconScale :size="18" />3.1 Meta legal del primer año</h2>
+        <span class="eyebrow">etapa 3 · Ley 1715, art. 30 (modificado por la Ley 2294, art. 237)</span>
+        <StatusChip v-if="firstRow?.status === 'cumple'" tone="good" label="El plan la alcanza" :icon="IconCheck" />
+        <StatusChip v-else-if="firstRow?.status === 'no-cumple'" tone="critical" label="El plan no la alcanza" :icon="IconAlertTriangle" />
+        <StatusChip v-else tone="neutral" label="Sin datos para compararla" />
+      </div>
+      <p v-if="routePlan.legal.targetKwh !== null" class="cifra-legal">
+        <strong>{{ formatNumber(routePlan.legal.pct, 0) }} %</strong> del consumo de {{ routePlan.legal.baseYear }} ({{ formatNumber(routePlan.legal.referenceKwh ?? 0) }} kWh) =
+        <strong>{{ formatNumber(routePlan.legal.targetKwh) }} kWh/año</strong> de ahorro en {{ routePlan.legal.firstYear }}.
+      </p>
+      <p v-else class="nota">Falta el consumo del año anterior: registra 12 facturas o escríbelo abajo.</p>
+      <div v-if="firstRow?.targetKwh" class="medidor" role="img" :aria-label="`El plan prevé ${percentText(firstRow.plannedPct)} en ${firstRow.year}; la meta es ${percentText(firstRow.targetPct)}`">
+        <span class="pista"><span class="relleno" :class="{ falta: firstRow.status === 'no-cumple' }" :style="{ width: `${legalBar}%` }" /></span>
+        <span class="mono leyenda-medidor">
+          el plan prevé {{ formatNumber(firstRow.plannedKwh) }} kWh/año ({{ percentText(firstRow.plannedPct) }})
+          <template v-if="firstRow.gapKwh > 0">· faltan {{ formatNumber(firstRow.gapKwh) }} kWh/año</template>
+        </span>
+      </div>
+      <div class="form-grid tres">
+        <label class="campo">
+          <span class="etiqueta">Año de referencia</span>
+          <NumberInput v-model="form.legal.baseYear" :decimals="0" :grouping="false" :min="2000" :max="2100" :placeholder="String(routePlan.legal.baseYear)" />
+          <small class="ayuda">«El año anterior» a la primera ola de ahorro: por omisión, el de la auditoría.</small>
+        </label>
+        <label class="campo">
+          <span class="etiqueta">Consumo del año anterior</span>
+          <NumberInput v-model="form.legal.previousYearKwh" :decimals="0" suffix="kWh" :placeholder="review.referenceKwh !== null ? formatNumber(review.referenceKwh) : 'Sin facturas'" />
+          <small class="ayuda">Vacío: se usan los últimos 12 meses facturados.</small>
+        </label>
+        <label class="campo">
+          <span class="etiqueta">Meta</span>
+          <NumberInput v-model="form.legal.pct" :decimals="1" :min="LEGAL_GOAL_PCT" :max="100" suffix="%" :placeholder="String(LEGAL_GOAL_PCT)" />
+          <small class="ayuda">No puede ser menor que el 15 % de la ley.</small>
+        </label>
+      </div>
+      <p class="aviso-linea">
+        <span>
+          La ley pide, en el año siguiente a la auditoría, estrategias que permitan un ahorro de «mínimo 15 % respecto del consumo del año anterior» y, desde el segundo año, «metas sostenibles definidas por la
+          auditoría y a ser alcanzadas a más tardar en el año 2026». No dice cuál es «el año anterior» ni PONTIA interpreta ese plazo: se muestra tal cual. Consúltalo con la UPME si tu caso lo requiere.
+        </span>
+      </p>
+    </section>
+
     <section class="card seccion">
       <div class="cabecera-seccion">
-        <h2><IconTarget :size="18" />5. Objetivos y metas</h2>
+        <h2><IconTarget :size="18" />3.2 Objetivos y metas</h2>
         <span class="eyebrow">{{ totals.share !== null && plan.length ? `las medidas del plan ahorran el ${formatPercent(totals.share, 1)} del consumo` : 'metas frente a la línea base' }}</span>
         <Button label="Agregar" size="small" severity="secondary" outlined @click="addObjective">
           <template #icon><IconPlus :size="16" /></template>
@@ -330,10 +484,12 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
       </div>
     </section>
 
+    <AnnualRoutePanel v-model="form.route" :plan="routePlan" :measures="measures" />
+
     <section class="card seccion">
       <div class="cabecera-seccion">
-        <h2>6 y 7. Planes de acción y recursos</h2>
-        <span class="eyebrow">medidas incluidas en el plan</span>
+        <h2>4. Selección de proyectos: planes de acción</h2>
+        <span class="eyebrow">etapa 4 · medidas incluidas en el plan</span>
         <RouterLink :to="{ name: 'oportunidades', params: { projectId } }" class="enlace">Editar medidas</RouterLink>
       </div>
       <ul v-if="plan.length" class="filas plan">
@@ -347,7 +503,10 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
           </span>
           <span class="fila-secundaria">
             <span>Inversión {{ formatCop(m.investmentCop) }}</span>
-            <StatusChip v-if="m.priority" v-bind="PRIORITY_STATUS[m.priority]" />
+            <span class="marcas">
+              <StatusChip :tone="CLASS_TONE[classOf(e?.paybackYears)]" :label="MEASURE_CLASSES[classOf(e?.paybackYears)].label" />
+              <StatusChip v-if="m.priority" v-bind="PRIORITY_STATUS[m.priority]" />
+            </span>
           </span>
         </li>
       </ul>
@@ -355,13 +514,45 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
       <p v-if="plan.length" class="total">
         Total: <strong>{{ formatNumber(totals.kwh) }} kWh/año</strong> · {{ formatCop(totals.cop) }}/año · inversión {{ formatCop(totals.investment) }} · retorno {{ payback(totals.payback) }}
       </p>
+      <p class="nota">
+        Tipo de medida según la guía de la UPME: A, retorno menor de 1 año ({{ MEASURE_CLASSES.A.examples }}); B, de 1 a 3 años ({{ MEASURE_CLASSES.B.examples }}); C, más de 3 años ({{ MEASURE_CLASSES.C.examples }}).
+      </p>
+    </section>
+
+    <section class="card seccion">
+      <div class="cabecera-seccion apilada">
+        <h2><IconBuildingBank :size="18" />5. Modelo financiero y contractual</h2>
+        <span class="eyebrow">etapa 5 · guía de la UPME, módulo 3</span>
+        <StatusChip v-if="chosenCount" tone="good" :label="`${chosenCount} ${chosenCount === 1 ? 'camino elegido' : 'caminos elegidos'}`" />
+        <StatusChip v-else tone="neutral" label="Sin elegir" />
+      </div>
+      <p class="nota">
+        Marca los caminos que la entidad considera para pagar las medidas. El PGEE no decide el instrumento jurídico: la entidad lo define con su oficina jurídica y de presupuesto, y las medidas pueden usar
+        modelos distintos.
+      </p>
+      <div v-for="g in groupedModels" :key="g.group" class="grupo-modelos">
+        <h3>{{ g.label }}</h3>
+        <div class="modelos">
+          <button v-for="model in g.models" :key="model.id" type="button" class="modelo" :class="{ activo: form.financing.models.includes(model.id) }" :aria-pressed="form.financing.models.includes(model.id)" @click="toggleModel(model.id)">
+            <span class="marca"><IconCheck v-if="form.financing.models.includes(model.id)" :size="14" stroke="3" /></span>
+            <span class="modelo-texto">
+              <strong>{{ model.label }}</strong>
+              <small>{{ model.description }}</small>
+            </span>
+          </button>
+        </div>
+      </div>
+      <label class="campo">
+        <span class="etiqueta">Decisión de la entidad</span>
+        <Textarea v-model="form.financing.note" auto-resize rows="3" placeholder="Ej.: Las medidas de buenas prácticas se pagan con gastos de funcionamiento; el cambio de iluminación, con un proyecto de inversión del banco de proyectos." />
+      </label>
     </section>
 
     <div class="rejilla">
       <section class="card seccion">
         <div class="cabecera-seccion">
-          <h2>8. Comunicación y formación</h2>
-          <span class="eyebrow">a quién, qué y cada cuánto</span>
+          <h2>6. Implementación: comunicación y formación</h2>
+          <span class="eyebrow">etapa 6 · a quién, qué y cada cuánto</span>
         </div>
         <label class="campo">
           <span class="etiqueta">Comunicación</span>
@@ -371,11 +562,12 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
           <span class="etiqueta">Formación</span>
           <Textarea v-model="form.training" auto-resize rows="3" placeholder="Ej.: Taller de uso eficiente para mantenimiento y docentes." />
         </label>
+        <p class="nota">El cronograma, el presupuesto y el avance de las tareas están en el paso Implementación.</p>
       </section>
       <section class="card seccion">
         <div class="cabecera-seccion">
-          <h2>9. Seguimiento, medición y verificación</h2>
-          <span class="eyebrow">IPMVP · revisión del plan</span>
+          <h2>7. Seguimiento, reporte y verificación</h2>
+          <span class="eyebrow">etapa 7 · IPMVP · revisión del plan</span>
         </div>
         <label class="campo">
           <span class="etiqueta">Seguimiento y verificación de los ahorros</span>
@@ -385,6 +577,7 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
           <span class="etiqueta">Revisión del plan con la dirección</span>
           <ChoiceChips v-model="form.reviewFrequency" :options="FREQUENCIES" label="Frecuencia de revisión del plan" />
         </div>
+        <p class="nota">El gestor energético anota cada mes las observaciones del plan y la dirección lo revisa cada año; el informe anual de resultados se presenta a la UPME.</p>
       </section>
     </div>
   </div>
@@ -537,7 +730,114 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
   color: var(--ink-2);
   font-size: 13px;
 }
+.meta-legal {
+  border-left: 3px solid var(--serious);
+}
+.cifra-legal {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+.cifra-legal strong {
+  color: var(--ink);
+}
+.medidor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.medidor .pista {
+  height: 10px;
+  border-radius: 5px;
+}
+.medidor .relleno {
+  border-radius: 5px;
+}
+.medidor .relleno.falta {
+  background: var(--critical-text);
+}
+.leyenda-medidor {
+  color: var(--muted);
+  font-size: 12px;
+}
+.marcas {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.grupo-modelos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.grupo-modelos h3 {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.modelos {
+  display: grid;
+  gap: 8px;
+}
+.modelo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+.modelo:hover {
+  border-color: var(--axis);
+}
+.modelo.activo {
+  border-color: var(--accent-strong);
+  background: var(--accent-wash);
+}
+.modelo .marca {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 1.5px solid var(--field-border);
+  border-radius: 5px;
+  color: #fff;
+}
+.modelo.activo .marca {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+.modelo-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.modelo-texto strong {
+  font-size: 13.5px;
+}
+.modelo-texto small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
 @media (min-width: 720px) {
+  .modelos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .fila-editable.equipo {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
   }

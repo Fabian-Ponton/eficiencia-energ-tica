@@ -17,11 +17,13 @@ import { backupFileName, exportProjectZip } from '@/db/backup';
 import { markBackup } from '@/db/projects';
 import { isActive } from '@/db/records';
 import { getDb } from '@/db/schema';
+import { annualSummary } from '@/domain/analysis';
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { sum } from '@/domain/calc/stats';
 import { isElectric } from '@/domain/carriers';
 import { checkCompliance, groupStatus } from '@/domain/compliance';
 import { currentStage } from '@/domain/progress';
+import { planRoute } from '@/domain/route';
 import { summarizeSafety } from '@/domain/safety';
 import type { EndUseCategory } from '@/domain/types';
 import { ALL_STEPS, STAGES } from '@/navigation';
@@ -35,6 +37,9 @@ const { projectId, project, summary } = useCurrentProject();
 const bills = useLiveQuery(() => db.bills.where('projectId').equals(projectId.value).filter((b) => isActive(b) && isElectric(b)).sortBy('period'), [projectId], []);
 const equipment = useLiveQuery(() => db.equipment.where('projectId').equals(projectId.value).filter((e) => isActive(e) && isElectric(e)).toArray(), [projectId], []);
 const photos = useLiveQuery(() => db.photos.where('projectId').equals(projectId.value).filter(isActive).reverse().sortBy('takenAt'), [projectId], []);
+const pgeeRecords = useLiveQuery(() => db.pgee.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
+const measures = useLiveQuery(() => db.measures.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
+const tasks = useLiveQuery(() => db.tasks.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
 const safetyFindings = useLiveQuery(() => db.safetyFindings.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -74,10 +79,24 @@ const endUses = computed(() => {
   return totals;
 });
 
+// Ruta anual del PGEE frente a la meta legal del 15 %: el mismo cálculo de la pantalla del PGEE y del documento
+const routePlan = computed(() => {
+  const annual = annualSummary(bills.value ?? []);
+  return planRoute({
+    stored: [...(pgeeRecords.value ?? [])].sort((a, b) => a.createdAt - b.createdAt)[0],
+    auditDate: project.value?.audit?.date,
+    lastPeriod: (bills.value ?? []).at(-1)?.period,
+    today: new Date(),
+    measures: measures.value ?? [],
+    tasks: tasks.value ?? [],
+    referenceKwh: annual.last12Kwh ?? annual.annualizedKwh ?? (estimatedKwh.value || null),
+  });
+});
+
 // Cumplimiento normativo: cada grupo dice qué exige la norma, cuántos datos tiene y cuáles faltan
 const compliance = computed(() =>
   project.value
-    ? checkCompliance({ project: project.value }).map((group) => ({
+    ? checkCompliance({ project: project.value, pgee: [...(pgeeRecords.value ?? [])].sort((a, b) => a.createdAt - b.createdAt)[0], firstYear: routePlan.value.firstYear }).map((group) => ({
         group,
         status: groupStatus(group),
         required: group.items.filter((item) => item.level === 'obligatorio'),

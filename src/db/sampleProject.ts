@@ -1,4 +1,5 @@
 import { planTasks } from '@/domain/implementation';
+import { proposeRoute } from '@/domain/route';
 import { hvacMeasure, ledMeasure, measureEconomics, pvMeasure, specsText, suggestedPriority, type CalculatorResult } from '@/domain/measures';
 import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalDay, IntervalSeries, Measure, Measurement, MeterReadingRecord, Pgee, Project, Task } from '@/domain/types';
 import { summarizeDays } from './intervals';
@@ -364,6 +365,12 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
       { description: 'Reducir el consumo de energía tomada de la red frente a la línea base', targetPercent: 20, deadline: '2027-12-31' },
       { description: 'Generar con energía solar el 10 % del consumo anual del bloque', targetPercent: 10, deadline: '2027-12-31' },
     ],
+    // Datos de ejemplo: el acto de designación no existe, es solo para mostrar cómo queda registrado
+    energyManager: { name: 'Jefatura de la Oficina de Planeación', role: 'Gestor energético', appointmentDoc: 'Resolución de ejemplo (sin número)', appointmentDate: '2026-09-01' },
+    financing: {
+      models: ['funcionamiento', 'inversion', 'ahorros'],
+      note: 'Ejemplo: las buenas prácticas se pagan con gastos de funcionamiento; el cambio de iluminación, los aires y la solar, con un proyecto de inversión del banco de proyectos; y los ahorros se reinvierten en nuevas medidas.',
+    },
     communication: 'Informe trimestral a la Vicerrectoría y boletín para docentes y estudiantes con el consumo del bloque frente a la meta.',
     reviewFrequency: 'Semestral',
   };
@@ -383,6 +390,14 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
   });
   tasks[0] = { ...tasks[0], status: 'implementada', progress: 100 };
   tasks[1] = { ...tasks[1], status: 'en-ejecucion', progress: 25 };
+
+  // Ruta anual confirmada: la que propone PONTIA con las fechas de las tareas (el primer año supera el 15 % de la ley)
+  pgee.annualRoute = proposeRoute({
+    measures,
+    tasks,
+    firstYear: Number(PERIODS[PERIODS.length - 1].slice(0, 4)) + 1,
+    referenceKwh: KWH.slice(-12).reduce((total, kwh) => total + kwh, 0),
+  });
 
   await db.transaction(
     'rw',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createProjectRecord } from '@/db/projects';
-import { characterization, checkCompliance, groupStatus, missingSentence, nextAuditDate } from '@/domain/compliance';
+import { characterization, checkCompliance, groupStatus, missingSentence, nextAuditDate, pgeeChecklist } from '@/domain/compliance';
 import type { Project } from '@/domain/types';
 
 const nuevo = (extra: Partial<Project> = {}): Project => ({ ...createProjectRecord({ name: 'Laboratorios' }), ...extra });
@@ -53,16 +53,50 @@ describe('art. 4(a) de la Res. 40412: caracterización de la entidad', () => {
 
   it('todos los grupos apuntan al paso donde se completan', () => {
     const grupos = checkCompliance({ project: nuevo() });
-    expect(grupos.map((g) => g.id)).toEqual(['art4-a']);
+    expect(grupos.map((g) => g.id)).toEqual(['art4-a', 'art4-par3']);
     expect(grupos[0]).toMatchObject({ step: 'datos', reference: 'Res. 40412/2024, art. 4(a)' });
+    expect(grupos[1]).toMatchObject({ step: 'pgee', reference: 'Res. 40412/2024, art. 4 par. 3 · Ley 1715, art. 30' });
   });
 
-  it('el informe borrador dice qué falta', () => {
-    expect(missingSentence(checkCompliance({ project: completo() }))).toBe('');
-    const frase = missingSentence(checkCompliance({ project: nuevo({ client: 'Universidad de ejemplo' }) }));
+  it('el informe borrador dice qué falta de la caracterización', () => {
+    expect(missingSentence([characterization(completo())])).toBe('');
+    const frase = missingSentence([characterization(nuevo({ client: 'Universidad de ejemplo' }))]);
     expect(frase).toBe(
       'Faltan: ubicación (ciudad y dirección), entorno de la edificación, edad de la edificación, proceso o actividad desempeñada, horario de funcionamiento, tenencia del edificio.',
     );
+  });
+});
+
+describe('art. 4, parágrafo 3, de la Res. 40412: PGEE con responsable y ruta anual', () => {
+  const ruta = [{ year: 2027, measureCodes: ['M1'], targetPct: 15 }];
+  const responsable = { name: 'Jefatura de Planeación', appointmentDoc: 'Resolución 0123 de 2026', appointmentDate: '2026-09-01' };
+
+  it('sin PGEE faltan el responsable, la ruta y el ahorro del primer año; nada bloquea', () => {
+    const estado = groupStatus(pgeeChecklist({ firstYear: null }));
+    expect(estado).toMatchObject({ done: 0, total: 3, complete: false });
+    expect(estado.missing.map((i) => i.id)).toEqual(['responsable', 'ruta', 'meta-legal']);
+    expect(estado.suggested.map((i) => i.id)).toEqual(['designacion', 'financiacion']);
+  });
+
+  it('el responsable, la ruta guardada y el primer año en el 15 % o más completan lo obligatorio', () => {
+    const grupo = pgeeChecklist({ pgee: { energyManager: responsable, annualRoute: ruta }, firstYear: { year: 2027, plannedPct: 21, meets: true } });
+    expect(groupStatus(grupo)).toMatchObject({ done: 3, total: 3, complete: true });
+    // Lo recomendado: el acto y la fecha ya están; falta el modelo financiero
+    expect(groupStatus(grupo).suggested.map((i) => i.id)).toEqual(['financiacion']);
+  });
+
+  it('una propuesta sin confirmar no cuenta como ruta, y un primer año por debajo del 15 % no cumple', () => {
+    const grupo = pgeeChecklist({ pgee: { energyManager: responsable }, firstYear: { year: 2027, plannedPct: 12, meets: false } });
+    expect(groupStatus(grupo).missing.map((i) => i.id)).toEqual(['ruta', 'meta-legal']);
+  });
+
+  it('el responsable sin acto o sin fecha cumple lo obligatorio pero deja la designación como pendiente recomendada', () => {
+    const grupo = pgeeChecklist({ pgee: { energyManager: { name: 'Jefatura de Planeación', appointmentDoc: 'Resolución 0123 de 2026' }, annualRoute: ruta, financing: { models: ['fenoge'] } }, firstYear: { year: 2027, plannedPct: 16, meets: true } });
+    const estado = groupStatus(grupo);
+    expect(estado.complete).toBe(true);
+    expect(estado.suggested.map((i) => i.id)).toEqual(['designacion']);
+    // Un nombre en blanco no cuenta como responsable
+    expect(groupStatus(pgeeChecklist({ pgee: { energyManager: { name: '   ' } }, firstYear: null })).missing.map((i) => i.id)).toContain('responsable');
   });
 });
 
