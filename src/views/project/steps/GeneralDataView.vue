@@ -360,7 +360,7 @@ const complete = computed(() => required.value.every((r) => r.ok));
           </label>
           <label class="campo">
             <span class="etiqueta">Código</span>
-            <InputText v-model="form.code" class="mono" placeholder="BL-06" />
+            <InputText v-model="form.code" class="mono" placeholder="LAB-01" />
           </label>
           <label class="campo">
             <span class="etiqueta">Sector</span>

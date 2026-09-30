@@ -23,7 +23,7 @@ export interface GeneratedFile {
   fileName: string;
 }
 
-/** «PONTIA_Informe-auditoria_BL-06_2026-09-12.docx»: el mismo estilo de nombre que el respaldo. */
+/** «PONTIA_Informe-auditoria_LAB-01_2026-09-12.docx»: el mismo estilo de nombre que el respaldo. */
 export function reportFileName(project: Pick<Project, 'name' | 'code'>, label: string, extension: string, date = new Date()): string {
   return backupFileName(project, date).replace(/^PONTIA_/, `PONTIA_${label}_`).replace(/\.zip$/, `.${extension}`);
 }

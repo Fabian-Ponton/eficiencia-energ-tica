@@ -333,7 +333,7 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
           <span class="eyebrow">instalaciones y energéticos que cubre</span>
         </div>
         <div class="campo">
-          <Textarea v-model="form.scope" auto-resize rows="4" aria-label="Alcance y límites" placeholder="Ej.: Bloque 6 con sus aulas, laboratorios y oficinas; energía eléctrica." />
+          <Textarea v-model="form.scope" auto-resize rows="4" aria-label="Alcance y límites" placeholder="Ej.: Bloque de laboratorios de la Sede Riohacha, con sus laboratorios y oficinas; electricidad y gas natural." />
         </div>
       </section>
     </div>

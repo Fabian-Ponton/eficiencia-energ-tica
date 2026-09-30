@@ -24,7 +24,7 @@ const TEMPERATURE = [28.0, 27.6, 27.2, 26.9, 27.1, 27.6, 28.1, 28.6, 28.9, 28.9,
 const TARIFF = 850;
 
 /** Horario de 24 h a partir de rangos [desde, hasta). */
-const on = (...ranges: [number, number][]) => Array.from({ length: 24 }, (_, h) => ranges.some(([from, to]) => h >= from && h < to));
+export const on = (...ranges: [number, number][]) => Array.from({ length: 24 }, (_, h) => ranges.some(([from, to]) => h >= from && h < to));
 
 /** Dónde está cada equipo: espacio (por nombre) y tablero o circuito que lo alimenta. */
 type PanelKey = 'hvac' | 'floor1' | 'floor2' | 'labs' | 'caa1' | 'caa2';
@@ -103,7 +103,7 @@ function jitter(i: number): number {
 }
 
 /** 96 intervalos de 15 minutos interpolando la potencia horaria. */
-function quarterHours(profile: readonly number[], day: number): number[] {
+export function quarterHours(profile: readonly number[], day: number): number[] {
   return Array.from({ length: 96 }, (_, slot) => {
     const hour = slot / 4;
     const base = Math.floor(hour);

@@ -185,7 +185,7 @@ async function deliver(kind: Exclude<Busy, null>) {
         <h2>¿Listo para reportar?</h2>
         <span class="eyebrow">sale de los datos del proyecto · nada bloquea el trabajo</span>
         <StatusChip v-if="readiness.ready" tone="good" label="Lo obligatorio está completo" :icon="IconCircleCheck" />
-        <StatusChip v-else tone="warning" :label="`Faltan ${readiness.missing.length} requisitos obligatorios`" :icon="IconAlertTriangle" />
+        <StatusChip v-else tone="warning" :label="readiness.missing.length === 1 ? 'Falta 1 requisito obligatorio' : `Faltan ${readiness.missing.length} requisitos obligatorios`" :icon="IconAlertTriangle" />
       </div>
       <p v-if="failed" class="aviso-linea alerta"><IconAlertTriangle :size="16" /><span>No se pudieron leer los datos del proyecto para revisar el reporte.</span></p>
       <ul class="requisitos">

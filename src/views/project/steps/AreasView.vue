@@ -203,6 +203,7 @@ useQuickAdd(() => {
 }
 .rejilla {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 .espacio {
@@ -235,9 +236,10 @@ useQuickAdd(() => {
 }
 .fila {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px 8px;
 }
 .nombre {
   font-size: 15px;

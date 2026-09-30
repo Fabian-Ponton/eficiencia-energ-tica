@@ -54,7 +54,7 @@ const EXTENSION: Record<string, string> = { 'image/png': 'png', 'image/webp': 'w
 const MIME: Record<string, string> = { png: 'image/png', webp: 'image/webp' };
 const mimeOf = (path: string) => MIME[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? 'image/jpeg';
 
-/** Nombre del archivo, p. ej. PONTIA_BL-06_2026-09-11.zip */
+/** Nombre del archivo, p. ej. PONTIA_LAB-01_2026-09-11.zip */
 export function backupFileName(project: Pick<Project, 'name' | 'code'>, date = new Date()): string {
   const base =
     (project.code || project.name)

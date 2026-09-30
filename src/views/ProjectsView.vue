@@ -18,6 +18,7 @@ import { offerUndo } from '@/composables/useUndo';
 import { backupFileName, describeBackup, exportProjectZip, openBackup, restoreBackup, type BackupInfo, type OpenedBackup, type RestoreMode } from '@/db/backup';
 import { importLegacyIntoDb, readLegacyLocalStorage, type LegacyData } from '@/db/legacyImport';
 import { addProject, listProjects, markBackup, restoreProject, softDeleteProject, summarizeProject, type NewProjectInput, type ProjectSummary } from '@/db/projects';
+import { createSampleLab } from '@/db/sampleLab';
 import { createSampleProject } from '@/db/sampleProject';
 import { getDb } from '@/db/schema';
 import { groupBySite } from '@/domain/entities';
@@ -88,16 +89,25 @@ async function create(input: NewProjectInput) {
 }
 
 // La primera vez puede tardar unos segundos mientras se descargan las pantallas del proyecto
-const sampleLoading = ref(false);
-async function loadSample() {
+const sampleLoading = ref<'aulas' | 'laboratorios' | null>(null);
+const EXAMPLES = {
+  aulas: { create: createSampleProject, summary: 'Ejemplo del bloque de aulas listo', detail: 'Datos ilustrativos del Bloque 6 para conocer la app.' },
+  laboratorios: {
+    create: createSampleLab,
+    summary: 'Ejemplo de laboratorios listo',
+    detail: 'Datos ficticios de un bloque con cinco laboratorios, gas natural, ruta anual y verificación del RETIE.',
+  },
+} as const;
+async function loadSample(kind: 'aulas' | 'laboratorios') {
   if (sampleLoading.value) return;
-  sampleLoading.value = true;
+  sampleLoading.value = kind;
   try {
-    const project = await createSampleProject(db);
-    toast.add({ severity: 'success', summary: 'Proyecto de ejemplo listo', detail: 'Datos ilustrativos del Bloque 6 para conocer la app.', life: 4000 });
+    const example = EXAMPLES[kind];
+    const project = await example.create(db);
+    toast.add({ severity: 'success', summary: example.summary, detail: example.detail, life: 4500 });
     await open(project.id);
   } finally {
-    sampleLoading.value = false;
+    sampleLoading.value = null;
   }
 }
 
@@ -264,7 +274,8 @@ const storagePercent = computed(() =>
       <div v-else-if="summaries && !all.length" class="card">
         <EmptyState :icon="IconStack2" title="Crea tu primera auditoría" text="Todo lo que registres queda guardado en este equipo y funciona sin internet.">
           <Button label="Nuevo proyecto" @click="showNew = true" />
-          <Button label="Ver proyecto de ejemplo" severity="secondary" outlined :loading="sampleLoading" @click="loadSample" />
+          <Button label="Ver ejemplo: laboratorios" severity="secondary" outlined :loading="sampleLoading === 'laboratorios'" @click="loadSample('laboratorios')" />
+          <Button label="Ver ejemplo: bloque de aulas" severity="secondary" outlined :loading="sampleLoading === 'aulas'" @click="loadSample('aulas')" />
           <Button label="Manual de uso" severity="secondary" text @click="router.push({ name: 'manual' })">
             <template #icon><IconBook2 :size="18" /></template>
           </Button>
@@ -300,7 +311,10 @@ const storagePercent = computed(() =>
         <Button label="Importar respaldo" severity="secondary" outlined :loading="importing" @click="fileInput?.click()">
           <template #icon><IconFileImport :size="18" /></template>
         </Button>
-        <Button label="Proyecto de ejemplo" severity="secondary" outlined :loading="sampleLoading" @click="loadSample">
+        <Button label="Ejemplo: laboratorios" severity="secondary" outlined :loading="sampleLoading === 'laboratorios'" @click="loadSample('laboratorios')">
+          <template #icon><IconStack2 :size="18" /></template>
+        </Button>
+        <Button label="Ejemplo: bloque de aulas" severity="secondary" outlined :loading="sampleLoading === 'aulas'" @click="loadSample('aulas')">
           <template #icon><IconStack2 :size="18" /></template>
         </Button>
         <Button label="Manual de uso" severity="secondary" outlined @click="router.push({ name: 'manual' })">

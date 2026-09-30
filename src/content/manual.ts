@@ -45,8 +45,8 @@ export const MANUAL_START: { title: string; text: string }[] = [
     text: 'En Android y PC aparece el botón «Instalar». En iPhone y iPad se instala desde Safari: toca Compartir y luego «Añadir a pantalla de inicio». Instalada, abre a pantalla completa y protege mejor tus datos.',
   },
   {
-    title: 'Recorre el proyecto de ejemplo',
-    text: 'En la lista de proyectos, «Proyecto de ejemplo» crea una auditoría con datos realistas. Sirve para ver todas las pantallas funcionando antes de cargar el trabajo real, y se puede borrar cuando quieras.',
+    title: 'Recorre los proyectos de ejemplo',
+    text: 'En la lista de proyectos hay dos ejemplos con datos ficticios: «Ejemplo: laboratorios» (cinco laboratorios, equipos de 24 horas, gas natural, seguridad eléctrica, ruta anual y verificación del RETIE) y «Ejemplo: bloque de aulas». Sirven para ver todas las pantallas funcionando antes de cargar el trabajo real, y se pueden borrar cuando quieras.',
   },
   {
     title: 'Anota tu perfil de auditor',
@@ -83,7 +83,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         id: 'datos',
         what: 'Identifica la auditoría y fija los parámetros que usan todos los cálculos: la tarifa, el calendario de operación y los criterios económicos.',
         inputs: [
-          { label: 'Nombre del proyecto', need: 'obligatorio', source: 'Como quieras reconocerlo en la lista, por ejemplo «Bloque 6 · Universidad de La Guajira».' },
+          { label: 'Nombre del proyecto', need: 'obligatorio', source: 'Como quieras reconocerlo en la lista, por ejemplo «Laboratorios · Sede Riohacha».' },
           { label: 'Tarifa (COP/kWh)', need: 'obligatorio', source: 'Divide el valor total de una factura entre sus kWh. De aquí sale todo el dinero que muestra la app.' },
           { label: 'Cliente, NIT, ciudad, dirección y sector', need: 'obligatorio', source: 'Datos del contrato o de la factura. Van en la portada del informe; sin cliente, ciudad y dirección el informe sale como borrador.' },
           { label: 'Tipo de entidad, sede y código de la sede', need: 'recomendado', source: 'La UPME recibe un reporte por sede. El código exclusivo de cada sede lo elige la propia entidad: déjalo en blanco hasta tenerlo.' },

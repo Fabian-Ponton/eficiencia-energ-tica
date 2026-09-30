@@ -121,7 +121,7 @@ const registryFields = {
         </p>
         <div class="estado-verificacion">
           <StatusChip v-if="verification.complete" tone="good" label="Los requisitos del art. 6 están completos" :icon="IconCheck" />
-          <StatusChip v-else tone="warning" :label="`Faltan ${verification.missing.length} de ${verification.total} requisitos del art. 6`" :icon="IconAlertTriangle" />
+          <StatusChip v-else tone="warning" :label="`${verification.missing.length === 1 ? 'Falta' : 'Faltan'} ${verification.missing.length} de ${verification.total} requisitos del art. 6`" :icon="IconAlertTriangle" />
         </div>
       </section>
 
