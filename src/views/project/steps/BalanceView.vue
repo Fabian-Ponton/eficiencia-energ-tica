@@ -13,6 +13,7 @@ import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useProjectRecords } from '@/composables/useProjectRecords';
 import { isElectric } from '@/domain/carriers';
+import { computeUpmeBaseline } from '@/domain/upmeBaseline';
 import { useTheme } from '@/composables/useTheme';
 import {
   annualSummary,
@@ -27,17 +28,21 @@ import {
   type BaselineVariable,
 } from '@/domain/analysis';
 import { reconciliationDeviation, significantEnergyUses } from '@/domain/calc/balance';
+import { activityIndicators, laboratoryIndicators, operatingWeeksPerYear } from '@/domain/calc/indicators';
 import { sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import type { EndUseCategory } from '@/domain/types';
 import { periodLabel } from '@/utils/dates';
 import { formatNumber, formatPercent } from '@/utils/format';
 import { fileSlug } from '@/utils/text';
+import BaselineUpmePanel from './BaselineUpmePanel.vue';
 
 const { projectId, project } = useCurrentProject();
 const { isDark } = useTheme();
 const { rows: equipment, ready } = useProjectRecords('equipment', undefined, isElectric);
 const { rows: areas } = useProjectRecords('areas');
+const { rows: occupancy } = useProjectRecords('occupancy');
+const { rows: adjustments } = useProjectRecords('baselineAdjustments');
 const { rows: bills } = useProjectRecords('bills', (a, b) => a.period.localeCompare(b.period), isElectric);
 // Todos los energéticos: solo para el panel del total; el resto del balance es eléctrico
 const { rows: allBills } = useProjectRecords('bills');
@@ -106,6 +111,15 @@ const indicators = computed(() =>
   energyIndicators(billedAnnual.value ?? (estimatedAnnual.value || null), annual.value.last12CostCop, project.value?.areaM2, project.value?.users),
 );
 const intensity = computed(() => areaIntensity(equipment.value, areas.value).filter((i) => i.intensity !== null));
+// Indicadores por actividad (personas atendidas y horas de práctica de las facturas) y por laboratorio (Res. UPME 016, §7.3)
+const activity = computed(() => activityIndicators(bills.value));
+const labs = computed(() => laboratoryIndicators(areas.value, equipment.value, occupancy.value, { weeksPerYear: operatingWeeksPerYear(project.value?.calendar ?? { vacationDaysPerYear: 0 }) }));
+const activityCards = computed(() =>
+  [
+    activity.value.kwhPerPerson !== null && { label: 'Por persona atendida', value: formatNumber(activity.value.kwhPerPerson, 1), unit: `kWh/persona · ${activity.value.monthsWithPeople} meses` },
+    activity.value.kwhPerPracticeHour !== null && { label: 'Por hora de práctica', value: formatNumber(activity.value.kwhPerPracticeHour, 1), unit: `kWh/h · ${activity.value.monthsWithHours} meses` },
+  ].filter((card): card is { label: string; value: string; unit: string } => Boolean(card)),
+);
 function buildIntensity(dark: boolean) {
   const p = chartPalette(dark);
   return rankingChart({
@@ -167,16 +181,21 @@ const sankeyOption = computed(() => buildSankey(isDark.value));
 const intensityOption = computed(() => buildIntensity(isDark.value));
 const baselineOption = computed(() => buildBaseline(isDark.value));
 
+// Cifras de la línea base de la UPME para el encabezado; el panel calcula lo mismo con las decisiones del auditor
+const upme = computed(() => computeUpmeBaseline({ bills: bills.value, config: project.value?.baseline, adjustments: adjustments.value, project: project.value ?? undefined }));
 const headerStats = computed(() => {
   const reference = billedAnnual.value ?? estimatedAnnual.value;
   if (!reference) return undefined;
   const r = baseline.value.result;
+  const saving = upme.value?.headline.savingPct;
   const last = significant.value[significant.value.length - 1];
   return [
     { label: billedAnnual.value !== null ? 'Consumo anual' : 'Consumo estimado', value: formatNumber(reference), unit: 'kWh' },
     { label: 'Usos significativos', value: String(significant.value.length), unit: last ? `${formatPercent(last.cumulativeShare, 0)} del consumo` : undefined },
     { label: 'Intensidad', value: indicators.value.kwhPerM2Year !== null ? formatNumber(indicators.value.kwhPerM2Year, 1) : '—', unit: 'kWh/m²·año' },
-    { label: 'Línea base R²', value: r ? formatNumber(r.model.r2, 2) : '—' },
+    saving !== null && saving !== undefined
+      ? { label: 'Mejor desempeño', value: formatPercent(saving, 1), unit: 'potencial UPME' }
+      : { label: 'Línea base R²', value: r ? formatNumber(r.model.r2, 2) : '—' },
   ];
 });
 const significantLabels = computed(() => significant.value.map((s) => endUseOf(s.category as EndUseCategory).label).join(', '));
@@ -265,6 +284,51 @@ const significantLabels = computed(() => significant.value.map((s) => endUseOf(s
             <span class="unidad">{{ indicators.copPerM2Year === null ? 'faltan 12 facturas' : 'COP/m²·año' }}</span>
           </div>
         </div>
+        <div v-if="activityCards.length" class="indicadores por-actividad" :style="{ '--n': activityCards.length }">
+          <div v-for="card in activityCards" :key="card.label" class="indicador">
+            <span class="eyebrow">{{ card.label }}</span>
+            <strong class="num">{{ card.value }}</strong>
+            <span class="unidad">{{ card.unit }}</span>
+          </div>
+        </div>
+        <p v-else-if="bills.length" class="nota">
+          <IconInfoCircle :size="15" />
+          <span>Anota las personas atendidas y las horas de práctica de cada mes en las facturas para calcular los kWh por persona y por hora de práctica.</span>
+        </p>
+        <template v-if="labs.length">
+          <div class="cabecera-seccion subseccion">
+            <h3>Indicadores por laboratorio</h3>
+            <span class="eyebrow">consumo del censo de carga · horas de uso de los horarios registrados</span>
+          </div>
+          <div class="tabla-contenedor">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Laboratorio</th>
+                  <th class="der">kWh/año</th>
+                  <th class="der">kWh/m²·año</th>
+                  <th class="der opcional">Horas/semana</th>
+                  <th class="der">kWh/h de uso</th>
+                  <th class="der opcional">kWh/persona·h</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="lab in labs" :key="lab.areaId">
+                  <td>{{ lab.name }}</td>
+                  <td class="der">{{ formatNumber(lab.annualKwh) }}</td>
+                  <td class="der">{{ lab.kwhPerM2Year === null ? '—' : formatNumber(lab.kwhPerM2Year, 1) }}</td>
+                  <td class="der opcional">{{ lab.weeklyHours === null ? '—' : formatNumber(lab.weeklyHours, 1) }}</td>
+                  <td class="der">{{ lab.kwhPerUseHour === null ? '—' : formatNumber(lab.kwhPerUseHour, 2) }}</td>
+                  <td class="der opcional">{{ lab.kwhPerPersonHour === null ? '—' : formatNumber(lab.kwhPerPersonHour, 2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="nota">
+            <IconInfoCircle :size="15" />
+            <span>Las horas de uso al año son las horas por semana de los horarios por las semanas de operación del calendario del proyecto. Un laboratorio sin horario no tiene indicador por hora.</span>
+          </p>
+        </template>
         <template v-if="intensity.length">
           <div class="cabecera-seccion subseccion">
             <h3>Intensidad por espacio</h3>
@@ -279,10 +343,12 @@ const significantLabels = computed(() => significant.value.map((s) => endUseOf(s
         </p>
       </section>
 
+      <BaselineUpmePanel class="ancha" :bills="bills" />
+
       <section class="card seccion ancha">
         <div class="cabecera-seccion">
-          <h2><IconChartDots :size="18" />Línea base energética</h2>
-          <span class="eyebrow">ISO 50006 · regresión mensual</span>
+          <h2><IconChartDots :size="18" />Regresión de la línea base</h2>
+          <span class="eyebrow">complemento · ISO 50006 y ASHRAE Guideline 14</span>
           <PngButton v-if="baseline.result" :option="() => buildBaseline(false)" :name="pngName('linea-base')" />
         </div>
         <template v-if="bills.length">
@@ -372,6 +438,18 @@ const significantLabels = computed(() => significant.value.map((s) => endUseOf(s
   color: var(--muted);
   font-size: 12px;
 }
+.por-actividad {
+  margin-top: -2px;
+}
+/* Una sola cifra en dos columnas ocupa toda la fila para no dejar un hueco */
+.por-actividad > .indicador:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+@media (max-width: 639px) {
+  .tabla .opcional {
+    display: none;
+  }
+}
 .nota {
   display: flex;
   align-items: flex-start;
@@ -452,6 +530,12 @@ const significantLabels = computed(() => significant.value.map((s) => endUseOf(s
   }
   .indicadores {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .indicadores.por-actividad {
+    grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr));
+  }
+  .por-actividad > .indicador:last-child:nth-child(odd) {
+    grid-column: auto;
   }
 }
 @media (min-width: 1024px) {

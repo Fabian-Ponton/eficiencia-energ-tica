@@ -213,6 +213,9 @@ export const FORMAT_DEFS: Record<FormatDef['id'], FormatDef> = {
       col('Total factura (COP)', 19, undefined, 'int'),
       col('Tarifa ($/kWh)', 15, undefined, 'dec1'),
       col('Observaciones', 34),
+      col('Personas atendidas', 17, undefined, 'int', true),
+      col('Horas de práctica', 17, undefined, 'int', true),
+      col('Grados-día de enfriamiento', 24, undefined, 'int', true),
     ],
   },
   gas: {
@@ -532,6 +535,9 @@ export function formatRows(id: FormatDef['id'], data: ReportData): Cell[][] {
         b.costCop,
         b.tariffCopPerKwh ?? (b.kwh > 0 ? Math.round((b.costCop / b.kwh) * 10) / 10 : null),
         text(b.notes),
+        num(b.populationServed),
+        num(b.practiceHours),
+        num(b.coolingDegreeDays),
       ]);
     case 'gas':
       return data.otherBills.map((b) => [

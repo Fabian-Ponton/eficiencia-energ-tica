@@ -541,7 +541,16 @@ const importBills =
           'bills',
           b.work.bills,
           existing,
-          { ...common, kwh, demandKw: r.number('Demanda (kW)'), tariffCopPerKwh: r.number('Tarifa ($/kWh)'), kvarh },
+          {
+            ...common,
+            kwh,
+            demandKw: r.number('Demanda (kW)'),
+            tariffCopPerKwh: r.number('Tarifa ($/kWh)'),
+            kvarh,
+            populationServed: r.number('Personas atendidas'),
+            practiceHours: r.number('Horas de práctica'),
+            coolingDegreeDays: r.number('Grados-día de enfriamiento'),
+          },
           () => ({ id: uuid(), projectId: b.work.project.id, createdAt: Date.now(), updatedAt: Date.now(), period, kwh, costCop: 0 }),
         );
       }

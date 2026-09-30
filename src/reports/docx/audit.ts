@@ -10,6 +10,7 @@ import type { EndUseCategory, Finding, Photo, Severity } from '@/domain/types';
 import { formatDate, formatDateTime, periodLabel, periodLabelLong } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { characterizationFacts, characterizationNotes } from '../characterization';
+import { upmeBaselineSection } from './upmeBaselineSection';
 import type { ReportFigure } from '../figures';
 import { billedDailyKwh, measuredWeekdayKwh, type AuditModel, type AutoFinding, type FindingTone } from '../model';
 import {
@@ -186,7 +187,11 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     bullet(`Censo de carga con ${formatNumber(m.data.equipment.reduce((t, e) => t + e.quantity, 0))} equipos, su potencia, horario y factor de uso.`),
     ...(m.data.mainSeries ? [bullet(`Registro de ${m.data.mainSeries.series.name} cada ${m.data.mainSeries.series.intervalMinutes} minutos para la curva de carga diaria.`)] : []),
     ...(m.data.measurements.length ? [bullet(`${m.data.measurements.length} mediciones puntuales de tensión, corriente y potencia.`)] : []),
-    bullet('Línea base por regresión con variables relevantes (ISO 50006) y criterios de ASHRAE Guideline 14; los ahorros se verificarán con el protocolo IPMVP.'),
+    bullet(
+      m.upme
+        ? 'Línea base de consumo energético con el método de la Res. UPME 016 de 2024 (promedio del mismo mes, banda de ±10 % y mejor desempeño); la regresión de la ISO 50006 con los criterios de ASHRAE Guideline 14 queda como complemento. Los ahorros se verificarán con el protocolo IPMVP.'
+        : 'Línea base por regresión con variables relevantes (ISO 50006) y criterios de ASHRAE Guideline 14; los ahorros se verificarán con el protocolo IPMVP.',
+    ),
     bullet('Carga térmica simplificada y método de los lúmenes para verificar la climatización y la iluminación de cada espacio.'),
     ...(m.data.measures.length ? [bullet('Evaluación económica de cada medida de ahorro: retorno simple, valor presente neto y tasa interna de retorno.')] : []),
     note('Las iluminancias de aulas y laboratorios y el VEEI de aulas, laboratorios y oficinas salen del RETILAP (Resolución 40286 de 2026). Los demás parámetros de referencia (carga de envolvente, otros tipos de espacio y umbrales) son orientativos y se validan con el RETILAP, el RETIE y el criterio del auditor.'),
@@ -354,13 +359,14 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
       ),
     ),
   );
+  body.push(...upmeBaselineSection(m, { fig, table }));
   if (m.baseline) {
     const b = m.baseline;
     const [b0, ...rest] = b.model.coefficients;
     const labelOf = (id: string) => BASELINE_VARIABLES.find((v) => v.id === id)?.label.toLowerCase() ?? id;
     const equation = `kWh/mes = ${formatNumber(b0)} ${rest.map((c, k) => `${c < 0 ? '−' : '+'} ${formatNumber(Math.abs(c), 1)} × ${labelOf(b.variables[k])}`).join(' ')}`.trim();
     body.push(
-      heading('Línea base energética', 2),
+      heading(m.upme ? 'Regresión de la línea base (ISO 50006), complemento' : 'Línea base energética', 2),
       para([text('Modelo: ', { bold: true }), text(equation, { font: FONT.mono, size: 19 })]),
       ...fig('linea-base'),
       ...table(

@@ -42,6 +42,7 @@ describe('contenido del informe de auditoría', () => {
       'mapa-de-calor',
       'pareto-usos',
       'flujo-energia',
+      'linea-base-upme',
       'linea-base',
       'climatizacion',
       'iluminacion',

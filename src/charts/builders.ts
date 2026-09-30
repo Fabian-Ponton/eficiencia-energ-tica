@@ -231,6 +231,74 @@ export function linesChart(opts: { labels: string[]; series: SeriesSpec[]; unit?
   };
 }
 
+/**
+ * Línea base mensual de la Res. UPME 016: los datos de cada año como puntos, el promedio del mes como línea (LBEn) y la banda
+ * de ±10 % sombreada entre el límite inferior y el superior. Los puntos que quedan fuera de la banda se dibujan como rombos.
+ */
+export function baselineBandChart(opts: {
+  labels: string[];
+  baseline: (number | null)[];
+  upper: (number | null)[];
+  lower: (number | null)[];
+  minimum?: (number | null)[];
+  years: { name: string; values: (number | null)[]; outside?: boolean[] }[];
+  unit?: string;
+  decimals?: number;
+  dark: boolean;
+}): ChartOption {
+  const p = chartPalette(opts.dark);
+  const decimals = opts.decimals ?? 0;
+  const unit = opts.unit ?? 'kWh';
+  const names = { baseline: 'LBEn (promedio del mes)', band: 'Banda de ±10 %', minimum: 'Mejor desempeño (mínimo)' };
+  const yearNames = opts.years.map((y) => y.name);
+  const fmt = (v: number | null | undefined) => (typeof v === 'number' ? `${formatNumber(v, decimals)} ${unit}` : '—');
+  const legendNames = [names.baseline, names.band, ...(opts.minimum ? [names.minimum] : []), ...yearNames];
+  const spread = opts.upper.map((u, i) => (u !== null && opts.lower[i] !== null ? u - (opts.lower[i] as number) : null));
+  return {
+    animationDuration: 500,
+    grid: { left: 8, right: 14, top: 64, bottom: 4, containLabel: true },
+    legend: { ...legend(p, true), data: legendNames },
+    ...narrowLegend(legendNames),
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: p.surface,
+      borderColor: p.border,
+      textStyle: { color: p.text, fontFamily: SANS, fontSize: 13 },
+      formatter: (params: { dataIndex: number }[]) => {
+        const i = params[0]?.dataIndex ?? 0;
+        const rows = [
+          `<b>${opts.labels[i]}</b>`,
+          `${names.baseline}: <b>${fmt(opts.baseline[i])}</b>`,
+          `${names.band}: ${fmt(opts.lower[i])} – ${fmt(opts.upper[i])}`,
+          ...(opts.minimum ? [`${names.minimum}: ${fmt(opts.minimum[i])}`] : []),
+          ...opts.years.map((y) => `${y.name}: ${fmt(y.values[i])}${y.outside?.[i] ? ' (fuera de la banda)' : ''}`),
+        ];
+        return rows.join('<br/>');
+      },
+    },
+    xAxis: categoryAxis(p, opts.labels, { boundaryGap: false }),
+    yAxis: valueAxis(p, unit, decimals, { scale: true }),
+    series: [
+      // La banda es la diferencia apilada sobre el límite inferior, que no se dibuja
+      { name: 'Límite inferior', type: 'line', data: opts.lower, stack: 'banda', symbol: 'none', lineStyle: { opacity: 0 }, tooltip: { show: false }, silent: true },
+      { name: names.band, type: 'line', data: spread, stack: 'banda', symbol: 'none', lineStyle: { opacity: 0 }, areaStyle: { color: withAlpha(p.axis, 0.18) }, silent: true },
+      { name: names.baseline, type: 'line', data: opts.baseline, symbol: 'circle', symbolSize: 6, lineStyle: { width: 2.6, color: p.navy }, itemStyle: { color: p.navy } },
+      ...(opts.minimum
+        ? [{ name: names.minimum, type: 'line', data: opts.minimum, symbol: 'none', lineStyle: { width: 1.8, type: 'dashed', color: p.accent }, itemStyle: { color: p.accent } }]
+        : []),
+      ...opts.years.map((y, i) => {
+        const color = p.series[i % p.series.length];
+        return {
+          name: y.name,
+          type: 'scatter',
+          data: y.values.map((value, m) => ({ value, symbol: y.outside?.[m] ? 'diamond' : 'circle', symbolSize: y.outside?.[m] ? 11 : 7 })),
+          itemStyle: { color, borderColor: p.surface, borderWidth: 1 },
+        };
+      }),
+    ],
+  };
+}
+
 /** Barras horizontales ordenadas (intensidad por espacio, Pareto de usos finales); el valor va en la etiqueta. */
 export function rankingChart(opts: {
   items: { label: string; value: number; color: string; faded?: boolean; note?: string }[];

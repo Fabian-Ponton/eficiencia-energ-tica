@@ -2,6 +2,8 @@ import 'fake-indexeddb/auto';
 import { Packer } from 'docx';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
+import { updateProject } from '@/db/projects';
+import { saveRecord } from '@/db/records';
 import { createSampleProject } from '@/db/sampleProject';
 import { createDb } from '@/db/schema';
 import type { Photo } from '@/domain/types';
@@ -55,6 +57,13 @@ describe('informe Word de auditoría', () => {
     expect(text).toContain('186.400');
     expect(text).toContain(`Figura ${figures.length}.`);
     expect(text).toContain('Tabla 1.');
+    // La línea base sale con el método de la UPME: modelo, periodo, banda de ±10 %, tabla mensual y datos a reportar
+    expect(text).toContain('Línea base de consumo energético (Res. UPME 016 de 2024)');
+    expect(text).toContain('Periodo base: 24 meses');
+    expect(text).toContain('Resultado de la regresión de la línea base (nivel de confianza del 95 %).');
+    expect(text).toContain('Información de la línea base para reportar a la UPME.');
+    expect(text).toContain('Cantidad de datos iniciales');
+    expect(text).toContain('Regresión de la línea base (ISO 50006), complemento');
     expect(text).toContain('Transformador T1: carga crítica');
     expect(text).toContain('Iluminación fluorescente T8 de baja eficiencia');
     expect(text).toContain('M1 · Cambio a iluminación LED (206 luminarias)');
@@ -72,6 +81,27 @@ describe('informe Word de auditoría', () => {
     expect(Object.values(zip.files).filter((entry) => !entry.dir && entry.name.startsWith('word/media/'))).toHaveLength(figures.length + 2);
     // La portada usa su propio encabezado y pie vacíos
     expect(xml).toContain('w:titlePg');
+    db.close();
+  });
+
+  it('la línea base con el modelo de valor absoluto trae la tabla mensual con la banda de ±10 % y el ajuste declarado', async () => {
+    const db = createDb('pontia-prueba-docx-lben');
+    const ejemplo = await createSampleProject(db);
+    await updateProject(db, ejemplo.id, { baseline: { model: 'valor-absoluto', note: 'El ejemplo solo tiene dos años de facturas' } });
+    await saveRecord(db, 'baselineAdjustments', { id: 'aj', projectId: ejemplo.id, carrier: 'electricidad', kind: 'no-rutinario', date: '2026-06-01', cause: 'Aires fuera de servicio', months: ['2025-05', '2025-06'], applied: true });
+    const model = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
+    expect(model.upme?.kind).toBe('valor-absoluto');
+    const figures = auditFigures(model);
+    const assets: AuditAssets = { figures: new Map(figures.map((f, i) => [f.id, { data: Uint8Array.from([...PIXEL, i]), width: f.width, height: f.height }])), photos: [] };
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(buildAuditDocument(model, figures, assets)));
+    const text = ((await zip.file('word/document.xml')?.async('string')) ?? '').replace(/<[^>]+>/g, '');
+    expect(text).toContain('Modelo seleccionado: valor absoluto de energía');
+    expect(text).toContain('Línea base mensual (kWh/mes) y potencial de ahorro por mejor desempeño.');
+    expect(text).toContain('LÍMITE INFERIOR');
+    expect(text).toContain('Ajustes y actualizaciones de la línea base.');
+    expect(text).toContain('Aires fuera de servicio');
+    // Con menos de 36 meses y una justificación escrita, el informe la cita
+    expect(text).toContain('El ejemplo solo tiene dos años de facturas');
     db.close();
   });
 

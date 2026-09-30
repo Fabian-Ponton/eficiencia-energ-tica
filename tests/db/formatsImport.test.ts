@@ -302,6 +302,34 @@ describe('carga de los formatos de Excel', () => {
     db.close();
   });
 
+  it('las personas atendidas, las horas de práctica y los grados-día viajan con la factura eléctrica', async () => {
+    const db = createDb('pontia-formatos-variables');
+    const origen = await proyectoVacio(db);
+    const libro = await manualWorkbook({
+      '08_Facturacion': {
+        headers: headersOf('facturacion'),
+        rows: [
+          rowOf('facturacion', { 'Mes/Año': '2026-03', Días: 31, 'Consumo (kWh)': 12_000, 'Total factura (COP)': 9_000_000, 'Personas atendidas': 950, 'Horas de práctica': 610, 'Grados-día de enfriamiento': 287 }),
+          rowOf('facturacion', { 'Mes/Año': '2026-04', Días: 30, 'Consumo (kWh)': 11_000, 'Total factura (COP)': 8_500_000 }),
+        ],
+      },
+    });
+    const plan = await planFormatsImport(libro, await loadReportData(db, origen.id));
+    expect(plan.totals.errors).toBe(0);
+    await applyFormatsImport(db, origen.id, plan);
+    const facturas = await db.bills.where('projectId').equals(origen.id).sortBy('period');
+    expect(facturas[0]).toMatchObject({ populationServed: 950, practiceHours: 610, coolingDegreeDays: 287 });
+    expect(facturas[1].populationServed).toBeUndefined();
+
+    // Ida y vuelta: el libro descargado trae las columnas y otro proyecto las recupera
+    const descargado = await buildFormatsWorkbook(await loadReportData(db, origen.id), { filled: true, created: new Date(2026, 8, 29) });
+    const destino = await proyectoVacio(db);
+    await applyFormatsImport(db, destino.id, await planFormatsImport(descargado, await loadReportData(db, destino.id)));
+    const copia = await db.bills.where('projectId').equals(destino.id).sortBy('period');
+    expect(copia[0]).toMatchObject({ populationServed: 950, practiceHours: 610, coolingDegreeDays: 287 });
+    db.close();
+  });
+
   it('el control conserva lo que la app calcula sola y guarda lo que solo el auditor sabe', async () => {
     const db = createDb('pontia-formatos-control');
     const proyecto = await proyectoVacio(db);

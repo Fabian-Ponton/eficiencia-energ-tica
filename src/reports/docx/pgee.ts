@@ -1,10 +1,11 @@
 import { Document, Paragraph, TableOfContents, type FileChild } from 'docx';
 import { BASELINE_VARIABLES } from '@/domain/analysis';
+import { MODEL_LABEL } from '@/domain/calc/lben';
 import { sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import { measureEconomics } from '@/domain/measures';
 import type { EndUseCategory, Finding, Measure, Pgee } from '@/domain/types';
-import { formatDate } from '@/utils/dates';
+import { formatDate, periodLabel } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import type { ReportFigure } from '../figures';
 import type { AuditModel } from '../model';
@@ -200,6 +201,16 @@ export function buildPgeeDocument(m: AuditModel, input: PgeeInput, figures: read
     body.push(para('El censo de carga aún no tiene equipos: los usos significativos quedan pendientes.'));
   }
   body.push(heading('4.2 Línea base energética', 2));
+  if (m.upme) {
+    const u = m.upme;
+    body.push(
+      para(
+        `Línea base de consumo energético (LBEn) con el método de la Res. UPME 016 de 2024: ${MODEL_LABEL[u.kind].toLowerCase()}, ${u.months} meses de facturas (${periodLabel(u.from)} a ${periodLabel(u.to)}), consumo normalizado a 30 días.` +
+          (u.headline.baselineKwhYear !== null ? ` LBEn anual: ${formatNumber(u.headline.baselineKwhYear)} kWh.` : '') +
+          (u.headline.savingPct !== null ? ` Potencial de ahorro por mejor desempeño: ${formatPercent(u.headline.savingPct, 1)}${u.headline.savingKwhYear !== null ? ` (${formatNumber(u.headline.savingKwhYear)} kWh/año)` : ''}.` : ''),
+      ),
+    );
+  }
   if (m.baseline) {
     const b = m.baseline;
     const [b0, ...rest] = b.model.coefficients;

@@ -20,8 +20,10 @@ import { mean, sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import { estimatedProfiles } from '@/domain/estimate';
 import { areaCooling, areaLighting, capacityAnalysis, resolveSizing, type AreaCooling, type AreaLighting, type CapacityResult, type SizingParameters } from '@/domain/sizing';
+import { computeUpmeBaseline, type UpmeBaseline } from '@/domain/upmeBaseline';
 import type {
   Area,
+  BaselineAdjustment,
   Bill,
   CollectionItem,
   ElectricalNode,
@@ -60,6 +62,8 @@ export interface ReportData {
   occupancy: OccupancyRecord[];
   maintenance: MaintenanceRecord[];
   collection: CollectionItem[];
+  /** Ajustes rutinarios, no rutinarios y actualizaciones de la línea base (Res. UPME 016, §7.6). */
+  baselineAdjustments: BaselineAdjustment[];
   series: IntervalSeries[];
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };
@@ -105,6 +109,8 @@ export interface AuditModel {
   flow: EnergyFlow;
   indicators: ReturnType<typeof energyIndicators>;
   baseline: BaselineResult | null;
+  /** Línea base con el método de la Res. UPME 016 de 2024; `null` con menos de dos facturas. */
+  upme: UpmeBaseline | null;
   daily: DailyAnalysis | null;
   estimated: ReturnType<typeof estimatedProfiles>;
   cooling: AreaCooling[];
@@ -167,6 +173,7 @@ export function buildAuditModel(data: ReportData): AuditModel {
     flow: energyFlow(equipment, areas, billedAnnualKwh),
     indicators: energyIndicators(referenceKwh, annual.last12CostCop, project.areaM2, project.users),
     baseline: defaultBaseline(bills),
+    upme: computeUpmeBaseline({ bills, config: project.baseline, adjustments: data.baselineAdjustments, project }),
     daily,
     estimated: estimatedProfiles(equipment),
     cooling: areas.map((a) => areaCooling(a, equipment, params)).filter((r) => r !== null),

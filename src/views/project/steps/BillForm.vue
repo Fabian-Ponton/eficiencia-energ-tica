@@ -113,7 +113,24 @@ const calc = computed(() => {
 
   <section class="form-seccion">
     <h3 class="form-seccion-titulo"><IconChartDots :size="16" />Variables para la línea base</h3>
-    <p class="ayuda-seccion">Opcional. Explican por qué un mes consume más que otro y se usan en la línea base energética (ISO 50006).</p>
+    <p class="ayuda-seccion">
+      Opcional. Explican por qué un mes consume más que otro y se usan en la línea base energética (ISO 50006 y Res. UPME 016 de 2024, §7.3): el consumo por
+      persona atendida o por hora de práctica, y la regresión con varias variables.
+    </p>
+    <div class="form-grid tres">
+      <label class="campo">
+        <span class="etiqueta">Personas atendidas</span>
+        <NumberInput v-model="draft.populationServed" :decimals="0" suffix="personas" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Horas de práctica</span>
+        <NumberInput v-model="draft.practiceHours" :decimals="0" suffix="h" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Grados-día de enfriamiento</span>
+        <NumberInput v-model="draft.coolingDegreeDays" :decimals="0" suffix="°C·día" />
+      </label>
+    </div>
     <div class="form-grid tres">
       <label class="campo">
         <span class="etiqueta">Días hábiles</span>

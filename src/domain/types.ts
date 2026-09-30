@@ -30,6 +30,9 @@ export type EntityKind = 'publica' | 'privada';
 export type EntityOrder = 'nacional' | 'territorial';
 /** Energético. Un registro sin `carrier` es electricidad. */
 export type EnergyCarrier = 'electricidad' | 'gas-natural' | 'glp' | 'otro';
+/** Variables relevantes de la línea base de la Res. UPME 016 de 2024 (§7.3) y modelos que propone (§7.4). */
+export type UpmeVariable = 'personas' | 'horasPractica' | 'gde' | 'diasHabiles' | 'temperatura' | 'ocupacion';
+export type UpmeModelKind = 'valor-absoluto' | 'cociente' | 'estadistico';
 /** Cómo se usa un equipo. Un equipo sin régimen se trata como `horario`. */
 export type UsageRegime = 'continuo' | 'horario' | 'ciclos' | 'respaldo';
 /** Clase de potencial de ahorro del art. 4(d) de la Res. 40412. */
@@ -105,6 +108,23 @@ export interface Project extends BaseRecord {
   scope?: { boundary?: string; objectives?: string; limitations?: string; fnce: 'potencial' | 'excluida'; fnceNote?: string };
   /** El auditor revisó la seguridad eléctrica y no encontró hallazgos. */
   safetyReviewed?: boolean;
+  /** Decisiones del auditor sobre la línea base de la Res. UPME 016; sin ellas la app propone el modelo y usa todos los datos. */
+  baseline?: BaselineConfig;
+}
+
+export interface BaselineConfig {
+  model?: UpmeModelKind;
+  /** Variable del modelo de cociente. */
+  ratioVariable?: UpmeVariable;
+  /** Variables candidatas del modelo estadístico. */
+  variables?: UpmeVariable[];
+  /** Primer y último mes del periodo base (AAAA-MM); sin ellos, todas las facturas. */
+  from?: string;
+  to?: string;
+  /** Justificación de un periodo base de menos de 36 meses (§7.2) o de la exclusión de meses. */
+  note?: string;
+  /** Conservar los datos que quedan fuera de la banda de ±10 % (por omisión se eliminan, §7.5.1). */
+  keepOutliers?: boolean;
 }
 
 export type ReportKind = 'auditoria' | 'pgee' | 'implementacion' | 'csv' | 'excel' | 'graficas';
@@ -562,6 +582,8 @@ export interface BaselineAdjustment extends ProjectScoped {
   months?: string[];
   kwhEffect?: number;
   notes?: string;
+  /** Ajuste no rutinario del periodo base (Anexo 4, A4.1): los meses afectados se corrigen en el cálculo de la línea base. */
+  applied?: boolean;
 }
 
 /** Ciclo de reporte de una auditoría a la UPME. */

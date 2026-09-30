@@ -2,6 +2,7 @@ import { barsChart, bulletChart, dayProfileChart, linesChart, paretoChart, sanke
 import type { ChartOption } from '@/charts/echarts';
 import { chartPalette } from '@/charts/palette';
 import { singleLineChart } from '@/charts/singleLineChart';
+import { upmeBaselineFigure } from '@/charts/upmeBaselineChart';
 import { endUseOf } from '@/domain/catalogs';
 import type { EndUseCategory } from '@/domain/types';
 import { MONTHS_SHORT, periodLabel } from '@/utils/dates';
@@ -143,6 +144,8 @@ export function auditFigures(m: AuditModel): ReportFigure[] {
       height: Math.max(420, m.flow.nodes.length * 34),
     });
   }
+  const upme = m.upme ? upmeBaselineFigure(m.upme, false) : null;
+  if (upme) add({ id: 'linea-base-upme', title: upme.title, source: upme.source, option: upme.option, width: 960, height: 420 });
   if (m.baseline) {
     add({
       id: 'linea-base',
