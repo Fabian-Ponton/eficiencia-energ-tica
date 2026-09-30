@@ -6,6 +6,7 @@ import { generatedEquipmentCode } from '@/domain/codes';
 import { AC_TYPES, CONDITIONS, END_USES, endUseOf, LAMP_TYPES, LIGHT_CONTROLS, PHOTO_KINDS, SPACE_TYPES, spaceTypeOf } from '@/domain/catalogs';
 import { buildCollection, STATUS_LABEL } from '@/domain/collection';
 import { FREQUENCIES, MAINTENANCE_TYPES } from '@/domain/maintenance';
+import { SAVINGS_TYPES, savingsTypeInfo, savingsTypeOf } from '@/domain/measures';
 import { DAY_OPTIONS, termsOf } from '@/domain/occupancy';
 import { tenureInfo, TENURES } from '@/domain/tenure';
 import type { Equipment } from '@/domain/types';
@@ -54,7 +55,8 @@ export type ListKey =
   | 'energetico'
   | 'unidad'
   | 'tenencia'
-  | 'tipoEntidad';
+  | 'tipoEntidad'
+  | 'potencial';
 
 export type CellFormat = 'text' | 'date' | 'period' | 'int' | 'dec1' | 'dec2' | 'dec3';
 
@@ -298,6 +300,10 @@ export const FORMAT_DEFS: Record<FormatDef['id'], FormatDef> = {
       col('Plazo', 12),
       col('Indicador', 20),
       col('Observaciones', 34),
+      col('Tipo de potencial', 28, 'potencial', undefined, true),
+      col('En el plan', 12, 'siNo', undefined, true),
+      col('Costo anual de operación (COP)', 28, undefined, 'int', true),
+      col('Vida útil (años)', 17, undefined, 'int', true),
     ],
   },
   control: {
@@ -604,7 +610,7 @@ export function formatRows(id: FormatDef['id'], data: ReportData): Cell[][] {
           m.code,
           m.category ? endUseOf(m.category).label : null,
           text(m.description),
-          null,
+          text(m.evidence),
           m.title,
           num(m.currentConsumptionKwhYear),
           m.savingsKwhYear,
@@ -612,10 +618,14 @@ export function formatRows(id: FormatDef['id'], data: ReportData): Cell[][] {
           m.investmentCop,
           net > 0 ? Math.round((m.investmentCop / net) * 10) / 10 : null,
           m.priority ? measurePriority[m.priority] : null,
-          null,
-          null,
-          null,
+          text(m.responsible),
+          text(m.deadline),
+          text(m.indicator),
           text(m.notes),
+          savingsTypeInfo(savingsTypeOf(m)).label,
+          m.selected ? 'Sí' : 'No',
+          m.annualCostCop,
+          m.lifetimeYears,
         ];
       });
     case 'control': {
@@ -666,6 +676,7 @@ export function formatLists(data: ReportData): Record<ListKey, string[]> {
     unidad: ['m³', 'kg', 'gal'],
     tenencia: TENURES.map((t) => t.label),
     tipoEntidad: ['Pública', 'Privada'],
+    potencial: SAVINGS_TYPES.map((t) => t.label),
   };
 }
 

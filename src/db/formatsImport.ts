@@ -4,8 +4,10 @@ import { CARRIERS, carrierInfo, isElectric } from '@/domain/carriers';
 import { AC_TYPES, CONDITIONS, END_USES, LAMP_TYPES, LIGHT_CONTROLS, SPACE_TYPES, daysPerMonth } from '@/domain/catalogs';
 import { buildCollection, COLLECTION_ITEMS, STATUS_LABEL } from '@/domain/collection';
 import { FREQUENCIES, MAINTENANCE_TYPES } from '@/domain/maintenance';
+import { SAVINGS_TYPES, savingsTypeOf } from '@/domain/measures';
+import { measureAllowance, tenureScope } from '@/domain/tenure';
 import { TENURES } from '@/domain/tenure';
-import type { Area, Bill, CollectionItem, CollectionStatus, EndUseCategory, Equipment, Finding, MaintenanceRecord, Measure, Measurement, OccupancyRecord, Project, Severity } from '@/domain/types';
+import type { Area, Bill, CollectionItem, CollectionStatus, EndUseCategory, Equipment, Finding, MaintenanceRecord, Measure, Measurement, OccupancyRecord, Project, SavingsType, Severity } from '@/domain/types';
 import { FORMAT_DEFS, FORMAT_ORDER, GENERAL_SHEET, HEADER_ROW, type FormatDef, type FormatId } from '@/reports/formats';
 import type { ReportData } from '@/reports/model';
 import { guessCategory } from './legacyImport';
@@ -123,6 +125,8 @@ const SEVERITY_OPTIONS: Option<Severity>[] = [
   { id: 'medio', label: 'Media', aliases: ['medio'] },
   { id: 'bajo', label: 'Baja', aliases: ['bajo'] },
 ];
+const SAVINGS_ALIASES: Record<SavingsType, string[]> = {'bpo':['bpo','buenas practicas','operativa'],'cambio-tecnologico':['tecnologia','cambio tecnologico','reconversion'],'sustitucion-energetico':['sustitucion','sustitucion de energetico'],'fncer':['fnce','renovable','solar'],'pasiva':['pasiva','medida pasiva']};
+const SAVINGS_OPTIONS: Option<SavingsType>[] = SAVINGS_TYPES.map((t) => ({ id: t.id, label: t.label, aliases: SAVINGS_ALIASES[t.id] }));
 const PRIORITY_OPTIONS: Option<NonNullable<Measure['priority']>>[] = [
   { id: 'alta', label: 'Alta', aliases: ['alto', 'critica', 'crítica'] },
   { id: 'media', label: 'Media', aliases: ['medio'] },
@@ -653,7 +657,18 @@ const importMeasures: Importer = (b, rows) => {
     const investment = r.number('Inversión (COP)');
     const priorityCell = r.raw('Prioridad');
     const priority = matchLoose(priorityCell, PRIORITY_OPTIONS);
-    const notes = [r.text('Evidencia') ? `Evidencia: ${r.text('Evidencia')}` : undefined, r.text('Observaciones')].filter(Boolean).join(' · ') || undefined;
+    const kind = existing?.kind ?? (!investment ? ('operativa' as const) : investment < 10_000_000 ? ('baja-inversion' as const) : ('alta-inversion' as const));
+    // La clase de potencial solo se guarda si el auditor la cambió respecto de la que se deduce del tipo de medida
+    const typeCell = r.raw('Tipo de potencial');
+    const type = matchLoose(typeCell, SAVINGS_OPTIONS);
+    if (cellText(typeCell) && !type) b.warn(r.row, `El tipo de potencial «${cellText(typeCell)}» no está en la lista: se dejó como estaba.`);
+    const lifetime = ranged(b, r, 'Vida útil (años)', 1, 60, 'Vida útil');
+    // Lo que la tenencia del edificio no permite no entra al plan aunque la hoja diga «Sí»
+    let inPlan = parseYesNo(r.raw('En el plan'));
+    if (inPlan && measureAllowance(tenureScope(b.work.project.building?.tenure, b.work.project.entity?.kind), type ?? savingsTypeOf({ kind, savingsType: existing?.savingsType })) === 'no-permitida') {
+      inPlan = false;
+      b.warn(r.row, `«${title}» no entra al plan: la tenencia del edificio solo permite buenas prácticas de operación.`);
+    }
     b.upsert<Measure>(
       'measures',
       b.work.measures,
@@ -666,8 +681,16 @@ const importMeasures: Importer = (b, rows) => {
         savingsKwhYear: r.number('Ahorro (kWh/año)'),
         savingsCopYear: r.number('Ahorro (COP/año)'),
         investmentCop: investment,
+        annualCostCop: r.number('Costo anual de operación (COP)'),
+        lifetimeYears: lifetime === undefined ? undefined : Math.round(lifetime),
         priority,
-        notes,
+        evidence: r.text('Evidencia'),
+        responsible: r.text('Responsable'),
+        deadline: r.text('Plazo'),
+        indicator: r.text('Indicador'),
+        savingsType: type && type !== savingsTypeOf({ kind, savingsType: undefined }) ? type : undefined,
+        selected: inPlan,
+        notes: r.text('Observaciones'),
       },
       () => ({
         id: uuid(),
@@ -677,7 +700,7 @@ const importMeasures: Importer = (b, rows) => {
         code: code ?? nextCode,
         title,
         category: usable ?? ('otros' as const),
-        kind: !investment ? ('operativa' as const) : investment < 10_000_000 ? ('baja-inversion' as const) : ('alta-inversion' as const),
+        kind,
         savingsKwhYear: 0,
         savingsCopYear: 0,
         investmentCop: 0,

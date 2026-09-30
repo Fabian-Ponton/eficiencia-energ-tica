@@ -406,6 +406,11 @@ export interface Measure extends ProjectScoped {
   currentConsumptionKwhYear?: number;
   /** Ítems de la medida para la plantilla 5 del reporte a la UPME. */
   items?: MeasureItem[];
+  /** Formato 12: evidencia del problema, responsable, plazo e indicador de seguimiento de la medida. */
+  evidence?: string;
+  responsible?: string;
+  deadline?: string;
+  indicator?: string;
   notes?: string;
 }
 

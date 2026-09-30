@@ -2,6 +2,8 @@ import { loadSeriesReadings } from '@/db/intervals';
 import type { PontiaDb } from '@/db/schema';
 import { isElectric, isNotElectric } from '@/domain/carriers';
 import { SEVERITY_ORDER } from '@/domain/diagnosis';
+import { savingsTypeOf } from '@/domain/measures';
+import { measureAllowance, tenureScope } from '@/domain/tenure';
 import type { ReportData } from './model';
 
 const alive = <T extends { deletedAt?: number }>(rows: T[]): T[] => rows.filter((r) => !r.deletedAt);
@@ -51,7 +53,10 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     mainSeries: main ? { series: main, readings: await loadSeriesReadings(db, main) } : undefined,
     photos: alive(photos).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
     findings: alive(findings).sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.createdAt - b.createdAt),
-    measures: alive(measures).sort((a, b) => a.code.localeCompare(b.code, 'es', { numeric: true })),
+    // Una medida que la tenencia no permite no entra al plan, aunque un dato viejo la marque
+    measures: alive(measures)
+      .map((m) => (m.selected && measureAllowance(tenureScope(project.building?.tenure, project.entity?.kind), savingsTypeOf(m)) === 'no-permitida' ? { ...m, selected: false } : m))
+      .sort((a, b) => a.code.localeCompare(b.code, 'es', { numeric: true })),
     tasks: alive(tasks).sort((a, b) => (a.start ?? '9999').localeCompare(b.start ?? '9999') || a.name.localeCompare(b.name, 'es')),
     generatedAt,
   };

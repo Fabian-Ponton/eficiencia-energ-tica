@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconAlertTriangle, IconNotes, IconSparkles, IconTag } from '@tabler/icons-vue';
+import { IconAlertTriangle, IconChecklist, IconNotes, IconSparkles, IconTag } from '@tabler/icons-vue';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
@@ -57,6 +57,28 @@ const CATEGORIES: { value: NonNullable<Finding['category']>; label: string }[] =
   <section class="form-seccion">
     <h3 class="form-seccion-titulo"><IconNotes :size="16" />Descripción</h3>
     <Textarea v-model="draft.description" auto-resize rows="3" placeholder="Qué se observó, dónde, cómo se midió y por qué importa." />
+  </section>
+
+  <section class="form-seccion">
+    <h3 class="form-seccion-titulo"><IconChecklist :size="16" />Causa, impacto y acción (Formato 11)</h3>
+    <div class="form-grid">
+      <label class="campo">
+        <span class="etiqueta">Fecha del hallazgo</span>
+        <input v-model="draft.foundAt" type="date" class="p-inputtext p-component" />
+      </label>
+      <label class="campo completo">
+        <span class="etiqueta">Posible causa</span>
+        <Textarea v-model="draft.cause" auto-resize rows="2" placeholder="Ej.: filtros sucios, horario de encendido sin control" />
+      </label>
+      <label class="campo completo">
+        <span class="etiqueta">Impacto energético observado</span>
+        <Textarea v-model="draft.energyImpact" auto-resize rows="2" placeholder="Ej.: consumo nocturno de 5,9 kW con el edificio cerrado" />
+      </label>
+      <label class="campo completo">
+        <span class="etiqueta">Acción sugerida</span>
+        <Textarea v-model="draft.suggestedAction" auto-resize rows="2" placeholder="Ej.: apagado programado y revisión mensual del mantenimiento" />
+      </label>
+    </div>
   </section>
 
   <EntityPhotos :project-id="projectId" entity-type="hallazgo" :entity-id="draft.id" default-kind="estado-fisico" title="Evidencia fotográfica" hint="Fotos de la condición encontrada: placas, termografías, tableros, luminarias…" />

@@ -31,6 +31,35 @@ describe('contenido del informe de auditoría', () => {
     db.close();
   });
 
+  it('la carga base de noche descuenta los equipos continuos y los que no se pueden apagar', async () => {
+    const db = createDb('pontia-prueba-informe-carga-base');
+    const ejemplo = await createSampleProject(db);
+    const data = await loadReportData(db, ejemplo.id, new Date(2026, 8, 12));
+    // Siete días con 12 kW toda la noche y 30 kW de 8 a 18 h: la carga base es el 40 % de la demanda máxima
+    const readings = Array.from({ length: 7 * 24 }, (_, i) => {
+      const start = new Date(2026, 8, 7 + Math.floor(i / 24), i % 24);
+      return { start, kw: start.getHours() >= 8 && start.getHours() < 18 ? 30 : 12 };
+    });
+    const conCargaBase = { ...data, mainSeries: { series: { ...data.mainSeries!.series, intervalMinutes: 60 }, readings } };
+    const titulos = (d: typeof conCargaBase) => buildAuditModel(d).findings.map((f) => f.title);
+    expect(titulos(conCargaBase)).toContain('Carga base alta fuera del horario');
+
+    // Con 9 kW de equipos que no se pueden apagar, solo quedan 3 kW evitables (10 %): deja de ser un hallazgo y pasa a ser una nota
+    const laboratorio = { ...data.equipment[0], id: 'ultra', name: 'Ultracongelador', category: 'refrigeracion' as const, powerKw: 3, quantity: 3, useFactor: 1, nonInterruptible: true, regime: 'continuo' as const };
+    const justificada = { ...conCargaBase, equipment: [...data.equipment, laboratorio] };
+    const modelo = buildAuditModel(justificada);
+    expect(modelo.findings.map((f) => f.title)).not.toContain('Carga base alta fuera del horario');
+    const nota = modelo.findings.find((f) => f.title === 'Carga base explicada por equipos continuos');
+    expect(nota?.tone).toBe('info');
+    expect(nota?.detail).toContain('9,0 kW corresponden a equipos que funcionan las 24 horas o no se pueden apagar');
+
+    // Con solo la mitad justificada, sigue siendo hallazgo y dice cuánto es evitable
+    const parcial = buildAuditModel({ ...conCargaBase, equipment: [...data.equipment, { ...laboratorio, quantity: 1 }] }).findings.find((f) => f.title === 'Carga base alta fuera del horario');
+    expect(parcial?.detail).toContain('Unos 3,0 kW son de equipos continuos');
+    expect(parcial?.detail).toContain('los 9,0 kW restantes');
+    db.close();
+  });
+
   it('prepara una figura por cada análisis disponible', async () => {
     const db = createDb('pontia-prueba-informe-figuras');
     const ejemplo = await createSampleProject(db);

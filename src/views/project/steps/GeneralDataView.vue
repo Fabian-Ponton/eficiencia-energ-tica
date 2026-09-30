@@ -19,13 +19,14 @@ import { useDebounceFn } from '@vueuse/core';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
+import { useToast } from 'primevue/usetoast';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import NumberInput from '@/components/ui/NumberInput.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
-import { updateProject } from '@/db/projects';
+import { removeBlockedMeasuresFromPlan, updateProject } from '@/db/projects';
 import { getDb } from '@/db/schema';
 import { daysPerMonth, ENTITY_KINDS, ENTITY_ORDERS, GRID_OPERATORS, SECTORS, VOLTAGE_LEVELS } from '@/domain/catalogs';
 import { characterization, groupStatus, nextAuditDate, type CharacterizationSource } from '@/domain/compliance';
@@ -187,10 +188,12 @@ const details = computed(() => ({
       : undefined,
 }));
 
+const toast = useToast();
 const persist = useDebounceFn(async () => {
   const p = project.value;
   if (!p || nameError.value) return;
   status.value = 'guardando';
+  const previousScope = tenureScope(p.building?.tenure, p.entity?.kind);
   try {
     await updateProject(db, p.id, {
       name: form.name.trim(),
@@ -221,6 +224,21 @@ const persist = useDebounceFn(async () => {
       ...details.value,
       surveyDate: form.surveyDate || undefined,
     });
+    // Si la tenencia ahora solo permite buenas prácticas, las medidas de otra clase salen del plan y se avisa (nada se borra)
+    if (tenureScope(details.value.building?.tenure, details.value.entity?.kind) !== previousScope) {
+      const removed = await removeBlockedMeasuresFromPlan(db, p.id);
+      if (removed.length) {
+        toast.add({
+          severity: 'warn',
+          summary: 'Medidas fuera del plan',
+          detail: `La tenencia del edificio solo permite buenas prácticas de operación: ${removed
+            .map((m) => m.code)
+            .sort((a, b) => a.localeCompare(b, 'es', { numeric: true }))
+            .join(', ')} ${removed.length === 1 ? 'quedó como potencial y salió' : 'quedaron como potencial y salieron'} del plan. No se borró nada.`,
+          life: 9000,
+        });
+      }
+    }
     status.value = 'guardado';
   } catch {
     status.value = 'error';

@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { addProject, lastTwelveMonthsKwh, listProjects, restoreProject, softDeleteProject, summarizeProject } from '@/db/projects';
+import { addProject, lastTwelveMonthsKwh, listProjects, removeBlockedMeasuresFromPlan, restoreProject, softDeleteProject, summarizeProject, updateProject } from '@/db/projects';
 import { createSampleProject } from '@/db/sampleProject';
 import { createDb } from '@/db/schema';
 
@@ -16,6 +16,30 @@ describe('proyectos en la base local', () => {
     expect((await listProjects(db)).map((p) => p.name)).toEqual(['Edificio administrativo']);
     await restoreProject(db, a.id);
     expect(await listProjects(db)).toHaveLength(2);
+    db.close();
+  });
+
+
+  it('con el edificio en arriendo las medidas que no son buenas prácticas salen del plan y las demás quedan como estaban', async () => {
+    const db = createDb('pontia-prueba-tenencia-medidas');
+    const ejemplo = await createSampleProject(db);
+    const enPlan = async () => (await db.measures.where('projectId').equals(ejemplo.id).toArray()).filter((m) => m.selected).map((m) => m.code).sort();
+    expect(await enPlan()).toEqual(['M1', 'M2', 'M3', 'M4']);
+    // Edificio propio: no se toca nada
+    await updateProject(db, ejemplo.id, { building: { tenure: 'propia' }, entity: { kind: 'publica' } });
+    expect(await removeBlockedMeasuresFromPlan(db, ejemplo.id)).toEqual([]);
+    expect(await enPlan()).toEqual(['M1', 'M2', 'M3', 'M4']);
+    // Una entidad privada no queda limitada por la resolución, aunque el edificio sea arrendado
+    await updateProject(db, ejemplo.id, { building: { tenure: 'arrendada' }, entity: { kind: 'privada' } });
+    expect(await removeBlockedMeasuresFromPlan(db, ejemplo.id)).toEqual([]);
+    // Entidad pública con el edificio arrendado: solo queda el programa de apagado (M4, buenas prácticas)
+    await updateProject(db, ejemplo.id, { entity: { kind: 'publica' } });
+    const salieron = await removeBlockedMeasuresFromPlan(db, ejemplo.id);
+    expect(salieron.map((m) => m.code).sort()).toEqual(['M1', 'M2', 'M3']);
+    expect(await enPlan()).toEqual(['M4']);
+    // Nada se borra: las medidas siguen ahí, solo fuera del plan
+    expect(await db.measures.where('projectId').equals(ejemplo.id).count()).toBe(5);
+    expect(await removeBlockedMeasuresFromPlan(db, ejemplo.id)).toEqual([]);
     db.close();
   });
 

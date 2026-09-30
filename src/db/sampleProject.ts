@@ -168,7 +168,7 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
       windowOrientation: 'N' as const,
       measuredLuxAvg: n === 601 ? 312 : 340,
     })),
-    { ...stamp(), name: 'Laboratorio de física', spaceType: 'laboratorio', lengthM: 12, widthM: 8, heightM: 3.2, workPlaneHeightM: 0.9, occupants: 30, hoursPerDay: 8, measuredLuxAvg: 405 },
+    { ...stamp(), name: 'Laboratorio de física', spaceType: 'laboratorio', lengthM: 12, widthM: 8, heightM: 3.2, workPlaneHeightM: 0.9, occupants: 30, hoursPerDay: 8, measuredLuxAvg: 405, roofAvailableM2: 600 },
     { ...stamp(), name: 'Sala de cómputo', spaceType: 'sala-computo', lengthM: 10, widthM: 8, heightM: 3, workPlaneHeightM: 0.8, occupants: 40, hoursPerDay: 10, measuredLuxAvg: 470 },
     { ...stamp(), name: 'Coordinación académica', spaceType: 'oficina', lengthM: 6, widthM: 5, heightM: 2.8, workPlaneHeightM: 0.8, occupants: 6, hoursPerDay: 9 },
   ];

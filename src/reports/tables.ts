@@ -3,7 +3,7 @@ import { carrierInfo, unitLabel } from '@/domain/carriers';
 import { CONDITIONS, electricalKindOf, endUseOf, spaceTypeOf } from '@/domain/catalogs';
 import { FINDING_STATUS_LABEL, findingTopicLabel, SEVERITY_LABEL } from '@/domain/diagnosis';
 import { PHASE_ORDER, phaseOf, TASK_STATUS_LABEL, taskDays } from '@/domain/implementation';
-import { MEASURE_KIND_LABEL, measureEconomics, PRIORITY_LABEL } from '@/domain/measures';
+import { MEASURE_KIND_LABEL, measureEconomics, PRIORITY_LABEL, savingsTypeInfo, savingsTypeOf } from '@/domain/measures';
 import { derivePower } from '@/domain/measurements';
 import type { Measure, Task } from '@/domain/types';
 import type { CsvColumn } from './csv';
@@ -214,6 +214,10 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'Estado', value: (f) => FINDING_STATUS_LABEL[f.status] },
       { header: 'Origen', value: (f) => (f.auto ? 'Sugerido por PONTIA' : 'Auditor') },
       { header: 'Descripción', value: (f) => f.description },
+      { header: 'Fecha', value: (f) => f.foundAt },
+      { header: 'Posible causa', value: (f) => f.cause },
+      { header: 'Impacto energético', value: (f) => f.energyImpact },
+      { header: 'Acción sugerida', value: (f) => f.suggestedAction },
     ]),
     table('medidas', 'Medidas de ahorro', data.measures, [
       { header: 'Código', value: (x) => x.code },
@@ -238,7 +242,13 @@ export function exportTables(m: AuditModel): ExportTable[] {
       { header: 'CO₂ evitado (t/año)', value: (x) => finite(economics.get(x.id)?.co2TonnesYear), decimals: 2 },
       { header: 'En el plan', value: (x) => (x.selected ? 'Sí' : 'No') },
       { header: 'Prioridad', value: (x) => (x.priority ? PRIORITY_LABEL[x.priority] : '') },
+      { header: 'Clase de potencial', value: (x) => savingsTypeInfo(savingsTypeOf(x)).label },
+      { header: 'Consumo actual del sistema (kWh/año)', value: (x) => x.currentConsumptionKwhYear, decimals: 0 },
       { header: 'Hallazgos que atiende', value: (x) => x.findingIds.map((id) => findingTitle.get(id)).filter(Boolean).join('; ') },
+      { header: 'Evidencia', value: (x) => x.evidence },
+      { header: 'Responsable', value: (x) => x.responsible },
+      { header: 'Plazo', value: (x) => x.deadline },
+      { header: 'Indicador de seguimiento', value: (x) => x.indicator },
       { header: 'Descripción', value: (x) => x.description },
       { header: 'Observaciones', value: (x) => x.notes },
     ]),

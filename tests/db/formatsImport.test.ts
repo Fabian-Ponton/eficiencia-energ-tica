@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { applyFormatsImport, planFormatsImport } from '@/db/formatsImport';
-import { addProject } from '@/db/projects';
+import { addProject, updateProject } from '@/db/projects';
 import { saveRecord } from '@/db/records';
 import { createSampleProject } from '@/db/sampleProject';
 import { createDb, type PontiaDb } from '@/db/schema';
@@ -327,6 +327,82 @@ describe('carga de los formatos de Excel', () => {
     await applyFormatsImport(db, destino.id, await planFormatsImport(descargado, await loadReportData(db, destino.id)));
     const copia = await db.bills.where('projectId').equals(destino.id).sortBy('period');
     expect(copia[0]).toMatchObject({ populationServed: 950, practiceHours: 610, coolingDegreeDays: 287 });
+    db.close();
+  });
+
+  it('la matriz de oportunidades conserva la evidencia, el responsable, el plazo, el indicador y la clase de potencial', async () => {
+    const db = createDb('pontia-formatos-oportunidades');
+    const origen = await proyectoVacio(db);
+    await saveRecord(db, 'measures', {
+      id: 'm1',
+      projectId: origen.id,
+      code: 'M1',
+      title: 'Películas de control solar en las ventanas',
+      description: 'El aula 604 recibe sol directo por la tarde',
+      category: 'climatizacion',
+      kind: 'baja-inversion',
+      savingsType: 'pasiva',
+      savingsKwhYear: 3200,
+      savingsCopYear: 2_720_000,
+      investmentCop: 4_800_000,
+      annualCostCop: 120_000,
+      lifetimeYears: 8,
+      selected: true,
+      priority: 'media',
+      findingIds: [],
+      currentConsumptionKwhYear: 24_000,
+      evidence: 'Termografía del 8 de septiembre',
+      responsible: 'Oficina de planeación',
+      deadline: '3 meses',
+      indicator: 'kWh/mes del aula 604',
+    });
+    const libro = await buildFormatsWorkbook(await loadReportData(db, origen.id), { filled: true, created: new Date(2026, 8, 29) });
+    const destino = await proyectoVacio(db);
+    const plan = await planFormatsImport(libro, await loadReportData(db, destino.id));
+    expect(sheetOf(plan, 'oportunidades').warnings).toEqual([]);
+    await applyFormatsImport(db, destino.id, plan);
+    const [copia] = await db.measures.where('projectId').equals(destino.id).toArray();
+    expect(copia).toMatchObject({
+      code: 'M1',
+      savingsType: 'pasiva',
+      selected: true,
+      annualCostCop: 120_000,
+      lifetimeYears: 8,
+      currentConsumptionKwhYear: 24_000,
+      evidence: 'Termografía del 8 de septiembre',
+      responsible: 'Oficina de planeación',
+      deadline: '3 meses',
+      indicator: 'kWh/mes del aula 604',
+      priority: 'media',
+    });
+    // Una medida cuya clase es la que se deduce de su tipo no la guarda: sigue siendo «inferida»
+    await saveRecord(db, 'measures', { ...copia, id: 'm2', code: 'M2', title: 'Sensores de ocupación', kind: 'operativa', savingsType: undefined, investmentCop: 0 });
+    const otro = await proyectoVacio(db);
+    await applyFormatsImport(db, otro.id, await planFormatsImport(await buildFormatsWorkbook(await loadReportData(db, destino.id), { filled: true }), await loadReportData(db, otro.id)));
+    const sensores = (await db.measures.where('projectId').equals(otro.id).toArray()).find((m) => m.code === 'M2');
+    expect(sensores?.savingsType).toBeUndefined();
+    db.close();
+  });
+
+  it('una medida marcada «En el plan» que la tenencia del edificio no permite se carga fuera del plan y con aviso', async () => {
+    const db = createDb('pontia-formatos-tenencia');
+    const proyecto = await proyectoVacio(db);
+    await updateProject(db, proyecto.id, { building: { tenure: 'arrendada' }, entity: { kind: 'publica' } });
+    const libro = await manualWorkbook({
+      '12_Oportunidades': {
+        headers: headersOf('oportunidades'),
+        rows: [
+          rowOf('oportunidades', { ID: 'M1', 'Medida propuesta': 'Cambio a luminarias LED', 'Ahorro (kWh/año)': 9000, 'Inversión (COP)': 25_000_000, 'En el plan': 'Sí' }),
+          rowOf('oportunidades', { ID: 'M2', 'Medida propuesta': 'Apagado de equipos al terminar las prácticas', 'Ahorro (kWh/año)': 3000, 'Inversión (COP)': 0, 'En el plan': 'Sí' }),
+        ],
+      },
+    });
+    const plan = await planFormatsImport(libro, await loadReportData(db, proyecto.id));
+    expect(sheetOf(plan, 'oportunidades').warnings.map((w) => w.text).join(' ')).toContain('«Cambio a luminarias LED» no entra al plan');
+    await applyFormatsImport(db, proyecto.id, plan);
+    const medidas = Object.fromEntries((await db.measures.where('projectId').equals(proyecto.id).toArray()).map((m) => [m.code, m]));
+    expect(medidas.M1.selected).toBe(false);
+    expect(medidas.M2.selected).toBe(true);
     db.close();
   });
 

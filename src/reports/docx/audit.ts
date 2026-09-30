@@ -4,12 +4,12 @@ import { sum } from '@/domain/calc/stats';
 import { carrierInfo, summarizeCarriers, totalEnergy, unitLabel } from '@/domain/carriers';
 import { endUseOf, spaceTypeOf } from '@/domain/catalogs';
 import { FINDING_STATUS_LABEL, findingTopicLabel, ruleIdOf, SEVERITY_LABEL } from '@/domain/diagnosis';
-import { measureEconomics } from '@/domain/measures';
 import { derivePower } from '@/domain/measurements';
 import type { EndUseCategory, Finding, Photo, Severity } from '@/domain/types';
 import { formatDate, formatDateTime, periodLabel, periodLabelLong } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { characterizationFacts, characterizationNotes } from '../characterization';
+import { opportunitiesSection } from './opportunitiesSection';
 import { upmeBaselineSection } from './upmeBaselineSection';
 import type { ReportFigure } from '../figures';
 import { billedDailyKwh, measuredWeekdayKwh, type AuditModel, type AutoFinding, type FindingTone } from '../model';
@@ -573,6 +573,14 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     for (const x of findings) {
       body.push(para([text(`${SEVERITY_LABEL[x.severity]} · `, { bold: true, color: SEVERITY_COLOR[x.severity] }), text(x.title, { bold: true })], { spacing: { before: 200, after: 60 } }));
       if (x.description) body.push(para(x.description));
+      // Formato 11: fecha, posible causa, impacto energético y acción sugerida
+      const details: [string, string | undefined][] = [
+        ['Fecha', x.foundAt ? formatDate(x.foundAt) : undefined],
+        ['Posible causa', x.cause],
+        ['Impacto energético observado', x.energyImpact],
+        ['Acción sugerida', x.suggestedAction],
+      ];
+      for (const [label, value] of details) if (value) body.push(para([text(`${label}: `, { bold: true }), text(value)], { spacing: { after: 40 } }));
       for (const p of assets.photos) {
         if (p.photo.entityType !== 'hallazgo' || p.photo.entityId !== x.id) continue;
         shown.add(p);
@@ -581,47 +589,8 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     }
   }
 
-  // Oportunidades de ahorro: todas las medidas evaluadas y la matriz de priorización
-  if (m.data.measures.length) {
-    const economics = project.economics;
-    const rows = m.data.measures.map((x) => ({ x, e: measureEconomics(x, economics) }));
-    body.push(
-      heading(`${section++}. Oportunidades de ahorro`),
-      para(
-        `Se evaluaron ${rows.length} ${rows.length === 1 ? 'medida' : 'medidas'} con una tasa de descuento del ${formatPercent(economics.discountRate, 1)}, un incremento anual de la tarifa del ${formatPercent(economics.tariffEscalation, 1)} ` +
-          `y una tarifa de ${formatCop(economics.tariffCopPerKwh)} por kWh. ` +
-          (plan.length
-            ? `${plan.length === rows.length ? 'Todas están incluidas' : `${plan.length} están incluidas`} en el plan: ahorran ${formatNumber(planTotals.kwh)} kWh/año${planShare} con una inversión de ${formatCop(planTotals.investment)}.`
-            : 'Aún no hay medidas incluidas en el plan.'),
-      ),
-      ...table(
-        'Medidas de ahorro evaluadas.',
-        dataTable(
-          [
-            { header: 'Medida', width: 0.33 },
-            { header: 'Ahorro (kWh/año)', width: 0.13, align: 'right' },
-            { header: 'Ahorro (COP/año)', width: 0.15, align: 'right' },
-            { header: 'Inversión (COP)', width: 0.15, align: 'right' },
-            { header: 'Retorno', width: 0.12, align: 'right' },
-            { header: 'En el plan', width: 0.12, align: 'center' },
-          ],
-          rows.map(({ x, e }): Cell[] => [
-            `${x.code} · ${x.title}`,
-            formatNumber(x.savingsKwhYear),
-            formatCop(x.savingsCopYear),
-            formatCop(x.investmentCop),
-            years(e.paybackYears),
-            x.selected ? { text: 'Sí', bold: true, color: COLOR.accent } : 'No',
-          ]),
-          plan.length
-            ? ['Total del plan', formatNumber(planTotals.kwh), formatCop(planTotals.cop), formatCop(planTotals.investment), planTotals.net > 0 ? years(planTotals.investment / planTotals.net) : '—', '']
-            : undefined,
-        ),
-      ),
-      ...fig('matriz-priorizacion'),
-      note('El plan de gestión de la energía (PGEE) desarrolla las medidas del plan con su ficha técnica, plazos, responsables y verificación de los ahorros.'),
-    );
-  }
+  // Oportunidades de ahorro (art. 4, literales d, e y g): potencial por clase, FNCER, tenencia, VPN y TIR, y priorización con criterios
+  if (m.data.measures.length || m.data.project.scope) body.push(...opportunitiesSection(m, { fig, table, title: `${section++}. Oportunidades de ahorro` }));
 
   // Conclusiones
   body.push(heading(`${section}. Conclusiones y recomendaciones`));

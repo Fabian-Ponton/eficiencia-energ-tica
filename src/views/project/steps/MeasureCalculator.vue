@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { IconAdjustmentsHorizontal, IconAlertTriangle } from '@tabler/icons-vue';
+import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
 import { computed, reactive, watch } from 'vue';
 import CalcPanel from '@/components/ui/CalcPanel.vue';
 import FormSheet from '@/components/ui/FormSheet.vue';
 import NumberInput from '@/components/ui/NumberInput.vue';
-import { capacitorMeasure, hvacMeasure, ledMeasure, measureEconomics, pvMeasure, type CalculatorResult } from '@/domain/measures';
-import type { Equipment, Project } from '@/domain/types';
+import { END_USES } from '@/domain/catalogs';
+import { capacitorMeasure, hvacMeasure, ledMeasure, measureEconomics, paybackText, pvMeasure, SHUTDOWN_EXCLUSION_LABEL, shutdownMeasure, type CalculatorResult, type ShutdownExclusion } from '@/domain/measures';
+import type { EndUseCategory, Equipment, Project } from '@/domain/types';
 import { formatCop, formatNumber, round } from '@/utils/format';
 
-export type CalculatorTool = 'fv' | 'condensadores' | 'aires' | 'led';
+export type CalculatorTool = 'fv' | 'condensadores' | 'aires' | 'led' | 'apagado';
 
 /** Datos del proyecto con los que arranca cada calculadora; el auditor los ajusta. */
 export interface CalculatorContext {
@@ -22,6 +24,10 @@ export interface CalculatorContext {
   reactiveChargeCop: number;
   hvac: readonly Equipment[];
   lighting: readonly Equipment[];
+  /** Todo el censo eléctrico, para el programa de apagado. */
+  equipment: readonly Equipment[];
+  /** Horas por día que los equipos que se pueden apagar funcionan por encima del uso de su espacio; `null` sin horarios. */
+  excessHours: number | null;
 }
 
 const visible = defineModel<boolean>('visible', { required: true });
@@ -33,12 +39,16 @@ const TITLES: Record<CalculatorTool, string> = {
   condensadores: 'Banco de condensadores',
   aires: 'Reemplazo de aires acondicionados',
   led: 'Cambio a iluminación LED',
+  apagado: 'Apagado y control de horarios',
 };
 
 const pv = reactive({ dailyEnergyKwh: 0, peakSunHours: 5, performanceRatio: 0.8, moduleWp: 550, moduleAreaM2: 2.6, costPerKwp: 4_000_000, availableRoofM2: undefined as number | undefined });
 const cap = reactive({ demandKw: 0, currentPf: 0.85, targetPf: 0.95, costPerKvar: 150_000, annualReactiveChargeCop: 0 });
 const ac = reactive({ equipmentId: undefined as string | undefined, units: 1, capacityBtuH: 18_000, currentEer: 10, newEer: 16, fullLoadHoursPerYear: 1500, costPerUnit: 3_600_000 });
 const led = reactive({ equipmentId: undefined as string | undefined, currentCount: 1, currentW: 70, proposedCount: 1, proposedW: 40, hoursPerYear: 2000, costPerLuminaire: 180_000 });
+// Cumplimiento esperado del 80 %: supuesto del auditor, se ve en la ficha de la medida
+const off = reactive({ hoursSavedPerDay: 1, compliance: 80, investmentCop: 0, categories: [] as EndUseCategory[] });
+const useOptions = END_USES.map((u) => ({ value: u.id, label: u.label }));
 
 /** Horas al año de un equipo del inventario: horas por día × días por mes × 12 (con su factor de uso). */
 const hoursPerYear = (e: Equipment, withUseFactor: boolean) => e.hoursPerDay * (withUseFactor ? e.useFactor : 1) * e.operatingDaysPerMonth * 12;
@@ -78,14 +88,32 @@ watch(visible, (open) => {
   pickHvac(ac.equipmentId);
   led.equipmentId = c.lighting[0]?.id;
   pickLighting(led.equipmentId);
+  // Las horas de más que dicen los horarios, a la media hora más cercana
+  off.hoursSavedPerDay = c.excessHours ? Math.max(0.5, Math.round(c.excessHours * 2) / 2) : 1;
+  off.categories = [];
 });
 watch(() => ac.equipmentId, pickHvac);
 watch(() => led.equipmentId, pickLighting);
 
 const positive = (...values: (number | undefined)[]) => values.every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 const tariff = computed(() => props.context.economics.tariffCopPerKwh);
+const shutdown = computed(() =>
+  props.tool === 'apagado' && positive(off.hoursSavedPerDay, off.compliance)
+    ? shutdownMeasure({ equipment: props.context.equipment, categories: off.categories, hoursSavedPerDay: off.hoursSavedPerDay, compliance: Math.min(1, off.compliance / 100), tariff: tariff.value, investmentCop: off.investmentCop })
+    : null,
+);
+const excludedText = computed(() => {
+  const counts = new Map<ShutdownExclusion, number>();
+  for (const x of shutdown.value?.excluded ?? []) counts.set(x.reason, (counts.get(x.reason) ?? 0) + x.equipment.quantity);
+  return [...counts].map(([reason, units]) => `${SHUTDOWN_EXCLUSION_LABEL[reason].toLowerCase()} (${formatNumber(units)})`).join(', ');
+});
 const result = computed<(CalculatorResult & { warning?: string }) | null>(() => {
   switch (props.tool) {
+    case 'apagado': {
+      const r = shutdown.value;
+      if (!r) return null;
+      return { ...r, warning: r.candidates.length ? undefined : 'Con esos usos finales no hay equipos que se puedan apagar: los que no se pueden apagar, los de régimen continuo y los de respaldo quedan fuera.' };
+    }
     case 'fv': {
       if (!positive(pv.dailyEnergyKwh, pv.peakSunHours, pv.performanceRatio, pv.moduleWp, pv.moduleAreaM2)) return null;
       const r = pvMeasure({ ...pv, tariff: tariff.value });
@@ -111,7 +139,7 @@ const items = computed(() => {
     { label: 'Ahorro', value: formatNumber(r.savingsKwhYear), unit: 'kWh/año' },
     { label: 'Ahorro en pesos', value: formatCop(r.savingsCopYear), unit: 'COP/año' },
     { label: 'Inversión', value: formatCop(r.investmentCop), unit: 'COP' },
-    { label: 'Retorno', value: Number.isFinite(e.paybackYears) ? formatNumber(e.paybackYears, 1) : '—', unit: 'años', strong: true },
+    { label: 'Retorno', ...paybackText(e, r.investmentCop), strong: true },
   ];
 });
 
@@ -213,6 +241,31 @@ const equipmentLabel = (e: Equipment) => `${e.name} · ${e.quantity} ${e.quantit
           <span class="etiqueta">Costo por unidad</span>
           <NumberInput v-model="ac.costPerUnit" :decimals="0" suffix="COP" />
         </label>
+      </div>
+
+      <div v-else-if="tool === 'apagado'" class="form-grid">
+        <label class="campo">
+          <span class="etiqueta">Horas menos por día</span>
+          <NumberInput v-model="off.hoursSavedPerDay" :decimals="1" :max="24" suffix="h" />
+          <small class="ayuda">{{ context.excessHours ? 'Propuesta con los horarios: los equipos funcionan en promedio ese tiempo por encima del uso de su espacio.' : 'Sin horarios registrados: escribe cuántas horas menos debería funcionar cada equipo.' }}</small>
+        </label>
+        <label class="campo">
+          <span class="etiqueta">Cumplimiento esperado</span>
+          <NumberInput v-model="off.compliance" :decimals="0" :max="100" suffix="%" />
+          <small class="ayuda">Qué parte de esas horas se logra apagar en la práctica (supuesto tuyo).</small>
+        </label>
+        <label class="campo completo">
+          <span class="etiqueta">Usos finales del programa</span>
+          <MultiSelect v-model="off.categories" :options="useOptions" option-label="label" option-value="value" display="chip" placeholder="Todos los que se pueden apagar" />
+        </label>
+        <label class="campo completo">
+          <span class="etiqueta">Inversión del programa</span>
+          <NumberInput v-model="off.investmentCop" :decimals="0" suffix="COP" />
+          <small class="ayuda">Sensores, temporizadores y sensibilización. Un programa solo de hábitos puede costar cero.</small>
+        </label>
+        <p v-if="excludedText" class="aviso-linea completo">
+          <IconAlertTriangle :size="16" />Quedan fuera del programa: {{ excludedText }}.
+        </p>
       </div>
 
       <div v-else class="form-grid">

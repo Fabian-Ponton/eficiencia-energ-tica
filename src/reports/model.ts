@@ -20,6 +20,8 @@ import { mean, sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import { estimatedProfiles } from '@/domain/estimate';
 import { areaCooling, areaLighting, capacityAnalysis, resolveSizing, type AreaCooling, type AreaLighting, type CapacityResult, type SizingParameters } from '@/domain/sizing';
+import { fncePotential, fnceStatement } from '@/domain/fncePotential';
+import { planSummary, type PlanSummary } from '@/domain/measures';
 import { computeUpmeBaseline, type UpmeBaseline } from '@/domain/upmeBaseline';
 import type {
   Area,
@@ -111,6 +113,10 @@ export interface AuditModel {
   baseline: BaselineResult | null;
   /** Línea base con el método de la Res. UPME 016 de 2024; `null` con menos de dos facturas. */
   upme: UpmeBaseline | null;
+  /** Totales de las medidas incluidas en el plan, por clase de potencial, y el aviso de solapamiento. */
+  plan: PlanSummary;
+  /** Párrafo de FNCER: el potencial de referencia, la exclusión motivada o el aviso de que falta decidirlo. */
+  fnce: ReturnType<typeof fnceStatement>;
   daily: DailyAnalysis | null;
   estimated: ReturnType<typeof estimatedProfiles>;
   cooling: AreaCooling[];
@@ -174,6 +180,8 @@ export function buildAuditModel(data: ReportData): AuditModel {
     indicators: energyIndicators(referenceKwh, annual.last12CostCop, project.areaM2, project.users),
     baseline: defaultBaseline(bills),
     upme: computeUpmeBaseline({ bills, config: project.baseline, adjustments: data.baselineAdjustments, project }),
+    plan: planSummary(data.measures, billedAnnualKwh ?? (estimatedAnnualKwh || null)),
+    fnce: fnceStatement(project.scope, fncePotential({ areas, peakSunHours: project.peakSunHours, annualKwh: billedAnnualKwh ?? (estimatedAnnualKwh || null), tariffCopPerKwh: project.economics.tariffCopPerKwh })),
     daily,
     estimated: estimatedProfiles(equipment),
     cooling: areas.map((a) => areaCooling(a, equipment, params)).filter((r) => r !== null),
@@ -242,13 +250,28 @@ export function autoFindings(m: AuditModel): AutoFinding[] {
     });
   }
   if (m.daily?.peak && m.daily.peak.kw > 0) {
-    const share = m.daily.baseLoadKw / m.daily.peak.kw;
-    if (share > 0.25) {
+    // Los equipos que funcionan las 24 horas o que no se pueden apagar (neveras, incubadoras, autoclaves…) justifican parte de la carga base
+    const justifiedKw = sum(m.data.equipment.filter((e) => e.nonInterruptible || e.regime === 'continuo').map((e) => e.powerKw * e.quantity * e.useFactor));
+    const baseKw = m.daily.baseLoadKw;
+    const avoidableKw = Math.max(0, baseKw - justifiedKw);
+    const share = baseKw / m.daily.peak.kw;
+    const avoidableShare = avoidableKw / m.daily.peak.kw;
+    if (avoidableShare > 0.25) {
       out.push({
         tone: 'warning',
         topic: 'consumo',
         title: 'Carga base alta fuera del horario',
-        detail: `La carga base (${formatNumber(m.daily.baseLoadKw, 1)} kW) es el ${formatPercent(share, 0)} de la demanda máxima: hay equipos que siguen encendidos de noche o los fines de semana.`,
+        detail:
+          justifiedKw > 0
+            ? `La carga base (${formatNumber(baseKw, 1)} kW) es el ${formatPercent(share, 0)} de la demanda máxima. Unos ${formatNumber(Math.min(justifiedKw, baseKw), 1)} kW son de equipos continuos o que no se pueden apagar; los ${formatNumber(avoidableKw, 1)} kW restantes sí indican equipos encendidos de noche o los fines de semana.`
+            : `La carga base (${formatNumber(baseKw, 1)} kW) es el ${formatPercent(share, 0)} de la demanda máxima: hay equipos que siguen encendidos de noche o los fines de semana.`,
+      });
+    } else if (share > 0.25 && justifiedKw > 0) {
+      out.push({
+        tone: 'info',
+        topic: 'consumo',
+        title: 'Carga base explicada por equipos continuos',
+        detail: `La carga base (${formatNumber(baseKw, 1)} kW) es el ${formatPercent(share, 0)} de la demanda máxima, pero ${formatNumber(Math.min(justifiedKw, baseKw), 1)} kW corresponden a equipos que funcionan las 24 horas o no se pueden apagar: no se marca como consumo evitable.`,
       });
     }
   }

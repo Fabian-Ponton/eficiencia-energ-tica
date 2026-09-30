@@ -48,7 +48,9 @@ describe('tablas para CSV y Excel', () => {
     expect(m1.startsWith('M1;Cambio a iluminación LED (206 luminarias);Iluminación;Baja inversión;')).toBe(true);
     expect(m1).toContain(';Sí;');
     const [findingsHeader] = csvLines(tables.find((t) => t.id === 'hallazgos')!);
-    expect(findingsHeader).toBe('Hallazgo;Gravedad;Tema;Estado;Origen;Descripción');
+    expect(findingsHeader).toBe('Hallazgo;Gravedad;Tema;Estado;Origen;Descripción;Fecha;Posible causa;Impacto energético;Acción sugerida');
+    // Las columnas nuevas de las medidas van después de las que ya existían
+    expect(measuresHeader).toContain('Prioridad;Clase de potencial;Consumo actual del sistema (kWh/año);Hallazgos que atiende;Evidencia;Responsable;Plazo;Indicador de seguimiento');
   });
 
   it('arma un libro de Excel con una hoja por tabla', async () => {

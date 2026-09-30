@@ -64,6 +64,13 @@ describe('informe Word de auditoría', () => {
     expect(text).toContain('Información de la línea base para reportar a la UPME.');
     expect(text).toContain('Cantidad de datos iniciales');
     expect(text).toContain('Regresión de la línea base (ISO 50006), complemento');
+    // Oportunidades: FNCER sin decidir, potencial por clase, VPN y TIR, y priorización con sus criterios
+    expect(text).toContain('Potencial de FNCER');
+    expect(text).toContain('Potencial de FNCER (solar fotovoltaica, dato de referencia): la cubierta disponible de');
+    expect(text).toContain('Potencial de ahorro por clase (art. 4, literal d, de la Resolución 40412 de 2024).');
+    expect(text).toContain('Evaluación económica de las medidas (retorno simple, valor presente neto y tasa interna de retorno).');
+    expect(text).toContain('La prioridad se sugiere por el retorno simple');
+    expect(text).toContain('Priorización de las medidas, con su responsable y plazo.');
     expect(text).toContain('Transformador T1: carga crítica');
     expect(text).toContain('Iluminación fluorescente T8 de baja eficiencia');
     expect(text).toContain('M1 · Cambio a iluminación LED (206 luminarias)');
@@ -102,6 +109,26 @@ describe('informe Word de auditoría', () => {
     expect(text).toContain('Aires fuera de servicio');
     // Con menos de 36 meses y una justificación escrita, el informe la cita
     expect(text).toContain('El ejemplo solo tiene dos años de facturas');
+    db.close();
+  });
+
+  it('con el edificio en arriendo y la FNCER excluida, el informe dice qué medidas no pueden entrar al plan y por qué se excluye', async () => {
+    const db = createDb('pontia-prueba-docx-tenencia');
+    const ejemplo = await createSampleProject(db);
+    await updateProject(db, ejemplo.id, {
+      building: { tenure: 'arrendada' },
+      entity: { kind: 'publica' },
+      scope: { fnce: 'excluida', fnceNote: 'la cubierta pertenece al arrendador' },
+    });
+    const model = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
+    const figures = auditFigures(model);
+    const assets: AuditAssets = { figures: new Map(figures.map((f, i) => [f.id, { data: Uint8Array.from([...PIXEL, i]), width: f.width, height: f.height }])), photos: [] };
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(buildAuditDocument(model, figures, assets)));
+    const text = ((await zip.file('word/document.xml')?.async('string')) ?? '').replace(/<[^>]+>/g, '');
+    expect(text).toContain('quedan por fuera del alcance de esta auditoría: la cubierta pertenece al arrendador');
+    expect(text).toContain('Edificio en arrendamiento: según el parágrafo 3 del artículo 3 de la Resolución 40412 de 2024');
+    // Solo las buenas prácticas de operación (M4, el programa de apagado) pueden entrar al plan
+    expect(text).toContain('no pueden entrar al plan y se reportan solo como potencial: M1, M2, M3 y M5');
     db.close();
   });
 

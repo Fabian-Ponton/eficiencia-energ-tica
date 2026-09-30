@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { IconAirConditioning, IconBolt, IconBulb, IconCalculator, IconPlus, IconSun, IconTarget } from '@tabler/icons-vue';
+import { IconAirConditioning, IconAlertTriangle, IconBolt, IconBulb, IconCalculator, IconInfoCircle, IconPlus, IconPower, IconSun, IconTarget } from '@tabler/icons-vue';
 import { useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import ToggleSwitch from 'primevue/toggleswitch';
 import { computed, ref, type Component } from 'vue';
+import { RouterLink } from 'vue-router';
 import { bubbleChart } from '@/charts/builders';
 import { chartPalette } from '@/charts/palette';
 import EChart from '@/components/charts/EChart.vue';
@@ -24,8 +25,11 @@ import { saveRecord } from '@/db/records';
 import { getDb } from '@/db/schema';
 import { sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
-import { measureEconomics, nextMeasureCode, specsText, suggestedPriority, type CalculatorResult } from '@/domain/measures';
+import { fncePotential, fnceStatement } from '@/domain/fncePotential';
+import { excessHoursByEquipment, measureEconomics, nextMeasureCode, paybackText, planSummary, savingsTypeInfo, savingsTypeOf, specsText, suggestedPriority, type CalculatorResult } from '@/domain/measures';
+import { dailyUseHours, useByArea } from '@/domain/occupancy';
 import { billedPowerFactor } from '@/domain/sizing';
+import { measureAllowance, tenureScope, tenureStatement } from '@/domain/tenure';
 import type { Measure } from '@/domain/types';
 import { billedDailyKwh } from '@/reports/model';
 import { PRIORITY_STATUS } from '@/ui/icons';
@@ -44,20 +48,40 @@ const { rows: findings } = useProjectRecords('findings');
 const { rows: bills } = useProjectRecords('bills', undefined, isElectric);
 const { rows: equipment } = useProjectRecords('equipment', undefined, isElectric);
 const { rows: areas } = useProjectRecords('areas');
+const { rows: occupancy } = useProjectRecords('occupancy');
 
 const DEFAULT_ECONOMICS = { tariffCopPerKwh: 0, discountRate: 0.12, tariffEscalation: 0, horizonYears: 10, emissionFactorKgPerKwh: 0 };
 const economics = computed(() => project.value?.economics ?? DEFAULT_ECONOMICS);
 const rows = computed(() => measures.value.map((m) => ({ m, e: measureEconomics(m, economics.value) })));
 const inPlan = computed(() => rows.value.filter((r) => r.m.selected));
 const annualKwh = computed(() => lastTwelveMonthsKwh(bills.value));
-const totals = computed(() => {
-  const list = inPlan.value;
-  const kwh = sum(list.map((r) => r.m.savingsKwhYear));
-  const cop = sum(list.map((r) => r.m.savingsCopYear));
-  const investment = sum(list.map((r) => r.m.investmentCop));
-  const net = cop - sum(list.map((r) => r.m.annualCostCop));
-  return { kwh, cop, investment, payback: net > 0 ? investment / net : Infinity, npv: sum(list.map((r) => r.e.npvCop)), share: annualKwh.value ? kwh / annualKwh.value : null };
-});
+const summary = computed(() => planSummary(measures.value, annualKwh.value));
+const totals = computed(() => ({
+  kwh: summary.value.kwh,
+  cop: summary.value.cop,
+  investment: summary.value.investment,
+  payback: summary.value.paybackYears,
+  npv: sum(inPlan.value.map((r) => r.e.npvCop)),
+  share: annualKwh.value ? summary.value.kwh / annualKwh.value : null,
+}));
+
+// Tenencia del edificio: en arriendo, comodato u otra figura solo se pueden implementar buenas prácticas de operación (Res. 40412, art. 3, par. 3)
+const tenure = computed(() => ({
+  scope: tenureScope(project.value?.building?.tenure, project.value?.entity?.kind),
+  statement: tenureStatement(project.value?.building?.tenure, project.value?.entity?.kind),
+}));
+const allowance = (m: Measure) => measureAllowance(tenure.value.scope, savingsTypeOf(m));
+const blocked = computed(() => measures.value.filter((m) => allowance(m) === 'no-permitida'));
+
+// Potencial de FNCER: dato de referencia o exclusión motivada, según el alcance que definió el auditor
+const fnce = computed(() =>
+  fnceStatement(
+    project.value?.scope,
+    fncePotential({ areas: areas.value, peakSunHours: project.value?.peakSunHours, annualKwh: annualKwh.value, tariffCopPerKwh: economics.value.tariffCopPerKwh }),
+  ),
+);
+const FNCE_TONE = { potencial: 'good', excluida: 'neutral' } as const;
+const FNCE_LABEL = { potencial: 'Potencial de referencia', excluida: 'Excluida del alcance' } as const;
 
 const stats = computed(() => [
   { label: 'Medidas', value: formatNumber(measures.value.length), unit: `${inPlan.value.length} en el plan` },
@@ -96,6 +120,7 @@ const TOOLS: { id: CalculatorTool; label: string; hint: string; icon: Component 
   { id: 'condensadores', label: 'Banco de condensadores', hint: 'kvar para corregir el factor de potencia', icon: IconBolt },
   { id: 'aires', label: 'Reemplazo de aires', hint: 'ahorro por eficiencia (EER)', icon: IconAirConditioning },
   { id: 'led', label: 'Cambio a LED', hint: 'luminarias y potencia propuesta', icon: IconBulb },
+  { id: 'apagado', label: 'Apagado y horarios', hint: 'buenas prácticas; deja fuera lo que no se apaga', icon: IconPower },
 ];
 const tool = ref<CalculatorTool>('led');
 const calculating = ref(false);
@@ -107,6 +132,11 @@ const context = computed<CalculatorContext>(() => {
   const recent = [...bills.value].sort((a, b) => a.period.localeCompare(b.period)).slice(-12);
   const demands = recent.map((b) => b.demandKw ?? 0).filter((d) => d > 0);
   const roof = sum(areas.value.map((a) => a.roofAvailableM2 ?? 0));
+  // Horas de más: lo que cada equipo que se puede apagar funciona por encima del uso de su espacio, ponderado por su potencia
+  const perDay = new Map([...useByArea(occupancy.value)].map(([id, use]) => [id, dailyUseHours(use, project.value?.calendar.daysPerWeek ?? 5)]));
+  const excess = excessHoursByEquipment(equipment.value, perDay);
+  const weight = (e: { powerKw: number; quantity: number }) => e.powerKw * e.quantity;
+  const weights = sum(excess.map((r) => weight(r.equipment)));
   return {
     economics: economics.value,
     peakSunHours: project.value?.peakSunHours,
@@ -117,6 +147,8 @@ const context = computed<CalculatorContext>(() => {
     reactiveChargeCop: sum(recent.map((b) => b.reactiveChargeCop ?? 0)),
     hvac: equipment.value.filter((e) => e.category === 'climatizacion' && (e.capacityBtuH ?? 0) > 0),
     lighting: equipment.value.filter((e) => e.category === 'iluminacion'),
+    equipment: equipment.value,
+    excessHours: weights > 0 ? sum(excess.map((r) => r.excessHours * weight(r.equipment))) / weights : null,
   };
 });
 
@@ -164,19 +196,27 @@ function createFromCalculator(r: CalculatorResult) {
     investmentCop: round(r.investmentCop),
     annualCostCop: round(r.annualCostCop),
     lifetimeYears: r.lifetimeYears,
+    savingsType: r.savingsType,
     priority: suggestedPriority(e, r.investmentCop),
   });
 }
 
 async function togglePlan(m: Measure) {
+  // Lo que la tenencia no permite no entra al plan
+  if (!m.selected && allowance(m) === 'no-permitida') return;
   await saveRecord(db, 'measures', { ...m, selected: !m.selected });
 }
 
 useFabAction({ label: 'Agregar medida', icon: IconPlus, run: () => openNew() });
 useQuickAdd(() => openNew());
 
-const payback = (years: number) => (Number.isFinite(years) ? `${formatNumber(years, 1)} años` : '—');
+const payback = (years: number, investmentCop?: number) => {
+  const text = paybackText({ paybackYears: years }, investmentCop ?? 1);
+  return text.unit && text.value !== '—' ? `${text.value} ${text.unit}` : text.value;
+};
 const useLabel = (m: Measure) => endUseOf(m.category).label;
+const typeLabel = (m: Measure) => savingsTypeInfo(savingsTypeOf(m)).short;
+const categoryNames = (categories: readonly string[]) => categories.map((c) => endUseOf(c as Measure['category']).label.toLowerCase()).join(' y ');
 </script>
 
 <template>
@@ -188,6 +228,26 @@ const useLabel = (m: Measure) => endUseOf(m.category).label;
         </Button>
       </template>
     </PageHeader>
+
+    <p v-if="tenure.statement && tenure.scope !== 'todas'" class="aviso-linea alerta">
+      <IconAlertTriangle :size="16" />
+      <span>
+        {{ tenure.statement }}
+        <template v-if="blocked.length">
+          {{ blocked.length }} {{ blocked.length === 1 ? 'medida queda' : 'medidas quedan' }} solo como potencial y no {{ blocked.length === 1 ? 'puede' : 'pueden' }} entrar al plan.
+        </template>
+        <RouterLink :to="{ name: 'datos', params: { projectId } }">Cambiar la tenencia</RouterLink>
+      </span>
+    </p>
+
+    <section class="card seccion">
+      <div class="cabecera-seccion apilada">
+        <h2><IconSun :size="18" />Potencial de FNCER</h2>
+        <StatusChip :tone="FNCE_TONE[fnce.kind]" :label="FNCE_LABEL[fnce.kind]" />
+      </div>
+      <p class="fnce">{{ fnce.text }}</p>
+      <RouterLink class="enlace" :to="{ name: 'datos', params: { projectId } }">Cambiar el alcance de las FNCER en Datos generales</RouterLink>
+    </section>
 
     <section class="card seccion">
       <div class="cabecera-seccion">
@@ -225,6 +285,7 @@ const useLabel = (m: Measure) => endUseOf(m.category).label;
             <thead>
               <tr>
                 <th>Medida</th>
+                <th>Potencial</th>
                 <th class="der">Ahorro <small>kWh/año</small></th>
                 <th class="der">Ahorro <small>COP/año</small></th>
                 <th class="der">Inversión <small>COP</small></th>
@@ -241,19 +302,28 @@ const useLabel = (m: Measure) => endUseOf(m.category).label;
                   <span class="medida"><span class="mono codigo">{{ m.code }}</span>{{ m.title }}</span>
                   <span class="uso">{{ useLabel(m) }}</span>
                 </td>
+                <td><StatusChip :tone="allowance(m) === 'permitida' ? 'neutral' : 'warning'" :label="typeLabel(m)" /></td>
                 <td class="der">{{ formatNumber(m.savingsKwhYear) }}</td>
                 <td class="der">{{ formatCop(m.savingsCopYear) }}</td>
                 <td class="der">{{ formatCop(m.investmentCop) }}</td>
-                <td class="der fuerte">{{ payback(e.paybackYears) }}</td>
+                <td class="der fuerte">{{ payback(e.paybackYears, m.investmentCop) }}</td>
                 <td class="der">{{ formatCop(e.npvCop) }}</td>
                 <td class="der">{{ e.irr === null ? '—' : formatPercent(e.irr, 1) }}</td>
                 <td><StatusChip v-if="m.priority" v-bind="PRIORITY_STATUS[m.priority]" /></td>
-                <td @click.stop><ToggleSwitch :model-value="m.selected" :aria-label="`Incluir ${m.code} en el plan`" @update:model-value="togglePlan(m)" /></td>
+                <td @click.stop>
+                  <ToggleSwitch
+                    :model-value="m.selected"
+                    :disabled="allowance(m) === 'no-permitida'"
+                    :title="allowance(m) === 'no-permitida' ? 'La tenencia del edificio solo permite buenas prácticas de operación' : undefined"
+                    :aria-label="`Incluir ${m.code} en el plan`"
+                    @update:model-value="togglePlan(m)"
+                  />
+                </td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
-                <td>Plan de gestión · {{ inPlan.length }} medidas</td>
+                <td colspan="2">Plan de gestión · {{ inPlan.length }} medidas</td>
                 <td class="der">{{ formatNumber(totals.kwh) }}</td>
                 <td class="der">{{ formatCop(totals.cop) }}</td>
                 <td class="der">{{ formatCop(totals.investment) }}</td>
@@ -272,15 +342,34 @@ const useLabel = (m: Measure) => endUseOf(m.category).label;
               </span>
               <span class="fila-secundaria">
                 <span>{{ formatNumber(m.savingsKwhYear) }} kWh/año · {{ formatCop(m.savingsCopYear) }}</span>
-                <strong>{{ payback(e.paybackYears) }}</strong>
+                <strong>{{ payback(e.paybackYears, m.investmentCop) }}</strong>
               </span>
               <span class="fila-secundaria">
-                <span>Inversión {{ formatCop(m.investmentCop) }}</span>
+                <span>{{ typeLabel(m) }} · Inversión {{ formatCop(m.investmentCop) }}</span>
                 <StatusChip v-if="m.priority" v-bind="PRIORITY_STATUS[m.priority]" />
               </span>
             </button>
           </li>
         </ul>
+
+        <div v-if="summary.byType.length" class="por-clase">
+          <span class="eyebrow">Ahorro del plan por clase de potencial</span>
+          <ul>
+            <li v-for="t in summary.byType" :key="t.type">
+              <strong>{{ savingsTypeInfo(t.type).label }}</strong>
+              <span>{{ t.count }} {{ t.count === 1 ? 'medida' : 'medidas' }} · {{ formatNumber(t.kwh) }} kWh/año<template v-if="annualKwh"> · {{ formatPercent(t.kwh / annualKwh, 1) }}</template></span>
+            </li>
+          </ul>
+        </div>
+        <p v-if="summary.interaction" class="aviso-linea alerta">
+          <IconInfoCircle :size="16" />
+          <span>
+            Las medidas de {{ categoryNames(summary.interaction.categories) }} se solapan: sumar sus ahorros sobrestima el total, como advierte el Anexo 5 de la Res. UPME 016.
+            <template v-if="summary.interaction.combinedKwh !== null">
+              Aplicadas una tras otra sobre el consumo que queda, ahorran unos {{ formatNumber(summary.interaction.combinedKwh) }} kWh/año frente a {{ formatNumber(summary.kwh) }} de la suma simple.
+            </template>
+          </span>
+        </p>
       </section>
     </template>
 
@@ -307,7 +396,7 @@ const useLabel = (m: Measure) => endUseOf(m.category).label;
       @delete="remove()"
       @duplicate="saveAndDuplicate"
     >
-      <MeasureForm :key="draft.id" v-model:draft="draft" :errors="errors" :project-id="projectId" :economics="economics" :findings="findings" />
+      <MeasureForm :key="draft.id" v-model:draft="draft" :errors="errors" :project-id="projectId" :economics="economics" :findings="findings" :tenure="tenure" />
     </FormSheet>
   </div>
 </template>
@@ -317,6 +406,46 @@ const useLabel = (m: Measure) => endUseOf(m.category).label;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+.fnce {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.enlace {
+  align-self: flex-start;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+.por-clase {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.por-clase ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.por-clase li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.por-clase li + li {
+  border-top: 1px solid var(--divider);
+}
+.por-clase li span {
+  color: var(--ink-2);
 }
 .herramienta {
   display: flex;
@@ -387,7 +516,7 @@ const useLabel = (m: Measure) => endUseOf(m.category).label;
 }
 @media (min-width: 1024px) {
   .herramientas {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 </style>

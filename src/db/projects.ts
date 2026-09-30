@@ -1,9 +1,11 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { isElectric } from '@/domain/carriers';
 import { buildCollection, collectionResolved } from '@/domain/collection';
+import { measureAllowance, tenureScope } from '@/domain/tenure';
+import { savingsTypeOf } from '@/domain/measures';
 import { computeProgress, type ProjectCounts, type StageProgress } from '@/domain/progress';
-import type { Bill, EntityKind, EntityOrder, Project, ReportRecord, Tenure } from '@/domain/types';
-import { isActive, plain } from './records';
+import type { Bill, EntityKind, EntityOrder, Measure, Project, ReportRecord, Tenure } from '@/domain/types';
+import { isActive, plain, saveRecord } from './records';
 import type { PontiaDb } from './schema';
 
 export interface NewProjectInput {
@@ -55,6 +57,21 @@ export async function addProject(db: PontiaDb, input: NewProjectInput): Promise<
 /** Guarda cambios de los datos generales y marca el proyecto como modificado. */
 export async function updateProject(db: PontiaDb, id: string, changes: Partial<Omit<Project, 'id' | 'createdAt'>>, now = Date.now()): Promise<void> {
   await db.projects.update(id, { ...plain(changes), updatedAt: now });
+}
+
+/**
+ * Saca del plan las medidas que la tenencia del edificio no permite: en arriendo, comodato u otra figura similar solo se pueden
+ * implementar buenas prácticas de operación (Res. MME 40412 de 2024, art. 3, par. 3). Devuelve las medidas que salieron, para avisarlo.
+ */
+export async function removeBlockedMeasuresFromPlan(db: PontiaDb, projectId: string, now = Date.now()): Promise<Measure[]> {
+  const project = await db.projects.get(projectId);
+  if (!project) return [];
+  const scope = tenureScope(project.building?.tenure, project.entity?.kind);
+  if (scope === 'todas') return [];
+  const measures = await db.measures.where('projectId').equals(projectId).toArray();
+  const blocked = measures.filter((m) => !m.deletedAt && m.selected && measureAllowance(scope, savingsTypeOf(m)) === 'no-permitida');
+  for (const m of blocked) await saveRecord(db, 'measures', { ...m, selected: false }, now);
+  return blocked;
 }
 
 /** Registra la descarga del respaldo sin cambiar la fecha de modificación. */
