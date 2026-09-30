@@ -1,5 +1,7 @@
 import { AlignmentType, BorderStyle, Document, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow, WidthType, type FileChild } from 'docx';
 import { BASELINE_VARIABLES } from '@/domain/analysis';
+import { art4Counts, verifyArt4, type ReportPart } from '@/domain/art4';
+import { hasAuditorData } from '@/domain/auditor';
 import { sum } from '@/domain/calc/stats';
 import { carrierInfo, summarizeCarriers, totalEnergy, unitLabel } from '@/domain/carriers';
 import { endUseOf, spaceTypeOf } from '@/domain/catalogs';
@@ -9,12 +11,15 @@ import type { EndUseCategory, Finding, Photo, Severity } from '@/domain/types';
 import { formatDate, formatDateTime, periodLabel, periodLabelLong } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { characterizationFacts, characterizationNotes } from '../characterization';
-import { opportunitiesSection } from './opportunitiesSection';
-import { auditorSection } from './auditorSection';
-import { safetySection } from './safetySection';
-import { upmeBaselineSection } from './upmeBaselineSection';
+import { art4Input, labInventory, regimeSummary } from '../auditParts';
 import type { ReportFigure } from '../figures';
 import { billedDailyKwh, measuredWeekdayKwh, type AuditModel, type AutoFinding, type FindingTone } from '../model';
+import { reportRoute } from '../route';
+import { activityIndicatorRows, art4Annex, art4Summary, followBlock, labBalance, labCharacterization, labIndicators, labInventoryAnnex, regimeBlock, safetyCards, scopeBlocks } from './auditBlocks';
+import { auditorSection } from './auditorSection';
+import { opportunitiesSection } from './opportunitiesSection';
+import { safetySection } from './safetySection';
+import { upmeBaselineSection } from './upmeBaselineSection';
 import {
   blankFooter,
   blankHeader,
@@ -67,11 +72,16 @@ const orDash = (value: number | null | undefined, decimals = 0) => (value === nu
 const years = (value: number) => (Number.isFinite(value) ? `${formatNumber(value, 1)} años` : '—');
 const list = (items: readonly string[]) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}` : (items[0] ?? ''));
 
+/** Secciones del informe, en el orden de los aspectos del art. 4 de la Res. 40412 y de la ISO 50002. Las que no tienen datos no se abren. */
+type SectionKey = 'resumen' | 'alcance' | 'caracterizacion' | 'metodologia' | 'energia' | 'balance' | 'linea-base' | 'sistemas' | 'mediciones' | 'diagnostico' | 'seguridad' | 'oportunidades' | 'conclusiones';
+const SECTION_ORDER: readonly SectionKey[] = ['resumen', 'alcance', 'caracterizacion', 'metodologia', 'energia', 'balance', 'linea-base', 'sistemas', 'mediciones', 'diagnostico', 'seguridad', 'oportunidades', 'conclusiones'];
+type AnnexKey = 'anexo-auditor' | 'anexo-labs' | 'anexo-art4';
+
 /**
- * Informe de auditoría energética con la estructura de la ISO 50002: resumen ejecutivo, alcance,
- * metodología, comportamiento del consumo, balance, indicadores y línea base, dimensionamiento,
- * mediciones, diagnóstico con fotos, oportunidades de ahorro, conclusiones y anexo fotográfico.
- * Las secciones, las figuras, las tablas y las fotos se numeran solas.
+ * Informe de auditoría energética con la estructura de la ISO 50002 y los aspectos mínimos del art. 4 de la Res. 40412: resumen ejecutivo
+ * con la verificación del artículo, alcance y limitaciones, caracterización, metodología, uso de la energía, usos significativos, línea
+ * base e indicadores, sistemas y equipos, mediciones, diagnóstico, seguridad eléctrica, oportunidades y conclusiones, más los anexos.
+ * Las secciones, los anexos, las figuras, las tablas y las fotos se numeran solos.
  */
 export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure[], assets: AuditAssets, options: AuditOptions = {}): Document {
   const { project } = m.data;
@@ -94,6 +104,49 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
   const numberedPhoto = (p: AuditAssets['photos'][number], width: number): FileChild[] => {
     photoNumber += 1;
     return photo(p.data, p, width, `Foto ${photoNumber}. ${p.caption}`);
+  };
+
+  // Numeración de las secciones: solo se numeran las que se abren, así no quedan saltos
+  const safetyShown = Boolean(m.data.safetyFindings.length || m.safety.suggestions.length || project.safetyReviewed);
+  const present: Record<SectionKey, boolean> = {
+    resumen: true,
+    alcance: true,
+    caracterizacion: true,
+    metodologia: true,
+    energia: true,
+    balance: true,
+    'linea-base': true,
+    sistemas: true,
+    mediciones: m.data.measurements.length > 0,
+    diagnostico: m.data.findings.length > 0,
+    seguridad: safetyShown,
+    oportunidades: Boolean(m.data.measures.length || project.scope),
+    conclusiones: true,
+  };
+  const sectionNo = new Map<SectionKey, number>();
+  SECTION_ORDER.filter((key) => present[key]).forEach((key, index) => sectionNo.set(key, index + 1));
+  const section = (key: SectionKey, title: string) => heading(`${sectionNo.get(key)}. ${title}`);
+  const subCount = new Map<SectionKey, number>();
+  /** Título numerado de un apartado de la sección: «5.2 Consumo mensual». */
+  const sub = (key: SectionKey, title: string): string => {
+    const n = (subCount.get(key) ?? 0) + 1;
+    subCount.set(key, n);
+    return `${sectionNo.get(key)}.${n} ${title}`;
+  };
+
+  // Anexos: A, B, C… solo los que se abren (el fotográfico va al final, cuando se sabe si hace falta)
+  const annexKeys = (['anexo-auditor', 'anexo-labs', 'anexo-art4'] as const).filter((key) => (key === 'anexo-auditor' ? hasAuditorData(m.data.auditor) : key === 'anexo-labs' ? labInventory(m).length > 0 : true));
+  const annexLetter = new Map<AnnexKey, string>(annexKeys.map((key, index) => [key, String.fromCharCode(65 + index)]));
+  const annexTitle = (key: AnnexKey, title: string) => `Anexo ${annexLetter.get(key)}. ${title}`;
+  const annexRef = (key: AnnexKey) => `Anexo ${annexLetter.get(key)}`;
+
+  // Verificación del art. 4: cada punto dice en qué sección se atiende
+  const route = reportRoute(m, { pgee: m.data.pgee, measures: m.data.measures, tasks: m.data.tasks });
+  const art4Rows = verifyArt4(art4Input(m, route));
+  const where = (parts: readonly ReportPart[]): string => {
+    const numbers = parts.filter((p): p is Exclude<ReportPart, 'pgee' | 'anexo-auditor'> => p !== 'pgee' && p !== 'anexo-auditor').map((p) => sectionNo.get(p)).filter((n): n is number => n !== undefined);
+    const others = parts.flatMap((p) => (p === 'pgee' ? ['PGEE (documento aparte)'] : p === 'anexo-auditor' ? [annexLetter.has('anexo-auditor') ? annexRef('anexo-auditor') : 'Perfil del auditor (Ajustes)'] : []));
+    return [...(numbers.length ? [`${numbers.length === 1 ? 'Sección' : 'Secciones'} ${list(numbers.map(String))}`] : []), ...others].join(' · ') || '—';
   };
 
   const body: FileChild[] = [
@@ -121,31 +174,18 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
   };
   const planShare = m.referenceKwh && planTotals.kwh ? ` (${formatPercent(planTotals.kwh / m.referenceKwh, 1)} del consumo anual)` : '';
   body.push(
-    heading('1. Resumen ejecutivo'),
+    section('resumen', 'Resumen ejecutivo'),
     para(
       `Este informe presenta la auditoría energética de ${project.name}${project.client ? `, de ${project.client}` : ''}${project.city ? ` (${project.city})` : ''}. ` +
-        'Resume el comportamiento del consumo, el balance por uso final, los indicadores de desempeño, la verificación de los equipos frente a cada espacio y la capacidad del sistema eléctrico.',
+        'Resume la caracterización de la entidad, el uso de la energía y la línea base, los sistemas y equipos, el diagnóstico, la seguridad eléctrica y el potencial de ahorro con su priorización, y verifica los aspectos mínimos que exige la Resolución MME 40412 de 2024.',
     ),
     kpiGrid(m.kpis),
     new Paragraph({ spacing: { after: 120 }, children: [] }),
     heading('Hallazgos principales', 2),
     ...(main.length ? main : [para('No se encontraron hallazgos críticos con los datos registrados.')]),
+    // La seguridad eléctrica va aparte de los hallazgos energéticos: solo se avisa aquí de lo que pide atención
+    ...safetyCards(m),
   );
-  // La seguridad eléctrica va aparte de los hallazgos energéticos: solo se avisa aquí de lo que pide atención
-  const safety = m.safety;
-  if (safety.summary.total || safety.suggestions.length) {
-    body.push(
-      heading('Seguridad eléctrica', 2),
-      para(
-        safety.summary.attention
-          ? `${safety.summary.attention} ${safety.summary.attention === 1 ? 'hallazgo de seguridad eléctrica pide' : 'hallazgos de seguridad eléctrica piden'} atención inmediata (peligro inminente, alto riesgo o nivel alto en la matriz del RETIE). Se tratan en su propio capítulo, sin importar el ahorro.`
-          : safety.summary.total
-            ? `Se registraron ${safety.summary.total} ${safety.summary.total === 1 ? 'hallazgo' : 'hallazgos'} de seguridad eléctrica, ninguno con alto riesgo o peligro inminente abierto. Se tratan en su propio capítulo.`
-            : 'No hay hallazgos de seguridad eléctrica registrados.',
-      ),
-      ...(safety.suggestions.length ? [para(`${safety.suggestions.length} ${safety.suggestions.length === 1 ? 'situación' : 'situaciones'} de los datos (carga, desbalance o equipos deficientes) está${safety.suggestions.length === 1 ? '' : 'n'} por valorar con la matriz del RETIE.`)] : []),
-    );
-  }
   if (plan.length) {
     body.push(
       heading('Oportunidades de ahorro', 2),
@@ -155,18 +195,23 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
       ),
     );
   }
+  body.push(...art4Summary(art4Rows, { table, where, annex: annexRef('anexo-art4') }));
 
-  // 2. Alcance y descripción de la instalación: la caracterización que exige el art. 4(a) de la Res. 40412
+  // 2. Alcance, frontera y limitaciones (Res. 40412, art. 4, par. 1; NTC-ISO 50002)
+  body.push(
+    section('alcance', 'Alcance, frontera y limitaciones'),
+    ...scopeBlocks(m, { annex: annexRef('anexo-art4'), opportunities: sectionNo.has('oportunidades') ? `sección ${sectionNo.get('oportunidades')}` : undefined }),
+  );
+
+  // 3. Caracterización de la entidad y del edificio: lo que exige el art. 4, primer aspecto, de la Res. 40412
   const facts: Cell[][] = characterizationFacts(project, new Date(m.data.generatedAt).getFullYear());
   const notes = characterizationNotes(project);
   body.push(
-    heading('2. Alcance y descripción de la instalación'),
+    section('caracterizacion', 'Caracterización de la entidad y del edificio'),
     ...table('Datos generales de la instalación.', dataTable([{ header: 'Dato', width: 0.35 }, { header: 'Valor', width: 0.65 }], facts)),
   );
-  if (notes.tenure) body.push(para([text('Tenencia. ', { bold: true }), text(notes.tenure)]));
-  for (const block of notes.scope) body.push(heading(block.title, 2), para(block.text));
   if (notes.missing.length) {
-    body.push(note(`Borrador: la caracterización de la entidad (art. 4, literal a, de la Resolución 40412 de 2024) está incompleta. Faltan: ${notes.missing.join(', ')}.`));
+    body.push(note(`Borrador: la caracterización de la entidad (art. 4, aspecto (a), de la Resolución 40412 de 2024) está incompleta. Faltan: ${notes.missing.join(', ')}.`));
   }
   if (m.data.areas.length) {
     body.push(
@@ -192,16 +237,17 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
       ),
     );
   }
+  body.push(...labCharacterization(m, { table }));
 
-  // 3. Metodología
+  // 4. Metodología
   body.push(
-    heading('3. Metodología'),
+    section('metodologia', 'Metodología'),
     para('La auditoría sigue la estructura de la norma ISO 50002 y usa la información recogida en campo:'),
     bullet(`Facturas del operador de red (${m.data.bills.length} ${m.data.bills.length === 1 ? 'periodo' : 'periodos'}) para el comportamiento mensual, anual y la línea base.`),
     ...(m.data.otherBills.length
       ? [bullet(`Facturas de ${list([...new Set(m.data.otherBills.map((b) => carrierInfo(b.carrier).label.toLowerCase()))])} (${m.data.otherBills.length}) para el balance de todos los energéticos, en kWh equivalentes.`)]
       : []),
-    bullet(`Censo de carga con ${formatNumber(m.data.equipment.reduce((t, e) => t + e.quantity, 0))} equipos, su potencia, horario y factor de uso.`),
+    bullet(`Censo de carga con ${formatNumber(m.data.equipment.reduce((t, e) => t + e.quantity, 0))} equipos, su potencia, horario, régimen de uso y factor de uso.`),
     ...(m.data.mainSeries ? [bullet(`Registro de ${m.data.mainSeries.series.name} cada ${m.data.mainSeries.series.intervalMinutes} minutos para la curva de carga diaria.`)] : []),
     ...(m.data.measurements.length ? [bullet(`${m.data.measurements.length} mediciones puntuales de tensión, corriente y potencia.`)] : []),
     bullet(
@@ -211,110 +257,22 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     ),
     bullet('Carga térmica simplificada y método de los lúmenes para verificar la climatización y la iluminación de cada espacio.'),
     ...(m.data.measures.length ? [bullet('Evaluación económica de cada medida de ahorro: retorno simple, valor presente neto y tasa interna de retorno.')] : []),
-    note('Las iluminancias de aulas y laboratorios y el VEEI de aulas, laboratorios y oficinas salen del RETILAP (Resolución 40286 de 2026). Los demás parámetros de referencia (carga de envolvente, otros tipos de espacio y umbrales) son orientativos y se validan con el RETILAP, el RETIE y el criterio del auditor.'),
+    para('Referentes normativos:', { spacing: { before: 120, after: 60 } }),
+    bullet(`Resolución MME 40412 de 2024: aspectos mínimos de la auditoría (artículo 4) y del auditor (artículo 6); su verificación está en el ${annexRef('anexo-art4')}.`),
+    bullet('NTC-ISO 50002 como referente de la auditoría (artículo 4, parágrafo 1).'),
+    bullet('Resolución UPME 016 de 2024: línea base de consumo y ahorro estimado (artículo 4, parágrafo 2).'),
+    note('Las iluminancias de aulas y laboratorios y el VEEI de aulas, laboratorios y oficinas salen del RETILAP (Resolución 40286 de 2026); la seguridad eléctrica se valora con el RETIE (Resolución 40284 de 2026). Los demás parámetros de referencia (carga de envolvente, otros tipos de espacio y umbrales) son orientativos y se validan con el RETILAP, el RETIE y el criterio del auditor.'),
   );
 
-  // 4. Comportamiento del consumo
-  body.push(heading('4. Comportamiento del consumo'));
-  if (m.months.length) {
-    const last12 = m.months.slice(-12);
-    body.push(
-      heading('4.1 Consumo mensual', 2),
-      para(
-        m.annual.last12Kwh !== null
-          ? `En los últimos 12 meses la instalación consumió ${formatNumber(m.annual.last12Kwh)} kWh${m.annual.last12CostCop !== null ? ` con un costo de ${formatMillionsCop(m.annual.last12CostCop)} de pesos` : ''}${m.annual.change !== null ? `, ${signed(m.annual.change)} frente a los 12 meses anteriores` : ''}.`
-          : `Con ${m.annual.months} ${m.annual.months === 1 ? 'factura' : 'facturas'} el consumo anual se estima en ${orDash(m.annual.annualizedKwh)} kWh.`,
-      ),
-      ...fig('consumo-mensual'),
-      ...table(
-        'Consumo facturado de los últimos 12 meses.',
-        dataTable(
-          [
-            { header: 'Periodo', width: 0.22 },
-            { header: 'Energía (kWh)', width: 0.17, align: 'right' },
-            { header: 'Días', width: 0.1, align: 'right' },
-            { header: 'kWh/día', width: 0.14, align: 'right' },
-            { header: 'Costo (COP)', width: 0.2, align: 'right' },
-            { header: 'Variación', width: 0.17, align: 'right' },
-          ],
-          last12.map((r) => [
-            capitalize(periodLabelLong(r.period)),
-            formatNumber(r.kwh),
-            orDash(r.days),
-            orDash(r.kwhPerDay),
-            formatCop(r.costCop),
-            r.change === null ? '—' : { text: signed(r.change), color: r.change > 0.05 ? COLOR.serious : r.change < -0.05 ? COLOR.good : undefined },
-          ]),
-          ['Total', formatNumber(last12.reduce((t, r) => t + r.kwh, 0)), '', '', formatCop(last12.reduce((t, r) => t + r.costCop, 0)), ''],
-        ),
-      ),
-    );
-    if (m.annual.rolling.length >= 2) body.push(heading('4.2 Tendencia anual', 2), ...fig('tendencia-anual'));
-  } else {
-    body.push(para('No hay facturas registradas: el comportamiento mensual y anual queda pendiente.'));
-  }
-  body.push(heading('4.3 Curva de carga diaria', 2), ...fig('curva-de-carga'));
-  if (m.daily) {
-    const d = m.daily;
-    const weekday = measuredWeekdayKwh(d);
-    const billed = billedDailyKwh(m.data.bills);
-    body.push(
-      bullet(`Demanda máxima de ${formatNumber(d.peak?.kw ?? 0, 1)} kW${d.peak ? ` el ${formatDateTime(isoLocal(d.peak.start))}` : ''}; carga base de ${formatNumber(d.baseLoadKw, 1)} kW.`),
-      bullet(`Factor de carga del ${formatPercent(d.loadFactor, 0)} y energía diaria promedio de ${formatNumber(d.averageDailyKwh)} kWh.`),
-      ...(weekday && billed ? [bullet(`Un día laborable medido consume ${formatNumber(weekday)} kWh; el promedio facturado es de ${formatNumber(billed)} kWh por día.`)] : []),
-      ...fig('mapa-de-calor'),
-    );
-  }
-
-  // 5. Balance energético
-  body.push(heading('5. Balance energético y usos significativos'));
-  if (m.shares.length) {
-    const last = m.significant[m.significant.length - 1];
-    body.push(
-      para(
-        `El censo de carga estima ${formatNumber(m.estimatedAnnualKwh)} kWh al año. ${list(m.significant.map((s) => useLabel(s.category)))} ${m.significant.length === 1 ? 'concentra' : 'concentran'} el ${formatPercent(last?.cumulativeShare ?? 0, 0)} del consumo: ${m.significant.length === 1 ? 'es el uso significativo' : 'son los usos significativos'} de energía (ISO 50001).`,
-      ),
-      ...fig('pareto-usos'),
-      ...table(
-        'Consumo anual estimado por uso final.',
-        dataTable(
-          [
-            { header: 'Uso final', width: 0.34 },
-            { header: 'kWh/año', width: 0.2, align: 'right' },
-            { header: 'Participación', width: 0.16, align: 'right' },
-            { header: 'Acumulado', width: 0.16, align: 'right' },
-            { header: 'Significativo', width: 0.14, align: 'center' },
-          ],
-          m.shares.map((s) => [
-            useLabel(s.category),
-            formatNumber(s.kwh),
-            formatPercent(s.share, 1),
-            formatPercent(s.cumulativeShare, 0),
-            m.significant.includes(s) ? { text: 'Sí', bold: true, color: COLOR.accent } : 'No',
-          ]),
-        ),
-      ),
-      ...fig('flujo-energia'),
-    );
-    if (m.deviation !== null && Number.isFinite(m.deviation)) {
-      body.push(
-        para(
-          `Conciliación: el censo estima ${formatNumber(m.estimatedAnnualKwh)} kWh/año frente a ${formatNumber(m.billedAnnualKwh ?? 0)} kWh facturados (${signed(m.deviation)}). ` +
-            (Math.abs(m.deviation) <= 0.1 ? 'La diferencia está dentro del ±10 %: el inventario representa bien el consumo real.' : 'La diferencia supera el ±10 %: conviene revisar horas de uso, factores de uso y equipos sin registrar.'),
-        ),
-      );
-    }
-  } else {
-    body.push(para('No hay equipos en el censo de carga: el balance por uso final queda pendiente.'));
-  }
-
+  // 5. Uso de la energía: históricos por energético y comportamiento
+  body.push(section('energia', 'Uso de la energía: históricos y comportamiento'));
   // Otros energéticos: se suman a la electricidad solo en kWh equivalentes; todo lo demás del informe es eléctrico
   if (m.data.otherBills.length) {
     const carriers = summarizeCarriers([...m.data.bills, ...m.data.otherBills]);
     const total = totalEnergy(carriers);
     const others = carriers.filter((c) => c.carrier !== 'electricidad');
     body.push(
-      heading('Todos los energéticos', 2),
+      heading(sub('energia', 'Energéticos utilizados'), 2),
       para(
         `Además de la electricidad, la instalación usa ${list(others.map((c) => c.info.label.toLowerCase()))}. Los energéticos se suman solo en kWh equivalentes, con el factor de conversión de cada factura; el balance por uso final, los indicadores y la línea base de este informe son eléctricos.`,
       ),
@@ -354,28 +312,102 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
       body.push(note(`${total.missingFactor} ${total.missingFactor === 1 ? 'factura no tiene' : 'facturas no tienen'} factor de conversión y no se incluye en los kWh: el total está incompleto.`));
     }
   }
-
-  // 6. Indicadores y línea base
-  const i = m.indicators;
-  body.push(
-    heading('6. Indicadores de desempeño y línea base'),
-    ...table(
-      'Indicadores de desempeño energético (IDEn), base anual.',
-      dataTable(
-        [
-          { header: 'Indicador', width: 0.5 },
-          { header: 'Valor', width: 0.25, align: 'right' },
-          { header: 'Unidad', width: 0.25 },
-        ],
-        [
-          ['Consumo por área construida', orDash(i.kwhPerM2Year, 1), 'kWh/m²·año'],
-          ['Consumo por usuario', orDash(i.kwhPerUserYear), 'kWh/usuario·año'],
-          ['Consumo diario promedio', orDash(i.kwhPerDay), 'kWh/día'],
-          ['Costo por área construida', orDash(i.copPerM2Year), 'COP/m²·año'],
-        ],
+  if (m.months.length) {
+    const last12 = m.months.slice(-12);
+    body.push(
+      heading(sub('energia', 'Consumo mensual de electricidad'), 2),
+      para(
+        m.annual.last12Kwh !== null
+          ? `En los últimos 12 meses la instalación consumió ${formatNumber(m.annual.last12Kwh)} kWh${m.annual.last12CostCop !== null ? ` con un costo de ${formatMillionsCop(m.annual.last12CostCop)} de pesos` : ''}${m.annual.change !== null ? `, ${signed(m.annual.change)} frente a los 12 meses anteriores` : ''}.`
+          : `Con ${m.annual.months} ${m.annual.months === 1 ? 'factura' : 'facturas'} el consumo anual se estima en ${orDash(m.annual.annualizedKwh)} kWh.`,
       ),
-    ),
-  );
+      ...fig('consumo-mensual'),
+      ...table(
+        'Consumo facturado de los últimos 12 meses.',
+        dataTable(
+          [
+            { header: 'Periodo', width: 0.22 },
+            { header: 'Energía (kWh)', width: 0.17, align: 'right' },
+            { header: 'Días', width: 0.1, align: 'right' },
+            { header: 'kWh/día', width: 0.14, align: 'right' },
+            { header: 'Costo (COP)', width: 0.2, align: 'right' },
+            { header: 'Variación', width: 0.17, align: 'right' },
+          ],
+          last12.map((r) => [
+            capitalize(periodLabelLong(r.period)),
+            formatNumber(r.kwh),
+            orDash(r.days),
+            orDash(r.kwhPerDay),
+            formatCop(r.costCop),
+            r.change === null ? '—' : { text: signed(r.change), color: r.change > 0.05 ? COLOR.serious : r.change < -0.05 ? COLOR.good : undefined },
+          ]),
+          ['Total', formatNumber(last12.reduce((t, r) => t + r.kwh, 0)), '', '', formatCop(last12.reduce((t, r) => t + r.costCop, 0)), ''],
+        ),
+      ),
+    );
+    if (m.annual.rolling.length >= 2) body.push(heading(sub('energia', 'Tendencia anual'), 2), ...fig('tendencia-anual'));
+  } else {
+    body.push(para('No hay facturas registradas: el comportamiento mensual y anual queda pendiente.'));
+  }
+  body.push(heading(sub('energia', 'Curva de carga diaria'), 2), ...fig('curva-de-carga'));
+  if (m.daily) {
+    const d = m.daily;
+    const weekday = measuredWeekdayKwh(d);
+    const billed = billedDailyKwh(m.data.bills);
+    body.push(
+      bullet(`Demanda máxima de ${formatNumber(d.peak?.kw ?? 0, 1)} kW${d.peak ? ` el ${formatDateTime(isoLocal(d.peak.start))}` : ''}; carga base de ${formatNumber(d.baseLoadKw, 1)} kW.`),
+      bullet(`Factor de carga del ${formatPercent(d.loadFactor, 0)} y energía diaria promedio de ${formatNumber(d.averageDailyKwh)} kWh.`),
+      ...(weekday && billed ? [bullet(`Un día laborable medido consume ${formatNumber(weekday)} kWh; el promedio facturado es de ${formatNumber(billed)} kWh por día.`)] : []),
+      ...fig('mapa-de-calor'),
+    );
+  }
+
+  // 6. Usos significativos y balance energético
+  body.push(section('balance', 'Usos significativos y balance energético'));
+  if (m.shares.length) {
+    const last = m.significant[m.significant.length - 1];
+    body.push(
+      para(
+        `El censo de carga estima ${formatNumber(m.estimatedAnnualKwh)} kWh al año. ${list(m.significant.map((s) => useLabel(s.category)))} ${m.significant.length === 1 ? 'concentra' : 'concentran'} el ${formatPercent(last?.cumulativeShare ?? 0, 0)} del consumo: ${m.significant.length === 1 ? 'es el uso significativo' : 'son los usos significativos'} de energía (ISO 50001).`,
+      ),
+      ...fig('pareto-usos'),
+      ...table(
+        'Consumo anual estimado por uso final.',
+        dataTable(
+          [
+            { header: 'Uso final', width: 0.34 },
+            { header: 'kWh/año', width: 0.2, align: 'right' },
+            { header: 'Participación', width: 0.16, align: 'right' },
+            { header: 'Acumulado', width: 0.16, align: 'right' },
+            { header: 'Significativo', width: 0.14, align: 'center' },
+          ],
+          m.shares.map((s) => [
+            useLabel(s.category),
+            formatNumber(s.kwh),
+            formatPercent(s.share, 1),
+            formatPercent(s.cumulativeShare, 0),
+            m.significant.includes(s) ? { text: 'Sí', bold: true, color: COLOR.accent } : 'No',
+          ]),
+        ),
+      ),
+      ...fig('flujo-energia'),
+    );
+    if (m.deviation !== null && Number.isFinite(m.deviation)) {
+      body.push(
+        para(
+          `Conciliación: el censo estima ${formatNumber(m.estimatedAnnualKwh)} kWh/año frente a ${formatNumber(m.billedAnnualKwh ?? 0)} kWh facturados (${signed(m.deviation)}). ` +
+            (Math.abs(m.deviation) <= 0.1 ? 'La diferencia está dentro del ±10 %: el inventario representa bien el consumo real.' : 'La diferencia supera el ±10 %: conviene revisar horas de uso, factores de uso y equipos sin registrar.'),
+        ),
+      );
+    }
+    body.push(...labBalance(m, { fig, table }));
+  } else {
+    body.push(para('No hay equipos en el censo de carga: el balance por uso final queda pendiente.'));
+  }
+
+  // 7. Línea base (Res. UPME 016) e indicadores de desempeño
+  const i = m.indicators;
+  body.push(section('linea-base', 'Línea base e indicadores de desempeño'));
   body.push(...upmeBaselineSection(m, { fig, table }));
   if (m.baseline) {
     const b = m.baseline;
@@ -405,12 +437,36 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
       ),
     );
   }
+  if (!m.upme && !m.baseline) body.push(para('La línea base necesita las facturas de 12 meses: queda pendiente.'));
+  body.push(
+    heading('Indicadores de desempeño energético', 2),
+    ...table(
+      'Indicadores de desempeño energético (IDEn), base anual.',
+      dataTable(
+        [
+          { header: 'Indicador', width: 0.5 },
+          { header: 'Valor', width: 0.25, align: 'right' },
+          { header: 'Unidad', width: 0.25 },
+        ],
+        [
+          ['Consumo por área construida', orDash(i.kwhPerM2Year, 1), 'kWh/m²·año'],
+          ['Consumo por usuario', orDash(i.kwhPerUserYear), 'kWh/usuario·año'],
+          ['Consumo diario promedio', orDash(i.kwhPerDay), 'kWh/día'],
+          ['Costo por área construida', orDash(i.copPerM2Year), 'COP/m²·año'],
+          ...activityIndicatorRows(m),
+        ],
+      ),
+    ),
+    ...labIndicators(m, { table }),
+    ...followBlock(m, { table }),
+  );
 
-  // 7. Dimensionamiento
-  body.push(heading('7. Dimensionamiento y capacidad'));
+  // 8. Sistemas y equipos de consumo final
+  body.push(section('sistemas', 'Sistemas y equipos de consumo final'));
+  const systemsStart = body.length;
   if (m.cooling.length) {
     body.push(
-      heading('7.1 Climatización', 2),
+      heading(sub('sistemas', 'Climatización'), 2),
       para(`Carga térmica simplificada de cada espacio (envolvente, personas, ventanas, iluminación y equipos, con ${formatPercent(m.params.safetyFactor, 0)} de seguridad) frente a la capacidad de los aires asignados.`),
       ...fig('climatizacion'),
       ...table(
@@ -436,7 +492,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
   }
   if (m.lighting.length) {
     body.push(
-      heading('7.2 Iluminación', 2),
+      heading(sub('sistemas', 'Iluminación'), 2),
       para('Iluminancia medida (o calculada con el método de los lúmenes) frente a la requerida para cada tipo de espacio, densidad de potencia y valor de eficiencia energética de la instalación (VEEI).'),
       ...fig('iluminacion'),
       ...table(
@@ -464,7 +520,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
   }
   const f = m.capacity.facility;
   if (m.data.electrical.length) {
-    body.push(heading('7.3 Capacidad del sistema eléctrico', 2));
+    body.push(heading(sub('sistemas', 'Capacidad del sistema eléctrico'), 2));
     if (f) {
       body.push(
         para(
@@ -522,15 +578,16 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
       );
     }
   }
+  const regimeTitle = regimeSummary(m.data.equipment).rows.length ? sub('sistemas', 'Regímenes de uso y cargas continuas') : '';
+  body.push(...regimeBlock(m, { table, title: regimeTitle }));
+  if (annexLetter.has('anexo-labs')) body.push(para(`El inventario de cada laboratorio, equipo por equipo, está en el ${annexRef('anexo-labs')}.`));
+  if (body.length === systemsStart) body.push(para('No hay espacios ni equipos registrados: el dimensionamiento de los sistemas queda pendiente.'));
 
-  // Desde aquí las secciones dependen de lo registrado: se numeran a partir de la 8
-  let section = 8;
-
-  // Mediciones puntuales
-  if (m.data.measurements.length) {
+  // 9. Mediciones puntuales
+  if (present.mediciones) {
     const points = new Map([...m.data.electrical.map((n) => [n.id, n.name] as const), ...m.data.areas.map((a) => [a.id, a.name] as const), ...m.data.equipment.map((e) => [e.id, e.name] as const)]);
     body.push(
-      heading(`${section++}. Mediciones puntuales`),
+      section('mediciones', 'Mediciones puntuales'),
       ...table(
         'Mediciones de campo con el instrumento indicado.',
         dataTable(
@@ -556,16 +613,16 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     );
   }
 
-  // Diagnóstico: los hallazgos del auditor, cada uno con sus fotos (que ya no se repiten en el anexo)
+  // 10. Diagnóstico energético: los hallazgos del auditor, cada uno con sus fotos (que ya no se repiten en el anexo)
   const shown = new Set<AuditAssets['photos'][number]>();
   const findings = m.data.findings;
-  if (findings.length) {
+  if (present.diagnostico) {
     const counts = (['critico', 'alto', 'medio', 'bajo'] as const)
       .map((s) => ({ s, n: findings.filter((x) => x.severity === s).length }))
       .filter(({ n }) => n > 0)
       .map(({ s, n }) => `${n} ${SEVERITY_COUNT[s][n === 1 ? 0 : 1]}`);
     body.push(
-      heading(`${section++}. Diagnóstico`),
+      section('diagnostico', 'Diagnóstico energético'),
       para(
         `El diagnóstico reúne ${findings.length} ${findings.length === 1 ? 'hallazgo' : 'hallazgos'} (${list(counts)}) con su gravedad, el tema al que pertenecen, su estado y la evidencia fotográfica tomada en campo.`,
       ),
@@ -606,43 +663,50 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     }
   }
 
-  // Oportunidades de ahorro (art. 4, literales d, e y g): potencial por clase, FNCER, tenencia, VPN y TIR, y priorización con criterios
-  if (m.data.measures.length || m.data.project.scope) body.push(...opportunitiesSection(m, { fig, table, title: `${section++}. Oportunidades de ahorro` }));
+  // 11. Seguridad eléctrica y SST: capítulo propio, aparte de los ahorros
+  if (present.seguridad) body.push(...safetySection(m, { fig, table, title: `${sectionNo.get('seguridad')}. Seguridad eléctrica y SST` }));
 
-  // Seguridad eléctrica: capítulo propio, aparte de los ahorros
-  body.push(...safetySection(m, { fig, table, title: `${section}. Seguridad eléctrica` }));
-  if (m.data.safetyFindings.length || m.safety.suggestions.length || m.data.project.safetyReviewed) section += 1;
+  // 12. Potencial de ahorro y oportunidades (art. 4, aspectos d, e y g): potencial por clase, FNCER, tenencia, VPN y TIR, y priorización con criterios
+  if (present.oportunidades) body.push(...opportunitiesSection(m, { fig, table, title: `${sectionNo.get('oportunidades')}. Potencial de ahorro y oportunidades` }));
 
-  // Conclusiones
-  body.push(heading(`${section}. Conclusiones y recomendaciones`));
+  // 13. Conclusiones
+  body.push(section('conclusiones', 'Conclusiones y recomendaciones'));
   const concluding = m.findings.filter((x) => x.tone !== 'info' && x.topic !== 'seguridad');
   body.push(...(concluding.length ? concluding.map(findingBullet) : [para('Los datos registrados no muestran desviaciones importantes.')]));
   const recommendations = recommend(m);
   if (recommendations.length) body.push(heading('Recomendaciones', 2), ...recommendations.map((r) => bullet(r)));
+  const counts = art4Counts(art4Rows);
+  const unmet = art4Rows.filter((r) => r.status !== 'cumple');
   body.push(
     para(
       plan.length
         ? 'El plan de gestión de la energía (PGEE) desarrolla las medidas incluidas en el plan con sus metas sobre la línea base, los responsables y el seguimiento de los ahorros.'
         : 'El siguiente paso es el plan de gestión de la energía (PGEE): priorizar las medidas con su evaluación económica, fijar metas sobre la línea base y programar su implementación y seguimiento.',
     ),
+    para(
+      unmet.length
+        ? `Verificación de la Resolución 40412: ${counts.cumple} de ${counts.total} puntos se cumplen con lo registrado. Falta completar: ${unmet.map((r) => r.reference.replace('Art. ', 'art. ')).join('; ')}. El detalle está en el ${annexRef('anexo-art4')}.`
+        : `Verificación de la Resolución 40412: los ${counts.total} puntos se cumplen con lo registrado (${annexRef('anexo-art4')}).`,
+    ),
   );
 
-  // Datos del auditor (art. 6 de la Res. 40412): solo si el perfil tiene algo que decir
-  const auditorAnnex = auditorSection(m, { table, title: 'Anexo. Datos del auditor' });
-  if (auditorAnnex.length) body.push(pageBreak(), ...auditorAnnex);
+  // Anexos: datos del auditor (art. 6 de la Res. 40412), inventario por laboratorio, verificación del art. 4 y fotografías
+  if (annexLetter.has('anexo-auditor')) body.push(pageBreak(), ...auditorSection(m, { table, title: annexTitle('anexo-auditor', 'Datos del auditor') }));
+  if (annexLetter.has('anexo-labs')) body.push(pageBreak(), ...labInventoryAnnex(m, { table, title: annexTitle('anexo-labs', 'Inventario por laboratorio') }));
+  body.push(pageBreak(), ...art4Annex(art4Rows, { table, title: annexTitle('anexo-art4', 'Verificación del artículo 4 de la Resolución 40412') }));
 
-  // Anexo fotográfico: las fotos que no se mostraron con su hallazgo
+  // Registro fotográfico: las fotos que no se mostraron con su hallazgo
   const annex = assets.photos.filter((p) => !shown.has(p));
   if (annex.length) {
     const width = options.photoSize === 'pequena' ? 380 : 520;
-    body.push(pageBreak(), heading('Anexo fotográfico'));
+    body.push(pageBreak(), heading(`Anexo ${String.fromCharCode(65 + annexKeys.length)}. Registro fotográfico`));
     for (const p of annex) body.push(...numberedPhoto(p, width));
   }
 
   return new Document({
     creator: 'PONTIA',
     title: `Informe de auditoría energética · ${project.name}`,
-    description: 'Informe de auditoría energética (ISO 50002)',
+    description: 'Informe de auditoría energética (ISO 50002 · Res. MME 40412 de 2024)',
     features: { updateFields: true },
     styles: DOC_STYLES,
     numbering: NUMBERING,
@@ -688,7 +752,7 @@ function cover(m: AuditModel): FileChild[] {
     ['Fecha del informe', formatDate(isoLocal(generatedAt))],
     ['Código del proyecto', project.code ?? '—'],
     ['Auditor', project.auditor ?? '—'],
-    ['Referencia', 'ISO 50002 · ISO 50001 · ISO 50006 · IPMVP'],
+    ['Referencia', 'Res. MME 40412/2024 · NTC-ISO 50002 · Res. UPME 016/2024 · IPMVP'],
     ...(characterizationNotes(project).missing.length ? ([['Estado', 'Borrador · faltan datos de la caracterización de la entidad']] as [string, string][]) : []),
   ];
   return [

@@ -108,7 +108,7 @@ describe('datos del auditor en el informe de auditoría', () => {
     await saveAuditorProfile(db, auditor);
     const model = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
     const text = await texto(model);
-    expect(text).toContain('Anexo. Datos del auditor');
+    expect(text).toContain('Anexo A. Datos del auditor');
     expect(text).toContain('Datos del auditor energético.');
     expect(text).toContain('Persona natural externa');
     expect(text).toContain('Auditor de ejemplo');

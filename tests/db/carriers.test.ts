@@ -101,11 +101,14 @@ describe('gas natural junto a la electricidad', () => {
       const xml = (await (await JSZip.loadAsync(buffer)).file('word/document.xml')?.async('string')) ?? '';
       return xml.replace(/<[^>]+>/g, '');
     };
-    expect(await texto()).not.toContain('Todos los energéticos');
+    expect(await texto()).not.toContain('5.1 Energéticos utilizados');
 
     await addNaturalGas(db, ejemplo.id);
     const conGas = await texto();
-    expect(conGas).toContain('Todos los energéticos');
+    expect(conGas).toContain('5.1 Energéticos utilizados');
+    // El alcance declara los energéticos incluidos y la limitación de que los indicadores son eléctricos
+    expect(conGas).toContain('Energéticos incluidos: electricidad y gas natural.');
+    expect(conGas).toContain('El balance por uso final, los indicadores y la línea base son eléctricos');
     expect(conGas).toContain('Gas natural');
     expect(conGas).toContain('1.278 m³');
     expect(conGas).toContain('kWh equivalentes');

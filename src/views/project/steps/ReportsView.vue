@@ -151,18 +151,21 @@ const sections = computed(() => {
   const ids = new Set(preview.value?.figures.map((f) => f.id) ?? []);
   const tables = new Set(preview.value?.tables.map((t) => t.id) ?? []);
   return [
-    { title: 'Resumen ejecutivo con indicadores y hallazgos', ok: true },
-    { title: 'Alcance y descripción de la instalación', ok: tables.has('espacios') },
-    { title: 'Metodología (ISO 50002 · ISO 50006 · IPMVP)', ok: true },
-    { title: 'Comportamiento del consumo mensual, anual y diario', ok: ids.has('consumo-mensual') || ids.has('curva-de-carga') },
-    { title: 'Balance energético y usos significativos', ok: ids.has('pareto-usos') },
-    { title: 'Indicadores de desempeño y línea base', ok: ids.has('linea-base') },
-    { title: 'Dimensionamiento: climatización, iluminación y capacidad', ok: ids.has('climatizacion') || ids.has('unifilar') },
+    { title: 'Resumen ejecutivo con indicadores, hallazgos y verificación del artículo 4', ok: true },
+    { title: 'Alcance, frontera y limitaciones', ok: true },
+    { title: 'Caracterización de la entidad y del edificio, con los laboratorios', ok: tables.has('espacios') },
+    { title: 'Metodología (NTC-ISO 50002 · Res. UPME 016 · IPMVP)', ok: true },
+    { title: 'Uso de la energía: históricos y comportamiento', ok: ids.has('consumo-mensual') || ids.has('curva-de-carga') },
+    { title: 'Usos significativos y balance, por uso final y por laboratorio', ok: ids.has('pareto-usos') },
+    { title: 'Línea base e indicadores de desempeño, con el seguimiento propuesto', ok: ids.has('linea-base') || ids.has('linea-base-upme') },
+    { title: 'Sistemas y equipos: climatización, iluminación, capacidad y regímenes de uso', ok: ids.has('climatizacion') || ids.has('unifilar') },
     { title: 'Mediciones puntuales', ok: tables.has('mediciones') },
-    { title: 'Diagnóstico con evidencia fotográfica', ok: tables.has('hallazgos') },
-    { title: 'Oportunidades de ahorro y matriz de priorización', ok: tables.has('medidas') },
+    { title: 'Diagnóstico energético con evidencia fotográfica', ok: tables.has('hallazgos') },
+    { title: 'Seguridad eléctrica y SST', ok: tables.has('seguridad') },
+    { title: 'Potencial de ahorro y oportunidades, con VPN, TIR y priorización', ok: tables.has('medidas') },
     { title: 'Conclusiones y recomendaciones', ok: true },
-    { title: `Anexo fotográfico · ${formatNumber(photoCount.value)} ${photoCount.value === 1 ? 'foto' : 'fotos'}`, ok: photoCount.value > 0 && includePhotos.value },
+    { title: 'Anexos: datos del auditor, inventario por laboratorio y verificación del artículo 4', ok: true },
+    { title: `Registro fotográfico · ${formatNumber(photoCount.value)} ${photoCount.value === 1 ? 'foto' : 'fotos'}`, ok: photoCount.value > 0 && includePhotos.value },
   ];
 });
 
@@ -194,8 +197,8 @@ const stats = computed(() => [
         <span class="eyebrow">Word · estructura ISO 50002</span>
       </div>
       <p class="texto">
-        Portada, índice, resumen ejecutivo con indicadores, gráficas y tablas numeradas, verificación de cada espacio, capacidad eléctrica, diagnóstico con fotos, oportunidades de ahorro,
-        conclusiones y anexo fotográfico. Se abre y se edita en Word.
+        Portada, índice, resumen con la verificación del artículo 4 de la Resolución 40412, alcance y limitaciones, uso de la energía, línea base, sistemas y equipos por laboratorio,
+        diagnóstico con fotos, seguridad eléctrica, oportunidades de ahorro, conclusiones y anexos. Se abre y se edita en Word.
       </p>
       <ol class="indice-informe">
         <li v-for="s in sections" :key="s.title" :class="{ pendiente: !s.ok }">

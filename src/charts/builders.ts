@@ -383,13 +383,15 @@ export function rankingChart(opts: {
   items: { label: string; value: number; color: string; faded?: boolean; note?: string }[];
   unit?: string;
   decimals?: number;
+  /** Ancho en píxeles que se reserva a la derecha para la etiqueta de cada barra; las notas largas piden más. */
+  rightSpace?: number;
   dark: boolean;
 }): ChartOption {
   const p = chartPalette(opts.dark);
   const decimals = opts.decimals ?? 0;
   return {
     animationDuration: 500,
-    grid: { left: 8, right: 108, top: 4, bottom: 4, containLabel: true },
+    grid: { left: 8, right: opts.rightSpace ?? 108, top: 4, bottom: 4, containLabel: true },
     tooltip: { ...tooltip(p, opts.unit, decimals), trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: withAlpha(p.axis, 0.12) } } },
     xAxis: { type: 'value', splitNumber: 3, axisLabel: { show: false }, splitLine: { lineStyle: { color: p.grid } } },
     yAxis: {

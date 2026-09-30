@@ -21,7 +21,7 @@ function priorityReason(measure: Measure, paybackYears: number): string {
 }
 
 /**
- * Oportunidades de ahorro del informe de auditoría (art. 4, literales d, e y g, de la Res. 40412 de 2024): potencial por clase, potencial
+ * Oportunidades de ahorro del informe de auditoría (art. 4, aspectos (d), (e) y (g), de la Res. 40412 de 2024): potencial por clase, potencial
  * de FNCER, alcance según la tenencia, evaluación económica con VPN y TIR, y priorización con sus criterios.
  */
 export function opportunitiesSection(m: AuditModel, { fig, table, title }: SectionTools & { title: string }): FileChild[] {
@@ -63,7 +63,7 @@ export function opportunitiesSection(m: AuditModel, { fig, table, title }: Secti
   const best = m.upme?.headline;
   out.push(
     ...table(
-      'Potencial de ahorro por clase (art. 4, literal d, de la Resolución 40412 de 2024).',
+      'Potencial de ahorro por clase (art. 4, aspecto (d), de la Resolución 40412 de 2024).',
       dataTable(
         [
           { header: 'Clase de potencial', width: 0.34 },

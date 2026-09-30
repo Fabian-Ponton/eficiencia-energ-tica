@@ -822,7 +822,7 @@ export async function buildFormatsWorkbook(data: ReportData, options: FormatsWor
       general.getCell(row, 2).dataValidation = { type: 'list', allowBlank: true, formulae: [list], showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Valor fuera de la lista', error: 'Puedes dejarlo si es correcto.' };
     }
   });
-  general.getCell(HEADER_ROW + 1 + GENERAL_FIELDS.findIndex((f) => f.extension), 3).value = '← Desde aquí, datos que PONTIA agrega al formato original (art. 4, literal a, de la Res. 40412 de 2024).';
+  general.getCell(HEADER_ROW + 1 + GENERAL_FIELDS.findIndex((f) => f.extension), 3).value = '← Desde aquí, datos que PONTIA agrega al formato original (art. 4, aspecto (a), de la Res. 40412 de 2024).';
   general.getCell(HEADER_ROW + 1 + GENERAL_FIELDS.findIndex((f) => f.extension), 3).font = { italic: true, color: { argb: 'FF5C6A80' } };
 
   // Hojas de datos

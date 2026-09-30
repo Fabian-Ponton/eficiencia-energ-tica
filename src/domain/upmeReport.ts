@@ -54,7 +54,7 @@ export function upmeReadiness(input: {
   const items: ReadinessItem[] = [
     {
       id: 'caracterizacion',
-      label: 'Datos de la edificación y de la entidad (art. 4, literal a)',
+      label: 'Datos de la edificación y de la entidad (art. 4, aspecto (a))',
       ok: built.complete,
       level: 'obligatorio',
       detail: built.missing.length ? `Faltan: ${built.missing.map((i) => lowerFirst(i.label)).join(', ')}.` : undefined,

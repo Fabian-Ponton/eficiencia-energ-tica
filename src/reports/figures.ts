@@ -1,4 +1,4 @@
-import { barsChart, bulletChart, dayProfileChart, linesChart, paretoChart, riskMatrixChart, sankeyChart, weekHeatmapChart } from '@/charts/builders';
+import { barsChart, bulletChart, dayProfileChart, linesChart, paretoChart, rankingChart, riskMatrixChart, sankeyChart, weekHeatmapChart } from '@/charts/builders';
 import type { ChartOption } from '@/charts/echarts';
 import { chartPalette } from '@/charts/palette';
 import { singleLineChart } from '@/charts/singleLineChart';
@@ -7,6 +7,8 @@ import { endUseOf } from '@/domain/catalogs';
 import { FREQUENCIES, RISK_LEVELS, RISK_MATRIX, matrixCounts, safetyCodes } from '@/domain/safety';
 import type { EndUseCategory } from '@/domain/types';
 import { MONTHS_SHORT, periodLabel } from '@/utils/dates';
+import { formatNumber } from '@/utils/format';
+import { labIndicatorRows } from './auditParts';
 import type { AuditModel } from './model';
 import { pgeeFigures } from './pgeeFigures';
 
@@ -143,6 +145,24 @@ export function auditFigures(m: AuditModel): ReportFigure[] {
       }),
       width: 960,
       height: Math.max(420, m.flow.nodes.length * 34),
+    });
+  }
+  const labs = labIndicatorRows(m);
+  if (labs.length > 1) {
+    add({
+      id: 'consumo-laboratorios',
+      title: 'Consumo anual estimado por laboratorio',
+      source: 'Censo de carga de cada laboratorio; en cada barra, el consumo y la intensidad por metro cuadrado.',
+      option: rankingChart({
+        dark: false,
+        unit: 'kWh/año',
+        rightSpace: 250,
+        items: [...labs]
+          .sort((a, b) => b.annualKwh - a.annualKwh)
+          .map((l) => ({ label: l.name, value: Math.round(l.annualKwh), color: p.series[0], note: `${formatNumber(l.annualKwh)} kWh${l.kwhPerM2Year !== null ? ` · ${formatNumber(l.kwhPerM2Year, 1)} kWh/m²·año` : ''}` })),
+      }),
+      width: 960,
+      height: Math.max(260, labs.length * 46),
     });
   }
   const upme = m.upme ? upmeBaselineFigure(m.upme, false) : null;

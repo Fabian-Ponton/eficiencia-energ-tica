@@ -286,7 +286,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           { label: 'Inversión (COP)', need: 'obligatorio', source: 'Cotización o precio de referencia. Escribe 0 si la medida es operativa.' },
           { label: 'Vida útil (años) y costo anual de operación', need: 'recomendado', source: 'Entran en el VPN y la TIR.' },
           { label: 'Hallazgos que resuelve y prioridad', need: 'recomendado', source: 'Encadenan el diagnóstico con el plan y ordenan la implementación.' },
-          { label: 'Clase de potencial de ahorro', need: 'recomendado', source: 'Buenas prácticas de operación, cambio tecnológico, sustitución de energético, FNCER o medida pasiva (art. 4, literal d, de la Res. 40412). Si no la eliges, se deduce del tipo de medida.' },
+          { label: 'Clase de potencial de ahorro', need: 'recomendado', source: 'Buenas prácticas de operación, cambio tecnológico, sustitución de energético, FNCER o medida pasiva (art. 4, aspecto (d), de la Res. 40412). Si no la eliges, se deduce del tipo de medida.' },
           { label: 'Consumo actual del sistema, evidencia, responsable, plazo e indicador', need: 'recomendado', source: 'Son las columnas del Formato 12 de la recolección. El consumo actual permite ver qué parte del sistema representa el ahorro.' },
           { label: 'Tenencia del edificio', need: 'recomendado', source: 'De Datos generales. Si el edificio es arrendado o está en comodato, solo las buenas prácticas de operación pueden entrar al plan: las demás quedan como potencial y salen del plan (nada se borra).' },
           { label: 'Alcance de las FNCER', need: 'recomendado', source: 'De Datos generales: reportar el potencial o excluirlas con una justificación. PONTIA no diseña sistemas fotovoltaicos en la auditoría: el párrafo del informe da el potencial de referencia con la cubierta disponible y las horas solares pico.' },
@@ -346,7 +346,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           { label: 'Perfil del auditor (Ajustes)', need: 'recomendado', source: 'Formación, experiencia certificada por un tercero y matrículas. Con el perfil registrado, el informe de auditoría trae el anexo «Datos del auditor» con la verificación del artículo 6 de la Res. 40412; nunca imprime la cédula ni el RUT, solo si están reunidos.' },
           { label: 'Opciones de fotos', need: 'opcional', source: 'Puedes incluirlas o no y elegir su tamaño dentro del Word.' },
         ],
-        result: 'Informe de auditoría en Word (con el anexo de los datos del auditor cuando su perfil está registrado), PGEE en Word, plan de implementación en Word, CSV por tabla, Excel con una hoja por tabla, PNG de cada gráfica y respaldo .zip del proyecto.',
+        result: 'Informe de auditoría en Word (con la verificación del artículo 4 de la Resolución 40412, el consumo y los indicadores por laboratorio, el inventario por laboratorio y, si el perfil del auditor está registrado, sus datos), PGEE en Word, plan de implementación en Word, CSV por tabla, Excel con una hoja por tabla, PNG de cada gráfica y respaldo .zip del proyecto.',
         tip: 'En el celular, al descargar se abre el menú de compartir: WhatsApp, correo, Drive o Archivos.',
       },
       {
