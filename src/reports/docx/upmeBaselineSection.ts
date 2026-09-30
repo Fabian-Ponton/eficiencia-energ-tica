@@ -43,9 +43,15 @@ export function upmeBaselineSection(m: AuditModel, { fig, table }: SectionTools)
   );
 
   if (monthly && !s) {
+    const deviationMonths = monthly.months.filter((x) => x.band === 'desviacion').length;
+    const deviationText = !deviationMonths
+      ? ''
+      : deviationMonths === 1
+        ? '; en el único mes con 10 o más datos, contra dos desviaciones estándar (ecuaciones 4 y 5)'
+        : `; en los ${deviationMonths} meses con 10 o más datos, contra dos desviaciones estándar (ecuaciones 4 y 5)`;
     out.push(
       para(
-        `Cada dato se verificó contra el intervalo de ±10 % del promedio de su mes (ecuaciones 3 y 7)${(() => { const n = monthly.months.filter((x) => x.band === 'desviacion').length; return n ? `; en los ${n} ${n === 1 ? 'mes' : 'meses'} con 10 o más datos, contra dos desviaciones estándar (ecuaciones 4 y 5)` : ''; })()}: de ${monthly.initialCount} datos iniciales quedaron ${monthly.finalCount} datos finales para calcular la LBEn.`,
+        `Cada dato se verificó contra el intervalo de ±10 % del promedio de su mes (ecuaciones 3 y 7)${deviationText}: de ${monthly.initialCount} datos iniciales quedaron ${monthly.finalCount} datos finales para calcular la LBEn.`,
       ),
     );
   }

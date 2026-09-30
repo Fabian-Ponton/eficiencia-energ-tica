@@ -12,9 +12,10 @@ import { mean, sum } from './stats';
 /** Banda de verificación (ecuaciones 3 y 7): ±10 % del promedio de cada mes. */
 export const CONFIDENCE_BAND = 0.1;
 /**
- * Con diez o más datos de consumo, la resolución sugiere verificar con dos desviaciones estándar en vez de ±10 % (§7.5.1 y §7.5.2,
- * ecuaciones 4 y 5). El texto no dice si el número de datos es el del mes o el de toda la serie; PONTIA lo aplica mes por mes: el
- * promedio de cada mes (LBEn) es el centro de la banda y las desviaciones salen de los datos de ese mismo mes.
+ * «En caso de contar con un número significativo de datos de consumo energético mensual, por ejemplo 10 o más, se sugiere» verificar
+ * con dos desviaciones estándar en vez de ±10 % (§7.5.1 y §7.5.2, ecuaciones 4 y 5). Es una sugerencia, el 10 es un ejemplo y el texto
+ * no dice si esos datos son los del mes o los de toda la serie; PONTIA la aplica mes por mes y desde diez datos: el promedio de cada
+ * mes (LBEn) es el centro de la banda y las desviaciones salen de los datos de ese mismo mes.
  */
 export const STD_BAND_MIN_DATA = 10;
 /** Desviaciones estándar a cada lado del promedio (ecuación 4). */

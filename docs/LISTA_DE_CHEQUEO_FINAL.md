@@ -8,7 +8,7 @@ Cada fila de la matriz de cumplimiento (`MATRIZ_CUMPLIMIENTO.md`) queda como **c
 
 | Prueba | Resultado |
 |---|---|
-| Pruebas automáticas (`npm test`) | **67 archivos y 469 pruebas pasan** (al empezar: 36 archivos y 146 pruebas); la suite se repitió varias veces, también con la hora del servidor de publicación (UTC), sin fallas |
+| Pruebas automáticas (`npm test`) | **67 archivos y 474 pruebas pasan** (al empezar: 36 archivos y 146 pruebas); la suite se repitió varias veces, también con la hora del servidor de publicación (UTC), sin fallas |
 | Tipos y compilación (`vue-tsc` y `npm run build`) | Sin errores |
 | Ejemplo «Laboratorios · Sede Riohacha» | 5 laboratorios de tipos distintos, equipos de 24 horas, gas natural, horarios de dos periodos, cuatro hallazgos de seguridad, cinco medidas (una por clase de potencial), ruta anual con el 15 % legal superado en 2027 (16,6 %) y tareas con verificación del RETIE; probado con `sampleLab.test.ts` |
 | Navegador real (PC de 1280 px y celular de 390 px) | Las 12 pantallas recorridas del ejemplo (inicio y once pasos) abren sin errores ni desbordamiento; se generan el informe de auditoría (14 figuras), el PGEE, el plan de implementación y el paquete de datos de la UPME |
@@ -65,7 +65,7 @@ Lo cumplido cubre todo lo que la aplicación puede hacer por sí sola. Lo parcia
 | U-03 | §7.3: variables relevantes y significancia p < 5 % | ✅ Cumplido | M1 y M5. Personas atendidas, horas de práctica, grados-día, días hábiles, temperatura y ocupación, con p-valores. `lben.test.ts`. |
 | U-04 | §7.4–7.5: valor absoluto, cociente o estadístico, según los datos | ✅ Cumplido | M5. Los tres modelos y la recomendación automática. Reproducen los Anexos 1 a 4 de la resolución. `lben.test.ts`. |
 | U-05 | §7.5: normalizar a 30 días | ✅ Cumplido | M5. `(kWh ÷ días facturados) × 30`. `lben.test.ts`. |
-| U-06 | §7.5.1–7.5.2: promedio del mismo mes, banda de ±10 % y depuración; con 10 o más datos, dos desviaciones estándar | ✅ Cumplido | M5 y complemento posterior. Las ecuaciones 4 y 5 se leyeron en las imágenes del texto oficial (banda de dos desviaciones estándar de la población). Se aplican mes por mes, porque la resolución no dice si los diez datos son del mes o de toda la serie. `lben.test.ts`. |
+| U-06 | §7.5.1–7.5.2: promedio del mismo mes, banda de ±10 % y depuración; con 10 o más datos, dos desviaciones estándar | ✅ Cumplido | M5 y complemento posterior. Las ecuaciones 4 y 5 se leyeron en las imágenes del texto oficial (banda de dos desviaciones estándar de la población). La resolución lo plantea como una sugerencia («un número significativo de datos de consumo energético mensual, por ejemplo 10 o más») y no dice si son los del mes o los de toda la serie: PONTIA la aplica mes por mes y desde diez datos, es decir, con diez años de facturas de un mismo mes. `lben.test.ts`, `upmeBaseline.test.ts` y `docx.test.ts`. |
 | U-07 | §7.5.3: regresión al 95 %, descartar variables con p > 0,05, reportar R² | ✅ Cumplido | M5. `lben.test.ts` (Anexo 3: potencial de 3,44 %, R² 0,2493). |
 | U-08 | §7.6: ajustes rutinarios, no rutinarios y actualizaciones, documentados | ✅ Cumplido | M5. Bitácora de ajustes y ajuste no rutinario aplicado a la línea base. `lben.test.ts` (Anexo 4). |
 | U-09 | §8.1: potencial por mejor desempeño energético | ✅ Cumplido | M5. Cálculo mensual y porcentaje. `upmeBaseline.test.ts`. |

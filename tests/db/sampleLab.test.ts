@@ -43,12 +43,15 @@ const textoDe = async (doc: Awaited<ReturnType<typeof Packer.toBuffer>> | Return
   return ((await zip.file('word/document.xml')?.async('string')) ?? '').replace(/<[^>]+>/g, '');
 };
 
+/** Los identificadores son UUID al azar: un segmento de 8 o 12 cifras seguidas se confundiría con una cédula. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Todos los textos que el ejemplo guarda, para revisar que no traiga datos personales. */
 async function textosDelEjemplo(db: PontiaDb, projectId: string): Promise<string[]> {
   const out: string[] = [];
   const visit = (value: unknown, key = '') => {
     if (typeof value === 'string') {
-      if (!['id', 'projectId', 'seriesId', 'equipmentId', 'areaId', 'panelId', 'parentId', 'measureId', 'entityId', 'taskId', 'createdAt', 'updatedAt'].includes(key)) out.push(`${key}: ${value}`);
+      if (!UUID.test(value) && !['id', 'projectId', 'seriesId', 'equipmentId', 'areaId', 'panelId', 'parentId', 'measureId', 'entityId', 'taskId', 'createdAt', 'updatedAt'].includes(key)) out.push(`${key}: ${value}`);
     } else if (Array.isArray(value)) value.forEach((v) => visit(v, key));
     else if (value && typeof value === 'object' && !(value instanceof Blob)) for (const [k, v] of Object.entries(value)) visit(v, k);
   };

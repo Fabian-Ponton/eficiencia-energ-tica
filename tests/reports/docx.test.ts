@@ -214,6 +214,25 @@ describe('informe Word de auditoría', () => {
     db.close();
   });
 
+  it('con diez o más datos de un mes, la línea base dice que se verificó con dos desviaciones estándar', async () => {
+    const db = createDb('pontia-prueba-docx-banda');
+    const ejemplo = await createSampleProject(db);
+    await updateProject(db, ejemplo.id, { baseline: { model: 'valor-absoluto', note: 'Ejemplo con diez eneros' } });
+    // El ejemplo trae dos eneros (2025 y 2026); ocho más (2017 a 2024) completan diez datos de enero
+    for (let year = 2017; year <= 2024; year++) {
+      await saveRecord(db, 'bills', { id: `enero-${year}`, projectId: ejemplo.id, period: `${year}-01`, kwh: 30_000 + year * 10, costCop: 21_000_000, days: 31 });
+    }
+    const model = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
+    expect(model.upme?.monthly?.months[0].band).toBe('desviacion');
+    expect(model.upme?.monthly?.months[1].band).toBe('porcentaje');
+    const figures = auditFigures(model);
+    const assets: AuditAssets = { figures: new Map(figures.map((f, i) => [f.id, { data: Uint8Array.from([...PIXEL, i]), width: f.width, height: f.height }])), photos: [] };
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(buildAuditDocument(model, figures, assets)));
+    const text = ((await zip.file('word/document.xml')?.async('string')) ?? '').replace(/<[^>]+>/g, '');
+    expect(text).toContain('intervalo de ±10 % del promedio de su mes (ecuaciones 3 y 7); en el único mes con 10 o más datos, contra dos desviaciones estándar (ecuaciones 4 y 5)');
+    db.close();
+  });
+
   it('con el edificio en arriendo y la FNCER excluida, el informe dice qué medidas no pueden entrar al plan y por qué se excluye', async () => {
     const db = createDb('pontia-prueba-docx-tenencia');
     const ejemplo = await createSampleProject(db);
