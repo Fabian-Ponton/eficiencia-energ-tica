@@ -83,6 +83,8 @@ const short = computed(() => (baseline.value?.months ?? 0) < RECOMMENDED_MONTHS)
 
 // ——— Cifras, gráfica y tablas ———
 const figure = computed(() => (baseline.value ? upmeBaselineFigure(baseline.value, isDark.value) : null));
+/** Algún mes tiene diez o más datos y se verificó con dos desviaciones estándar en vez de ±10 %. */
+const deviationBand = computed(() => baseline.value?.monthly?.months.some((m) => m.band === 'desviacion') ?? false);
 const pngName = computed(() => `${fileSlug(project.value?.name ?? 'proyecto')}_linea-base-upme`);
 const tiles = computed(() => {
   const b = baseline.value;
@@ -150,7 +152,7 @@ const monthsText = (months?: string[]) => {
     <section class="card seccion">
       <div class="cabecera-seccion">
         <h2><IconChartAreaLine :size="18" />Línea base UPME 016</h2>
-        <span class="eyebrow">Res. UPME 016 de 2024 · promedio del mismo mes · banda de ±10 %{{ baseline?.monthly?.months.some((m) => m.band === 'desviacion') ? ' o dos desviaciones estándar' : '' }}</span>
+        <span class="eyebrow">Res. UPME 016 de 2024 · promedio del mismo mes · banda de ±10 %{{ deviationBand ? ' o dos desviaciones estándar' : '' }}</span>
         <PngButton v-if="figure" :option="() => (baseline ? (upmeBaselineFigure(baseline, false)?.option ?? null) : null)" :name="pngName" />
       </div>
 
@@ -215,7 +217,7 @@ const monthsText = (months?: string[]) => {
         </label>
         <label class="conservar">
           <input type="checkbox" :checked="Boolean(config.keepOutliers)" @change="(e) => setConfig({ keepOutliers: (e.target as HTMLInputElement).checked || undefined })" />
-          <span>Conservar los datos que salen de la banda de ±10 % <small>(por omisión se eliminan, §7.5.1)</small></span>
+          <span>Conservar los datos que salen de la banda de {{ deviationBand ? 'verificación' : '±10 %' }} <small>(por omisión se eliminan, §7.5.1)</small></span>
         </label>
 
         <div class="cifras">

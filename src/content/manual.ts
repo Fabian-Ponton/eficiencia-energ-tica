@@ -228,7 +228,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         ],
         result:
           'Consumo por uso final y su Pareto, usos significativos, estimado frente a facturado, indicadores (kWh/m²·año, kWh/persona, kWh por hora de práctica y por laboratorio) y la línea base con el método de la UPME: modelo (valor absoluto, cociente o estadístico), banda de ±10 %, datos fuera de la banda, potencial por mejor desempeño, ajustes y la tabla que se reporta a la UPME. La regresión con R², CV(RMSE) y NMBE queda como complemento.',
-        tip: 'Si lo estimado y lo facturado se separan mucho, casi siempre faltan equipos en el inventario o sobran horas de uso. Si un mes sale de la banda de ±10 %, primero busca la causa: un suceso puntual se registra como ajuste no rutinario, no se borra.',
+        tip: 'Si lo estimado y lo facturado se separan mucho, casi siempre faltan equipos en el inventario o sobran horas de uso. Si un dato sale de la banda del mes (±10 % o, con diez o más datos del mismo mes, dos desviaciones estándar), primero busca la causa: un suceso puntual se registra como ajuste no rutinario, no se borra.',
       },
       {
         id: 'dimensionamiento',

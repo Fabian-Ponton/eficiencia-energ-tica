@@ -335,7 +335,7 @@ Reglas que se respetan en todos los módulos: la app sigue 100 % sin conexión; 
 
 ### Complemento posterior a M13 – Banda por desviación estándar (Res. UPME 016) y cotejo de la matriz del RETIE 2026 (hecho)
 
-Dos pendientes de la lista de chequeo se pudieron cerrar con información que ya estaba disponible: las imágenes de las ecuaciones del texto oficial de la UPME y las de las tablas del RETIE de 2026. Son cambios pequeños, en su propio commit, hechos después de dejar listo el paquete de revisión de M13.
+Dos pendientes de la lista de chequeo se pudieron cerrar con información que ya estaba disponible: las imágenes de las ecuaciones del texto oficial de la UPME y las de las tablas del RETIE de 2026. Son cambios pequeños, en sus propios commits, hechos después de cerrar M13 y antes de esta revisión.
 
 **Qué cambia para el auditor.**
 
@@ -351,6 +351,10 @@ Dos pendientes de la lista de chequeo se pudieron cerrar con información que ya
 **Archivos.** Cambian: `domain/calc/lben.ts` (banda, `populationStdDev`, `BandKind`), `domain/upmeBaseline.ts` (aviso), `charts/builders.ts` y `charts/upmeBaselineChart.ts` (nombre de la banda), `reports/docx/upmeBaselineSection.ts` y `reports/docx/audit.ts` (textos), `views/project/steps/BaselineUpmePanel.vue` (encabezado), `domain/safety.ts` (comentario del cotejo), `docs/LISTA_DE_CHEQUEO_FINAL.md` y las pruebas `tests/domain/lben.test.ts`, `tests/domain/upmeBaseline.test.ts`, `tests/reports/docx.test.ts` y `tests/db/sampleLab.test.ts`. En el Word, la frase de la verificación concuerda con el número de meses («en el único mes con 10 o más datos» o «en los N meses con 10 o más datos»).
 
 **Pruebas.** Nuevas (once). En `lben.test.ts` (seis): la desviación estándar de la ecuación 5, la banda con diez datos (conserva 70 y 130 que ±10 % eliminaría), un dato a más de dos desviaciones que se depura, nueve datos que siguen con ±10 %, la opción de forzar ±10 % y el modelo de cociente. En `upmeBaseline.test.ts` (cuatro): los avisos del panel con un mes de diez datos, el dato depurado o conservado, el aviso en plural con los doce meses, y el título y la leyenda de la gráfica. En `docx.test.ts` (una): la frase del informe de Word con diez eneros. Resultado: **67 archivos y 474 pruebas pasan**; tipos y compilación sin errores. La suite se repitió varias veces, también con la hora del servidor de publicación (UTC), sin fallas.
+
+**Textos de la línea base.** La casilla «Conservar los datos que salen de la banda…», la explicación del ajuste no rutinario y el consejo del manual decían solo «±10 %». Ahora la casilla dice «banda de verificación» cuando algún mes usa dos desviaciones, el ajuste dice solo «la banda» y el manual explica las dos bandas. Cambian `views/project/steps/BaselineUpmePanel.vue`, `views/project/steps/BaselineAdjustmentForm.vue` y `content/manual.ts`.
+
+**Comprobado en un navegador real.** Con el ejemplo de aulas (Edge sin interfaz, 1280 px) y ocho eneros más de 2017 a 2024, el panel de la línea base pasa de «banda de ±10 %» a «banda de ±10 % o dos desviaciones estándar», la leyenda de la gráfica dice «Banda de verificación», aparece el aviso «1 mes tiene 10 o más datos: se verificaron con dos desviaciones estándar en vez de ±10 %» y enero queda con sus diez datos dentro de la banda (con ±10 % habrían salido cuatro).
 
 **Una prueba inestable más.** En la corrida final falló una vez la prueba que busca datos personales en el ejemplo de laboratorios: algunos identificadores (UUID al azar, como `pointId` o `findingIds`) traen a veces ocho cifras seguidas y la prueba las tomaba por una cédula (pasaba en unas 7 de cada 60 creaciones del ejemplo). Ahora la prueba ignora los identificadores; la app no cambia. Es la segunda prueba inestable que se encuentra y se corrige (la primera dependía del orden de la base).
 

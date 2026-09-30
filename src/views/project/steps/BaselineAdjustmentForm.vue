@@ -89,7 +89,7 @@ const cannotCompute = computed(() => draft.value.kind === 'no-rutinario' && Bool
       <label class="fila-interruptor">
         <span>
           Corregir la línea base con este ajuste
-          <small>Los mismos meses de los demás años se ajustan con la proporción (Res. UPME 016, Anexo 4, A4.1) y dejan de salir de la banda de ±10 %.</small>
+          <small>Los mismos meses de los demás años se ajustan con la proporción (Res. UPME 016, Anexo 4, A4.1) y dejan de salir de la banda.</small>
         </span>
         <ToggleSwitch v-model="draft.applied" />
       </label>
