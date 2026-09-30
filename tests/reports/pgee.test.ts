@@ -78,7 +78,8 @@ describe('PGEE en Word', () => {
       '5.2 Modelos de financiación y contratación',
       '6. Implementación',
       '7. Monitoreo, reporte y verificación',
-      '7.4 Reporte a la UPME',
+      '7.4 Seguimiento del ahorro real',
+      '7.5 Reporte a la UPME',
     ]) {
       expect(text).toContain(section);
     }

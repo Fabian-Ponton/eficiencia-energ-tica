@@ -17,6 +17,8 @@ const vacio: ProjectCounts = {
   reports: 0,
   collectionResolved: false,
   safetyDone: false,
+  upmeApplies: true,
+  upmeDone: false,
 };
 
 describe('avance de la auditoría', () => {
@@ -48,6 +50,16 @@ describe('avance de la auditoría', () => {
     expect(paso(false)).toBe(false);
     expect(paso(true)).toBe(true);
     expect(computeProgress(vacio)[2].total).toBe(5);
+  });
+
+  it('el reporte a la UPME es un paso de los informes solo para entidades públicas y cuenta con un ciclo registrado', () => {
+    const informes = (extra: Partial<ProjectCounts>) => computeProgress({ ...vacio, ...extra })[3];
+    expect(informes({}).steps.map((s) => s.id)).toEqual(['informes', 'reporte-upme']);
+    expect(informes({ upmeDone: true }).steps.find((s) => s.id === 'reporte-upme')?.done).toBe(true);
+    // Una entidad privada no reporta por el art. 237: el paso ni se cuenta
+    const privada = informes({ upmeApplies: false, reports: 1 });
+    expect(privada.steps.map((s) => s.id)).toEqual(['informes']);
+    expect(privada.ratio).toBe(1);
   });
 
   it('la facturación cuenta cuando hay al menos un año de facturas', () => {

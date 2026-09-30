@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { IconAlertCircle, IconCheck, IconChevronRight, IconDownload, IconTrash } from '@tabler/icons-vue';
+import { IconAlertCircle, IconCalendarEvent, IconCheck, IconChevronRight, IconDownload, IconTrash } from '@tabler/icons-vue';
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import ProgressSegments from '@/components/ProgressSegments.vue';
 import type { ProjectSummary } from '@/db/projects';
 import { characterization, groupStatus } from '@/domain/compliance';
 import { currentStage } from '@/domain/progress';
+import { auditAlert } from '@/domain/upmeReport';
 import { STAGES } from '@/navigation';
+import { formatDate } from '@/utils/dates';
 import { formatNumber } from '@/utils/format';
 import { relativeTime } from '@/utils/time';
 
@@ -22,6 +24,8 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
 const place = computed(() => [project.value.client, project.value.site?.name, project.value.city].filter(Boolean).join(' · '));
 // Datos de la entidad que la norma pide y aún faltan: se avisa, pero nunca se bloquea el proyecto
 const missing = computed(() => groupStatus(characterization(project.value)).missing.length);
+// La auditoría se repite cada cuatro años: se avisa desde seis meses antes
+const audit = computed(() => auditAlert(project.value, new Date()));
 </script>
 
 <template>
@@ -66,6 +70,12 @@ const missing = computed(() => groupStatus(characterization(project.value)).miss
     <p v-if="missing" class="faltan">
       <IconAlertCircle :size="15" />
       {{ missing === 1 ? 'Falta 1 dato' : `Faltan ${missing} datos` }} de la entidad para el informe
+    </p>
+
+    <p v-if="audit" class="faltan" :class="{ vencida: audit.overdue }">
+      <IconCalendarEvent :size="15" />
+      <template v-if="audit.overdue">Auditoría vencida el {{ formatDate(audit.due) }}</template>
+      <template v-else>Próxima auditoría el {{ formatDate(audit.due) }} · {{ audit.days === 0 ? 'hoy' : `en ${audit.days} ${audit.days === 1 ? 'día' : 'días'}` }}</template>
     </p>
 
     <div class="pie">
@@ -208,6 +218,9 @@ const missing = computed(() => groupStatus(characterization(project.value)).miss
   color: var(--warning-text);
   font-size: 12px;
   font-weight: 500;
+}
+.faltan.vencida {
+  color: var(--critical-text);
 }
 .faltan svg {
   flex-shrink: 0;

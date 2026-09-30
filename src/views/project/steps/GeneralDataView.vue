@@ -20,7 +20,8 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import { useToast } from 'primevue/usetoast';
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { RouterLink } from 'vue-router';
 import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import NumberInput from '@/components/ui/NumberInput.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
@@ -28,6 +29,7 @@ import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { removeBlockedMeasuresFromPlan, updateProject } from '@/db/projects';
 import { getDb } from '@/db/schema';
+import { getSettings } from '@/db/settings';
 import { daysPerMonth, ENTITY_KINDS, ENTITY_ORDERS, GRID_OPERATORS, SECTORS, VOLTAGE_LEVELS } from '@/domain/catalogs';
 import { characterization, groupStatus, nextAuditDate, type CharacterizationSource } from '@/domain/compliance';
 import { tenureInfo, TENURES, tenureScope } from '@/domain/tenure';
@@ -37,6 +39,11 @@ import { round } from '@/utils/format';
 
 const db = getDb();
 const { project } = useCurrentProject();
+/** Nombre del perfil del auditor (local del equipo), para no volver a escribirlo en cada proyecto. */
+const profileName = ref<string>();
+onMounted(async () => {
+  profileName.value = (await getSettings(db)).auditor?.name?.trim() || undefined;
+});
 
 interface GeneralForm {
   name: string;
@@ -378,6 +385,10 @@ const complete = computed(() => required.value.every((r) => r.ok));
           <label class="campo completo">
             <span class="etiqueta">Auditor responsable</span>
             <InputText v-model="form.auditor" />
+            <small class="ayuda">
+              <template v-if="profileName && form.auditor !== profileName"><a href="#" @click.prevent="form.auditor = profileName">Usar «{{ profileName }}»</a> · </template>
+              <RouterLink :to="{ name: 'auditor' }">Perfil del auditor</RouterLink> (formación, experiencia y matrículas del art. 6).
+            </small>
           </label>
           <label class="campo">
             <span class="etiqueta">Inicio de la auditoría</span>

@@ -10,6 +10,7 @@ import { formatDate, formatDateTime, periodLabel, periodLabelLong } from '@/util
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { characterizationFacts, characterizationNotes } from '../characterization';
 import { opportunitiesSection } from './opportunitiesSection';
+import { auditorSection } from './auditorSection';
 import { safetySection } from './safetySection';
 import { upmeBaselineSection } from './upmeBaselineSection';
 import type { ReportFigure } from '../figures';
@@ -625,6 +626,10 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
         : 'El siguiente paso es el plan de gestión de la energía (PGEE): priorizar las medidas con su evaluación económica, fijar metas sobre la línea base y programar su implementación y seguimiento.',
     ),
   );
+
+  // Datos del auditor (art. 6 de la Res. 40412): solo si el perfil tiene algo que decir
+  const auditorAnnex = auditorSection(m, { table, title: 'Anexo. Datos del auditor' });
+  if (auditorAnnex.length) body.push(pageBreak(), ...auditorAnnex);
 
   // Anexo fotográfico: las fotos que no se mostraron con su hallazgo
   const annex = assets.photos.filter((p) => !shown.has(p));

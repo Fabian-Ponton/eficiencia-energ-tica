@@ -126,7 +126,7 @@ export interface ProjectSummary {
 
 export async function summarizeProject(db: PontiaDb, project: Project): Promise<ProjectSummary> {
   const id = project.id;
-  const [areas, allEquipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks, occupancy, maintenance, collection, photos, safety] = await Promise.all([
+  const [areas, allEquipment, electrical, measurements, readings, bills, intervalSeries, findings, measures, pgee, tasks, occupancy, maintenance, collection, photos, safety, upmeCycles] = await Promise.all([
     db.areas.where('projectId').equals(id).filter(isActive).toArray(),
     db.equipment.where('projectId').equals(id).filter(isActive).toArray(),
     db.electrical.where('projectId').equals(id).filter(isActive).count(),
@@ -143,6 +143,7 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     db.collection.where('projectId').equals(id).filter(isActive).toArray(),
     db.photos.where('projectId').equals(id).filter(isActive).count(),
     db.safetyFindings.where('projectId').equals(id).filter(isActive).count(),
+    db.upmeCycles.where('projectId').equals(id).filter(isActive).toArray(),
   ]);
   const equipment = allEquipment.filter(isElectric);
   const counts: ProjectCounts = {
@@ -160,6 +161,8 @@ export async function summarizeProject(db: PontiaDb, project: Project): Promise<
     tasks,
     reports: project.reports?.length ?? 0,
     safetyDone: safety > 0 || Boolean(project.safetyReviewed),
+    upmeApplies: project.entity?.kind !== 'privada',
+    upmeDone: upmeCycles.some((c) => Boolean(c.caseNumber?.trim() || c.filedAt)),
     collectionResolved: collectionResolved(
       buildCollection({
         project,

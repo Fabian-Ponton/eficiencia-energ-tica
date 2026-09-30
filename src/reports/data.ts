@@ -1,5 +1,6 @@
 import { loadSeriesReadings } from '@/db/intervals';
 import type { PontiaDb } from '@/db/schema';
+import { getSettings } from '@/db/settings';
 import { isElectric, isNotElectric } from '@/domain/carriers';
 import { SEVERITY_ORDER } from '@/domain/diagnosis';
 import { urgencyOf } from '@/domain/safety';
@@ -55,6 +56,8 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     safetyFindings: alive(safetyFindings).sort((a, b) => urgencyOf(b) - urgencyOf(a) || a.createdAt - b.createdAt),
     // Un PGEE por proyecto: si hubiera más de uno, el primero que se creó (el mismo que edita la pantalla)
     pgee: alive(pgee).sort((a, b) => a.createdAt - b.createdAt)[0],
+    // El perfil del auditor vive solo en este equipo: sale en el informe y nunca en el respaldo ni en la nube
+    auditor: (await getSettings(db)).auditor,
     series: activeSeries,
     mainSeries: main ? { series: main, readings: await loadSeriesReadings(db, main) } : undefined,
     photos: alive(photos).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),

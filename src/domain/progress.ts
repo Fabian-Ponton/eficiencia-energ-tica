@@ -17,6 +17,10 @@ export interface ProjectCounts {
   collectionResolved: boolean;
   /** Hay hallazgos de seguridad eléctrica registrados o el auditor revisó y no encontró ninguno. */
   safetyDone: boolean;
+  /** El reporte a la UPME aplica: la Res. 40412 rige a las entidades públicas, no a las privadas. */
+  upmeApplies: boolean;
+  /** Hay un ciclo de reporte con número de caso o fecha de radicación. */
+  upmeDone: boolean;
 }
 
 export type StageId = 'campo' | 'analisis' | 'plan' | 'informes';
@@ -58,7 +62,7 @@ export function computeProgress(c: ProjectCounts): StageProgress[] {
       ['pgee', c.pgeeObjectives > 0],
       ['implementacion', c.tasks > 0],
     ]),
-    stage('informes', [['informes', c.reports > 0]]),
+    stage('informes', [['informes', c.reports > 0], ...(c.upmeApplies ? ([['reporte-upme', c.upmeDone]] as [string, boolean][]) : [])]),
   ];
 }
 

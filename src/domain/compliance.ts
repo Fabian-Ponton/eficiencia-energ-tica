@@ -1,5 +1,6 @@
+import { auditorChecklist } from './auditor';
 import type { FirstYearCheck } from './route';
-import type { Pgee, Project } from './types';
+import type { AuditorProfile, Pgee, Project } from './types';
 
 /**
  * Lo que la norma pide que contenga la auditoría y el informe, verificado contra los datos del proyecto.
@@ -120,16 +121,21 @@ export interface ComplianceInput {
   /** PGEE del proyecto y la ruta calculada; sin ellos, el grupo del PGEE sale con todo pendiente. */
   pgee?: PgeeSource;
   firstYear?: FirstYearCheck | null;
+  /** Perfil del auditor (local del equipo); sin él, el grupo del art. 6 sale con todo pendiente. */
+  auditor?: AuditorProfile;
 }
 
 /** Todos los grupos de verificación del proyecto. */
 export function checkCompliance(input: ComplianceInput): ChecklistGroup[] {
-  return [characterization(input.project), pgeeChecklist({ pgee: input.pgee, firstYear: input.firstYear ?? null })];
+  return [characterization(input.project), pgeeChecklist({ pgee: input.pgee, firstYear: input.firstYear ?? null }), auditorChecklist(input.auditor)];
 }
+
+/** Etiqueta con la primera letra en minúscula, para seguirla dentro de una frase; las siglas (RUT, COPNIA) no se tocan. */
+export const lowerFirst = (label: string): string => label.charAt(0).toLowerCase() + label.slice(1);
 
 /** Frase para el informe borrador: «Faltan: entorno de la edificación, edad de la edificación.» Vacía si no falta nada. */
 export function missingSentence(groups: readonly ChecklistGroup[]): string {
-  const missing = groups.flatMap((g) => groupStatus(g).missing.map((i) => i.label.charAt(0).toLowerCase() + i.label.slice(1)));
+  const missing = groups.flatMap((g) => groupStatus(g).missing.map((i) => lowerFirst(i.label)));
   return missing.length ? `Faltan: ${missing.join(', ')}.` : '';
 }
 

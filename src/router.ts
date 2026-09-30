@@ -15,6 +15,7 @@ const STEP_VIEWS = {
   balance: () => import('@/views/project/steps/BalanceView.vue'),
   dimensionamiento: () => import('@/views/project/steps/SizingView.vue'),
   informes: () => import('@/views/project/steps/ReportsView.vue'),
+  'reporte-upme': () => import('@/views/project/steps/UpmeReportView.vue'),
   diagnostico: () => import('@/views/project/steps/DiagnosisView.vue'),
   seguridad: () => import('@/views/project/steps/SafetyView.vue'),
   oportunidades: () => import('@/views/project/steps/OpportunitiesView.vue'),
@@ -29,6 +30,7 @@ export const router = createRouter({
   routes: [
     { path: '/', name: 'proyectos', component: () => import('@/views/ProjectsView.vue') },
     { path: '/manual', name: 'manual', component: () => import('@/views/ManualView.vue') },
+    { path: '/auditor', name: 'auditor', component: () => import('@/views/AuditorView.vue') },
     {
       path: '/proyecto/:projectId',
       component: () => import('@/layouts/ProjectLayout.vue'),

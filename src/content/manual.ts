@@ -49,6 +49,10 @@ export const MANUAL_START: { title: string; text: string }[] = [
     text: 'En la lista de proyectos, «Proyecto de ejemplo» crea una auditoría con datos realistas. Sirve para ver todas las pantallas funcionando antes de cargar el trabajo real, y se puede borrar cuando quieras.',
   },
   {
+    title: 'Anota tu perfil de auditor',
+    text: 'En Ajustes → Perfil del auditor registras una sola vez quién audita: tipo, formación, experiencia certificada por un tercero y matrículas (COPNIA o CONTE). Se guarda en tu equipo, no viaja en los respaldos de los proyectos y sale como anexo del informe.',
+  },
+  {
     title: 'Crea tu proyecto',
     text: 'Con «Nuevo proyecto» y luego Datos generales. Lo mínimo para empezar es el nombre y la tarifa en COP/kWh.',
   },
@@ -86,7 +90,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           { label: 'Tenencia del edificio: propia, arrendada, en comodato…', need: 'obligatorio', source: 'Escrituras o contrato. Si el edificio no es propio, la Res. 40412 solo permite implementar buenas prácticas de operación y el informe lo declara.' },
           { label: 'Año de construcción, pisos, actividad y entorno', need: 'obligatorio', source: 'Planos, la administración o la visita. Son parte de la caracterización que exige el art. 4(a) de la Res. 40412.' },
           { label: 'Estudiantes, personal y población flotante', need: 'recomendado', source: 'Oficina de planeación. «Usuarios» se calcula con estudiantes más personal mientras no lo cambies a mano.' },
-          { label: 'Fecha del levantamiento y de la auditoría', need: 'recomendado', source: 'La ley pide repetir la auditoría cada cuatro años: PONTIA calcula la fecha límite de la siguiente.' },
+          { label: 'Fecha del levantamiento y de la auditoría', need: 'recomendado', source: 'La ley pide repetir la auditoría cada cuatro años: PONTIA calcula la fecha límite de la siguiente y la avisa en la lista y en el inicio del proyecto desde seis meses antes.' },
           { label: 'Frontera, objetivos, limitaciones y tratamiento de las FNCER', need: 'opcional', source: 'Lo que escribas aparece en el alcance del informe. El diseño solar no forma parte del alcance: el informe muestra un potencial de referencia o declara la exclusión.' },
           { label: 'Área construida (m²) y número de usuarios', need: 'recomendado', source: 'Planos o la administración. Sin ellos no salen los indicadores kWh/m²·año y kWh/usuario·mes.' },
           { label: 'Horario de operación', need: 'obligatorio', source: 'Horario real de la institución. También lo pide el art. 4(a) de la Res. 40412.' },
@@ -304,8 +308,9 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           { label: 'Objetivos y metas: descripción, porcentaje y fecha', need: 'recomendado', source: 'Por ejemplo «Reducir 12 % el consumo antes de diciembre de 2027».' },
           { label: 'Modelo financiero y contractual', need: 'recomendado', source: 'Los caminos que la entidad considera para pagar las medidas (gastos de funcionamiento, proyecto de inversión, leasing, renting, APP, contrato por desempeño, FENOGE…). El instrumento jurídico lo define la entidad con su oficina jurídica y de presupuesto.' },
           { label: 'Seguimiento, comunicación, formación y frecuencia de revisión', need: 'opcional', source: 'Cómo se verifica, se divulga y se revisa el programa.' },
+          { label: 'Facturas posteriores a la auditoría', need: 'opcional', source: 'De Facturación. Desde el año siguiente a la auditoría, «Seguimiento del ahorro real» compara cada mes con el mismo mes del año anterior y con la línea base, y dice si el plan va en ruta hacia la meta del año. Compara el consumo facturado, sin corregir por clima ni por ocupación.' },
         ],
-        result: 'Documento del PGEE en Word con el marco legal, el gestor energético, la revisión energética, la meta legal frente a lo que prevé el plan, la ruta anual con su gráfica, las medidas por tipo (A, B o C según el retorno) con su ficha técnica, el modelo financiero, el resumen del cronograma y los indicadores de seguimiento. En el inicio del proyecto, la lista «PGEE: responsable y ruta anual» dice qué falta.',
+        result: 'Documento del PGEE en Word con el marco legal, el gestor energético, la revisión energética, la meta legal frente a lo que prevé el plan, la ruta anual con su gráfica, las medidas por tipo (A, B o C según el retorno) con su ficha técnica, el modelo financiero, el resumen del cronograma y los indicadores de seguimiento. Con facturas posteriores a la auditoría, el seguimiento del ahorro real frente a la meta del año, con su gráfica. En el inicio del proyecto, la lista «PGEE: responsable y ruta anual» dice qué falta.',
         tip: 'La ley pide al menos el 15 % el primer año. Si el plan no lo alcanza, la ruta lo avisa en rojo y dice cuántos kWh/año faltan: adelanta medidas al primer año o suma otras. La ley también habla de metas sostenibles «a más tardar en el año 2026»; PONTIA no interpreta ese plazo, consúltalo con la UPME.',
       },
       {
@@ -338,10 +343,25 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         inputs: [
           { label: 'Todo lo registrado en los pasos anteriores', need: 'obligatorio', source: 'Cuanto más completo el levantamiento, más completo sale el informe. La pantalla avisa qué falta.' },
           { label: 'Nombre del auditor y logo del cliente', need: 'opcional', source: 'Van en la portada del documento.' },
+          { label: 'Perfil del auditor (Ajustes)', need: 'recomendado', source: 'Formación, experiencia certificada por un tercero y matrículas. Con el perfil registrado, el informe de auditoría trae el anexo «Datos del auditor» con la verificación del artículo 6 de la Res. 40412; nunca imprime la cédula ni el RUT, solo si están reunidos.' },
           { label: 'Opciones de fotos', need: 'opcional', source: 'Puedes incluirlas o no y elegir su tamaño dentro del Word.' },
         ],
-        result: 'Informe de auditoría en Word, PGEE en Word, plan de implementación en Word, CSV por tabla, Excel con una hoja por tabla, PNG de cada gráfica y respaldo .zip del proyecto.',
+        result: 'Informe de auditoría en Word (con el anexo de los datos del auditor cuando su perfil está registrado), PGEE en Word, plan de implementación en Word, CSV por tabla, Excel con una hoja por tabla, PNG de cada gráfica y respaldo .zip del proyecto.',
         tip: 'En el celular, al descargar se abre el menú de compartir: WhatsApp, correo, Drive o Archivos.',
+      },
+      {
+        id: 'reporte-upme',
+        what: 'Deja lista la información para reportar la auditoría a la UPME en el Módulo de Medidas del artículo 237 del SUU (un caso por sede) y dice qué falta. PONTIA no envía nada: el reporte lo hace la entidad con su usuario en el SUU.',
+        inputs: [
+          { label: 'Entidad, sede con su código único, NIT y fecha de la auditoría', need: 'obligatorio', source: 'De Datos generales. El código de la sede lo elige la propia entidad. La lista «¿Listo para reportar?» dice exactamente qué falta y lleva con «Completar» a la pantalla donde se llena.' },
+          { label: 'Doce meses de facturas de electricidad', need: 'obligatorio', source: 'De Facturación. Con ellas se calcula la línea base de la Res. UPME 016 de 2024; la resolución recomienda tres años, o justificar por qué el periodo es menor.' },
+          { label: 'Medidas de ahorro, PGEE con gestor y ruta anual', need: 'obligatorio', source: 'De Oportunidades y PGEE: son las oportunidades de ahorro y el plan que acompañan el reporte.' },
+          { label: 'Perfil del auditor', need: 'obligatorio', source: 'De Ajustes → Perfil del auditor: el artículo 6 de la Res. 40412 pide formación, una auditoría certificada por un tercero y los documentos de identidad reunidos.' },
+          { label: 'Ciclo y número de caso del SUU', need: 'recomendado', source: 'El SUU asigna el número al crear el caso. Va en el nombre de los archivos (ART237_año_caso_…) como pide la Circular UPME 089 de 2025; sin número queda «XXX».' },
+          { label: 'Fechas de radicación y de concepto, resultado y observaciones de la UPME', need: 'opcional', source: 'Para tu control: lo que la UPME responde después de radicar.' },
+        ],
+        result: 'La lista de requisitos con lo que falta, el informe de auditoría con el nombre de la UPME, un paquete de datos en Excel (datos de edificación y hojas equivalentes a las plantillas de consumos, línea base, medidas y metas por año), un zip de anexos y la fecha de la próxima auditoría, que la ley pide cada cuatro años.',
+        tip: 'Las plantillas oficiales solo están en el SUU: descárgalas con el usuario de la entidad y compara las columnas. Las hojas del paquete son equivalentes y se ajustan cuando las tengas. El plazo y los formatos los fija la UPME por circular: confírmalos antes de reportar.',
       },
     ],
   },
@@ -359,6 +379,7 @@ export const MANUAL_MINIMUM: { goal: string; needs: string }[] = [
   { goal: 'Mostrar ahorros en dinero, VPN y TIR', needs: 'La tarifa en COP/kWh y, para VPN y TIR, la tasa de descuento y el horizonte.' },
   { goal: 'Reportar CO₂ evitado', needs: 'El factor de emisión en kgCO₂e/kWh, que viene en 0 hasta que lo configures.' },
   { goal: 'Dimensionar solar fotovoltaica', needs: 'Las horas de sol pico (HSP) y el área de techo disponible de los espacios.' },
+  { goal: 'Reportar la auditoría a la UPME (art. 237)', needs: 'Entidad, sede con su código único, NIT y fecha de la auditoría; 12 meses de facturas; medidas; PGEE con gestor y ruta anual; y el perfil del auditor.' },
 ];
 
 export const MANUAL_DATA: { title: string; text: string }[] = [

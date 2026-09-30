@@ -53,9 +53,10 @@ describe('art. 4(a) de la Res. 40412: caracterización de la entidad', () => {
 
   it('todos los grupos apuntan al paso donde se completan', () => {
     const grupos = checkCompliance({ project: nuevo() });
-    expect(grupos.map((g) => g.id)).toEqual(['art4-a', 'art4-par3']);
+    expect(grupos.map((g) => g.id)).toEqual(['art4-a', 'art4-par3', 'art6']);
     expect(grupos[0]).toMatchObject({ step: 'datos', reference: 'Res. 40412/2024, art. 4(a)' });
     expect(grupos[1]).toMatchObject({ step: 'pgee', reference: 'Res. 40412/2024, art. 4 par. 3 · Ley 1715, art. 30' });
+    expect(grupos[2]).toMatchObject({ step: 'auditor', reference: 'Res. 40412/2024, art. 6' });
   });
 
   it('el informe borrador dice qué falta de la caracterización', () => {

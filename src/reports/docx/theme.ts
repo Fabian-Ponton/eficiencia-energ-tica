@@ -151,15 +151,17 @@ export function dataTable(columns: readonly Column[], rows: readonly (readonly C
         new Paragraph({
           alignment: ALIGN[column.align ?? 'left'],
           spacing: { after: 0, line: 240 },
-          children: [
-            new TextRun({
-              text: content.text,
-              bold: opts.header || opts.bold || content.bold,
-              color: opts.header ? COLOR.navy : content.color,
-              size: opts.header ? 17 : 19,
-              font: opts.header ? FONT.body : undefined,
-            }),
-          ],
+          children: content.text.split('\n').map(
+            (line, index) =>
+              new TextRun({
+                text: line,
+                break: index > 0 ? 1 : undefined,
+                bold: opts.header || opts.bold || content.bold,
+                color: opts.header ? COLOR.navy : content.color,
+                size: opts.header ? 17 : 19,
+                font: opts.header ? FONT.body : undefined,
+              }),
+          ),
         }),
       ],
     });

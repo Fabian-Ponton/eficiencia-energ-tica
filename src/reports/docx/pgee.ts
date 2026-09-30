@@ -4,6 +4,7 @@ import { MODEL_LABEL } from '@/domain/calc/lben';
 import { sum } from '@/domain/calc/stats';
 import { endUseOf } from '@/domain/catalogs';
 import { chosenFinancing } from '@/domain/financing';
+import { followUp, followUpYears, type FollowUpStatus } from '@/domain/followUp';
 import { budgetBySource, scheduleSummary } from '@/domain/implementation';
 import { measureEconomics } from '@/domain/measures';
 import { LEGAL_GOAL_PCT, MEASURE_CLASSES, measureClassOf, type MeasureClass, type RouteRow } from '@/domain/route';
@@ -160,10 +161,10 @@ export function buildPgeeDocument(m: AuditModel, input: PgeeInput, figures: read
     [
       'Ley 1715 de 2014, art. 30 (modificado por la Ley 2294 de 2023, art. 237)',
       'Auditoría energética cada cuatro años. En el año siguiente, estrategias que permitan un ahorro de mínimo 15 % respecto del consumo del año anterior y, desde el segundo año, metas sostenibles definidas por la auditoría. Los ahorros pueden pagar las inversiones. Reporte anual a la UPME.',
-      '3.1, 3.3, 5.2 y 7.4',
+      '3.1, 3.3, 5.2 y 7.5',
     ],
     ['Res. MME 40412 de 2024, art. 4, parágrafo 3', 'El PGEE incluye una ruta de cumplimiento anual de ahorro energético y define un responsable para su seguimiento y evaluación.', '1.4 y 3.3'],
-    ['Res. MME 40412 de 2024, art. 5', 'Reporte a la UPME del informe de la auditoría y de los resultados de las medidas, con el procedimiento, plazo, contenido y formatos que la UPME determine por circular.', '7.4'],
+    ['Res. MME 40412 de 2024, art. 5', 'Reporte a la UPME del informe de la auditoría y de los resultados de las medidas, con el procedimiento, plazo, contenido y formatos que la UPME determine por circular.', '7.5'],
     ['Res. UPME 016 de 2024', 'Metodología para calcular la línea base de consumo y el ahorro estimado.', '2.2'],
     ['Guía UPME de PGEE para entidades públicas (diciembre de 2020)', 'Proceso de siete etapas: decisión, diagnóstico, formulación, selección de proyectos, modelo financiero y contractual, implementación, y monitoreo y verificación.', 'Estructura de este documento'],
   ];
@@ -597,6 +598,51 @@ export function buildPgeeDocument(m: AuditModel, input: PgeeInput, figures: read
   );
 
   // 7. Monitoreo, reporte y verificación
+  /** Seguimiento con las facturas posteriores a la auditoría: el año más reciente frente al año anterior y a la línea base. */
+  const followUpParagraphs = (): FileChild[] => {
+    const years = followUpYears(m.data.bills, route.legal.firstYear);
+    if (!years.length) {
+      return [para(`Aún no hay facturas desde ${route.legal.firstYear}, el primer año después de la auditoría. Cuando se registren, PONTIA compara el consumo real con el del año anterior y con la línea base.`)];
+    }
+    const year = years[0];
+    const target = route.rows.find((r) => r.year === year)?.targetPct ?? (year === route.legal.firstYear ? route.legal.pct : null);
+    const fu = followUp({ bills: m.data.bills, year, targetPct: target, referenceKwh: route.legal.referenceKwh, baseline: m.upme });
+    const VERDICT: Record<FollowUpStatus, string> = {
+      'sin-datos': '',
+      'sin-comparacion': 'no hay meses comparables con el año anterior.',
+      'sin-meta': 'el año no tiene una meta en la ruta.',
+      'en-ruta': 'el plan va en ruta hacia la meta.',
+      cumplida: 'la meta del año se cumplió.',
+      atrasado: `el ahorro va por debajo de la meta${fu.remainingKwh ? ` y faltan ${formatNumber(fu.remainingKwh)} kWh para alcanzarla en el año` : ''}.`,
+      'no-alcanzada': 'la meta del año no se alcanzó.',
+    };
+    const out: FileChild[] = [
+      para(
+        `Con las facturas de ${year} (${fu.covered} ${fu.covered === 1 ? 'mes' : 'meses'}): ` +
+          (fu.savingPct !== null ? `el consumo es ${formatPercent(Math.abs(fu.savingPct), 1)} ${fu.savingPct >= 0 ? 'menor' : 'mayor'} que el de ${year - 1} en los ${fu.comparedMonths} meses comparables (${formatNumber(Math.abs(fu.savingKwh))} kWh)` : `no hay meses comparables con ${year - 1}`) +
+          (fu.targetPct !== null && fu.savingPct !== null ? `; la meta del año es de ${formatNumber(fu.targetPct, Number.isInteger(fu.targetPct) ? 0 : 1)} % y ${VERDICT[fu.status]}` : '.') +
+          (fu.baselineSavingPct !== null ? ` Frente a la línea base, el ahorro es de ${formatPercent(fu.baselineSavingPct, 1)}.` : ''),
+      ),
+      ...table(
+        `Consumo facturado de ${year} frente al año anterior.`,
+        dataTable(
+          [
+            { header: 'Mes', width: 0.2 },
+            { header: `${year - 1} (kWh)`, width: 0.2, align: 'right' },
+            { header: `${year} (kWh)`, width: 0.2, align: 'right' },
+            { header: 'Ahorro (kWh)', width: 0.2, align: 'right' },
+            { header: 'Ahorro (%)', width: 0.2, align: 'right' },
+          ],
+          fu.months.map((x): Cell[] => {
+            const saving = x.previousKwh === null ? null : x.previousKwh - x.actualKwh;
+            return [periodLabel(x.period), x.previousKwh === null ? '—' : formatNumber(x.previousKwh), formatNumber(x.actualKwh), saving === null ? '—' : formatNumber(saving), saving === null || !x.previousKwh ? '—' : formatPercent(saving / x.previousKwh, 1)];
+          }),
+        ),
+      ),
+      note('Se compara el consumo facturado, sin corregir por clima, ocupación ni cambios en la operación; los ajustes de la línea base se documentan según el numeral 7.6 de la Res. UPME 016 de 2024.'),
+    ];
+    return out;
+  };
   body.push(
     heading('7. Monitoreo, reporte y verificación'),
     para('Séptima etapa: el seguimiento que mantiene vigente el plan y da cuenta de sus resultados.'),
@@ -635,7 +681,9 @@ export function buildPgeeDocument(m: AuditModel, input: PgeeInput, figures: read
         ],
       ),
     ),
-    heading('7.4 Reporte a la UPME', 2),
+    heading('7.4 Seguimiento del ahorro real', 2),
+    ...followUpParagraphs(),
+    heading('7.5 Reporte a la UPME', 2),
     para(
       'La Ley 1715 (art. 30) obliga a cada entidad a reportar a la UPME, cada año, los resultados de la implementación de las medidas de eficiencia energética. La Resolución 40412 de 2024 (art. 5) establece que el reporte se hace ' +
         'con el procedimiento, el plazo, el contenido y los formatos que la UPME determine por circular. La guía de la UPME pide incluir el formato de evaluación de seguimiento del plan y la matriz de reporte de la evolución de los indicadores.',

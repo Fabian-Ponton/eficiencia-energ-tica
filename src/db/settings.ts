@@ -1,4 +1,4 @@
-import type { CloudSettings, ImportTemplate, Settings } from '@/domain/types';
+import type { AuditorProfile, CloudSettings, ImportTemplate, Settings } from '@/domain/types';
 import type { PontiaDb } from './schema';
 
 const DEFAULTS: Settings = { id: 'app', csvFormat: 'es-CO', theme: 'sistema' };
@@ -19,6 +19,14 @@ export async function saveImportTemplate(db: PontiaDb, template: Omit<ImportTemp
 export async function deleteImportTemplate(db: PontiaDb, id: string): Promise<void> {
   const settings = await getSettings(db);
   await db.settings.put({ ...settings, importTemplates: (settings.importTemplates ?? []).filter((t) => t.id !== id) });
+}
+
+/** Perfil del auditor: se guarda solo en este equipo, como dato plano (sin proxies de Vue). */
+export async function saveAuditorProfile(db: PontiaDb, profile: AuditorProfile | null): Promise<void> {
+  const settings = { ...(await getSettings(db)) };
+  if (profile) settings.auditor = JSON.parse(JSON.stringify(profile)) as AuditorProfile;
+  else delete settings.auditor;
+  await db.settings.put(settings);
 }
 
 /** Guarda la conexión con la nube, o la borra con `null`. Se copia como dato plano (sin proxies de Vue). */

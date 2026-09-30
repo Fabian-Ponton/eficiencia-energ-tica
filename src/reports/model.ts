@@ -26,6 +26,7 @@ import { planSummary, type PlanSummary } from '@/domain/measures';
 import { computeUpmeBaseline, type UpmeBaseline } from '@/domain/upmeBaseline';
 import type {
   Area,
+  AuditorProfile,
   BaselineAdjustment,
   Bill,
   CollectionItem,
@@ -73,6 +74,8 @@ export interface ReportData {
   safetyFindings: SafetyFinding[];
   /** PGEE del proyecto (uno por proyecto): el gestor, la meta legal, la ruta anual y el modelo financiero. */
   pgee?: Pgee;
+  /** Perfil del auditor (local del equipo): se imprime como «Datos del auditor», sin documentos de identidad. */
+  auditor?: AuditorProfile;
   series: IntervalSeries[];
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };

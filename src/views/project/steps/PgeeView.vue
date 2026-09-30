@@ -26,6 +26,7 @@ import NumberInput from '@/components/ui/NumberInput.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusChip from '@/components/ui/StatusChip.vue';
 import AnnualRoutePanel from './AnnualRoutePanel.vue';
+import FollowUpPanel from './FollowUpPanel.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useProjectRecords } from '@/composables/useProjectRecords';
 import { logReport } from '@/db/projects';
@@ -37,7 +38,8 @@ import { endUseOf } from '@/domain/catalogs';
 import { chosenFinancing, FINANCING_GROUPS, FINANCING_MODELS, type FinancingGroup } from '@/domain/financing';
 import { measureEconomics } from '@/domain/measures';
 import { LEGAL_GOAL_PCT, MEASURE_CLASSES, measureClassOf, planRoute, type MeasureClass } from '@/domain/route';
-import type { EndUseCategory, Pgee, RouteYear } from '@/domain/types';
+import type { Bill, EndUseCategory, Pgee, RouteYear } from '@/domain/types';
+import type { UpmeBaseline } from '@/domain/upmeBaseline';
 import { loadReportData } from '@/reports/data';
 import { generatePgeeReport } from '@/reports/generate';
 import { buildAuditModel } from '@/reports/model';
@@ -184,11 +186,11 @@ const FREQUENCIES = [
 ] as const;
 
 // Revisión energética: usos significativos y consumo de referencia, los mismos que usa el documento
-const review = shallowRef<{ significant: EndUseShare[]; referenceKwh: number | null; lastPeriod?: string }>({ significant: [], referenceKwh: null });
+const review = shallowRef<{ significant: EndUseShare[]; referenceKwh: number | null; lastPeriod?: string; bills: Bill[]; upme: UpmeBaseline | null }>({ significant: [], referenceKwh: null, bills: [], upme: null });
 onMounted(async () => {
   try {
     const model = buildAuditModel(await loadReportData(db, projectId.value));
-    review.value = { significant: model.significant, referenceKwh: model.referenceKwh, lastPeriod: model.data.bills.at(-1)?.period };
+    review.value = { significant: model.significant, referenceKwh: model.referenceKwh, lastPeriod: model.data.bills.at(-1)?.period, bills: model.data.bills, upme: model.upme };
   } catch {
     // Sin datos del análisis la pantalla sigue funcionando; el documento explica lo que falta
   }
@@ -580,6 +582,8 @@ const equivalentKwh = (percent?: number) => (percent && review.value.referenceKw
         <p class="nota">El gestor energético anota cada mes las observaciones del plan y la dirección lo revisa cada año; el informe anual de resultados se presenta a la UPME.</p>
       </section>
     </div>
+
+    <FollowUpPanel :bills="review.bills" :plan="routePlan" :baseline="review.upme" />
   </div>
 </template>
 

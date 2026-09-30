@@ -645,9 +645,76 @@ export interface CloudSettings {
   lastError?: string;
 }
 
+/** Quién hace la auditoría según el art. 6 de la Res. 40412 de 2024: una persona natural externa, personal propio de la entidad o una persona jurídica. */
+export type AuditorKind = 'natural-externa' | 'personal-propio' | 'juridica';
+
+/** Sectores de demanda en que se puede acreditar la experiencia (Res. 40412, art. 6). */
+export type DemandSector = 'oficial' | 'industria' | 'residencial' | 'transporte' | 'servicios';
+
+export interface AuditorTraining {
+  id: string;
+  kind: 'diploma' | 'certificacion';
+  institution: string;
+  program: string;
+  hours?: number;
+  /** AAAA-MM-DD */
+  date?: string;
+  /** El documento que lo acredita está reunido (no se guarda dentro de la app). */
+  backed: boolean;
+}
+
+export interface AuditorExperience {
+  id: string;
+  sector: DemandSector;
+  description: string;
+  year?: number;
+  /** Tercero que certifica la experiencia (art. 6, par. 2, literal d). */
+  certifier?: string;
+  certifiedAt?: string;
+  backed: boolean;
+}
+
+/** Matrícula profesional (COPNIA) o técnica (CONTE): solo los campos; PONTIA no inventa una vigencia legal. */
+export interface ProfessionalRegistry {
+  number?: string;
+  /** Profesión (COPNIA). */
+  profession?: string;
+  /** Clases de la matrícula técnica (CONTE): TE-1 a TE-6. */
+  categories?: string[];
+  issuedAt?: string;
+  status?: 'vigente' | 'suspendida' | 'sin-verificar';
+  verifiedAt?: string;
+  /** Enlace de consulta pública del registro. */
+  link?: string;
+}
+
+/**
+ * Perfil del auditor: se guarda solo en este equipo (no viaja en la nube ni en los respaldos) y nunca incluye la cédula. Sirve para verificar
+ * el art. 6 de la Res. 40412 y para imprimir «Datos del auditor» en el informe.
+ */
+export interface AuditorProfile {
+  kind?: AuditorKind;
+  /** Nombre completo o razón social. */
+  name?: string;
+  /** NIT de la persona jurídica. */
+  nit?: string;
+  /** Reunió la cédula, el RUT o el certificado de existencia y representación legal que pide el art. 6, par. 2, literal a. */
+  identityDocs?: boolean;
+  training: AuditorTraining[];
+  experience: AuditorExperience[];
+  copnia?: ProfessionalRegistry;
+  conte?: ProfessionalRegistry;
+  /** En el informe se dice que hay matrícula, sin imprimir el número. */
+  hideRegistryNumbers?: boolean;
+  /** Recordatorio interno para volver a consultar las matrículas, en meses. */
+  reminderMonths?: number;
+}
+
 export interface Settings {
   id: 'app';
   auditorName?: string;
+  /** Perfil del auditor: local, sin sincronizar. */
+  auditor?: AuditorProfile;
   csvFormat: 'es-CO' | 'estandar';
   theme: 'claro' | 'oscuro' | 'sistema';
   lastBackupAt?: number;

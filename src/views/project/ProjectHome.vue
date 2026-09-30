@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconAlertCircle, IconAlertTriangle, IconArrowDown, IconArrowUp, IconCamera, IconChevronRight, IconCircleCheck, IconDownload, IconFileZip, IconPlug, IconReceipt, IconShieldBolt } from '@tabler/icons-vue';
+import { IconAlertCircle, IconAlertTriangle, IconArrowDown, IconArrowUp, IconCalendarEvent, IconCamera, IconChevronRight, IconCircleCheck, IconDownload, IconFileZip, IconPlug, IconReceipt, IconShieldBolt } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { computed, ref } from 'vue';
@@ -21,12 +21,14 @@ import { annualSummary } from '@/domain/analysis';
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { sum } from '@/domain/calc/stats';
 import { isElectric } from '@/domain/carriers';
-import { checkCompliance, groupStatus } from '@/domain/compliance';
+import { checkCompliance, groupStatus, lowerFirst } from '@/domain/compliance';
 import { currentStage } from '@/domain/progress';
 import { planRoute } from '@/domain/route';
 import { summarizeSafety } from '@/domain/safety';
 import type { EndUseCategory } from '@/domain/types';
+import { auditAlert } from '@/domain/upmeReport';
 import { ALL_STEPS, STAGES } from '@/navigation';
+import { formatDate } from '@/utils/dates';
 import { formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { deliverFile } from '@/utils/share';
 import { relativeTime } from '@/utils/time';
@@ -37,6 +39,7 @@ const { projectId, project, summary } = useCurrentProject();
 const bills = useLiveQuery(() => db.bills.where('projectId').equals(projectId.value).filter((b) => isActive(b) && isElectric(b)).sortBy('period'), [projectId], []);
 const equipment = useLiveQuery(() => db.equipment.where('projectId').equals(projectId.value).filter((e) => isActive(e) && isElectric(e)).toArray(), [projectId], []);
 const photos = useLiveQuery(() => db.photos.where('projectId').equals(projectId.value).filter(isActive).reverse().sortBy('takenAt'), [projectId], []);
+const settings = useLiveQuery(() => db.settings.get('app'), [], undefined);
 const pgeeRecords = useLiveQuery(() => db.pgee.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
 const measures = useLiveQuery(() => db.measures.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
 const tasks = useLiveQuery(() => db.tasks.where('projectId').equals(projectId.value).filter(isActive).toArray(), [projectId], []);
@@ -96,7 +99,7 @@ const routePlan = computed(() => {
 // Cumplimiento normativo: cada grupo dice qué exige la norma, cuántos datos tiene y cuáles faltan
 const compliance = computed(() =>
   project.value
-    ? checkCompliance({ project: project.value, pgee: [...(pgeeRecords.value ?? [])].sort((a, b) => a.createdAt - b.createdAt)[0], firstYear: routePlan.value.firstYear }).map((group) => ({
+    ? checkCompliance({ project: project.value, pgee: [...(pgeeRecords.value ?? [])].sort((a, b) => a.createdAt - b.createdAt)[0], firstYear: routePlan.value.firstYear, auditor: settings.value?.auditor }).map((group) => ({
         group,
         status: groupStatus(group),
         required: group.items.filter((item) => item.level === 'obligatorio'),
@@ -106,6 +109,9 @@ const compliance = computed(() =>
 
 // Seguridad eléctrica (RETIE 1.5.1): lo de alto riesgo o peligro inminente se avisa en el inicio, sin importar el ahorro
 const safety = computed(() => summarizeSafety(safetyFindings.value ?? []));
+
+// La auditoría se repite cada cuatro años (Ley 1715, art. 30); se avisa seis meses antes y cuando ya venció. Solo aplica a entidades públicas.
+const audit = computed(() => (project.value ? auditAlert(project.value, new Date()) : null));
 
 const progress = computed(() => summary.value?.progress ?? []);
 const current = computed(() => currentStage(progress.value));
@@ -234,7 +240,7 @@ async function downloadBackup() {
       <section v-if="compliance.length" class="card cumplimiento">
         <div class="encabezado">
           <h2>Cumplimiento normativo</h2>
-          <span class="eyebrow">Res. 40412 · art. 4</span>
+          <span class="eyebrow">Res. 40412 · arts. 4 y 6</span>
         </div>
         <ul class="requisitos">
           <li v-for="row in compliance" :key="row.group.id" :class="{ completo: row.status.complete }">
@@ -246,9 +252,9 @@ async function downloadBackup() {
               <strong>{{ row.group.title }}</strong>
               <span>{{ row.group.reference }} · {{ row.status.done }} de {{ row.status.total }}</span>
               <span class="segmentos" aria-hidden="true"><i v-for="item in row.required" :key="item.id" :class="{ lleno: item.ok }" /></span>
-              <span v-if="row.status.missing.length" class="req-faltan">Faltan: {{ row.status.missing.map((item) => item.label.toLowerCase()).join(', ') }}.</span>
+              <span v-if="row.status.missing.length" class="req-faltan">Faltan: {{ row.status.missing.map((item) => lowerFirst(item.label)).join(', ') }}.</span>
             </span>
-            <RouterLink v-if="!row.status.complete" :to="{ name: row.group.step, params: { projectId } }" class="req-completar">Completar</RouterLink>
+            <RouterLink v-if="!row.status.complete" :to="row.group.step === 'auditor' ? { name: 'auditor' } : { name: row.group.step, params: { projectId } }" class="req-completar">Completar</RouterLink>
           </li>
           <li v-if="safety.total" class="seguridad" :class="{ urgente: safety.attention > 0, completo: safety.attention === 0 && safety.unevaluated === 0 }">
             <span class="req-icono">
@@ -264,6 +270,19 @@ async function downloadBackup() {
               <span v-else-if="safety.unevaluated" class="req-faltan">{{ safety.unevaluated }} {{ safety.unevaluated === 1 ? 'falta valorarlo' : 'faltan por valorar' }} con la matriz de riesgos.</span>
             </span>
             <RouterLink :to="{ name: 'seguridad', params: { projectId } }" class="req-completar">{{ safety.attention || safety.unevaluated ? 'Atender' : 'Ver' }}</RouterLink>
+          </li>
+          <li v-if="audit" class="auditoria" :class="{ urgente: audit.overdue }">
+            <span class="req-icono"><IconCalendarEvent :size="20" /></span>
+            <span class="req-texto">
+              <strong>Próxima auditoría</strong>
+              <span>Ley 1715, art. 30 · cada cuatro años</span>
+              <span class="req-faltan">
+                <template v-if="audit.overdue">Venció el {{ formatDate(audit.due) }}, hace {{ Math.abs(audit.days) }} {{ Math.abs(audit.days) === 1 ? 'día' : 'días' }}.</template>
+                <template v-else-if="audit.days === 0">Vence hoy, {{ formatDate(audit.due) }}.</template>
+                <template v-else>Vence el {{ formatDate(audit.due) }}, en {{ audit.days }} {{ audit.days === 1 ? 'día' : 'días' }}.</template>
+              </span>
+            </span>
+            <RouterLink :to="{ name: 'reporte-upme', params: { projectId } }" class="req-completar">Ver</RouterLink>
           </li>
         </ul>
       </section>

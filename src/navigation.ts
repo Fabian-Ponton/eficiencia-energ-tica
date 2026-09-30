@@ -8,6 +8,7 @@ import {
   IconChecklist,
   IconClipboardCheck,
   IconClipboardList,
+  IconFileCheck,
   IconFileText,
   IconGauge,
   IconPlug,
@@ -86,6 +87,7 @@ export const STAGES: NavStage[] = [
     icon: IconFileText,
     steps: [
       { id: 'informes', label: 'Informes y exportación', icon: IconFileText, phase: 4, description: 'Informe Word, PGEE, plan de implementación, CSV, Excel y respaldo.' },
+      { id: 'reporte-upme', label: 'Reporte a la UPME', icon: IconFileCheck, phase: 7, description: 'Qué falta para reportar, el caso en el SUU y los archivos con los nombres de la UPME.' },
     ],
   },
 ];

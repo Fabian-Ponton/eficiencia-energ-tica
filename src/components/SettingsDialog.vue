@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBook2, IconCheck, IconCloud, IconCloudOff, IconDeviceMobile, IconDownload } from '@tabler/icons-vue';
+import { IconBook2, IconCheck, IconCloud, IconCloudOff, IconDeviceMobile, IconDownload, IconUserCheck } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import SelectButton from 'primevue/selectbutton';
@@ -26,6 +26,10 @@ function openManual() {
   visible.value = false;
   void router.push({ name: 'manual' });
 }
+function openAuditor() {
+  visible.value = false;
+  void router.push({ name: 'auditor' });
+}
 const cloudText = computed(() => {
   if (!cloud.connected.value) return 'Desactivada: tus proyectos se guardan solo en este equipo.';
   if (!cloud.signedIn.value) return 'Proyecto de Supabase conectado; falta entrar con tu cuenta.';
@@ -39,6 +43,14 @@ const cloudText = computed(() => {
       <section>
         <h3 class="eyebrow">Apariencia</h3>
         <SelectButton v-model="preference" :options="THEMES" option-label="label" option-value="value" :allow-empty="false" />
+      </section>
+
+      <section>
+        <h3 class="eyebrow">Auditor</h3>
+        <p class="estado">Quién audita y con qué lo acredita (art. 6 de la Res. 40412). Se guarda solo en este equipo y nunca incluye la cédula.</p>
+        <Button label="Perfil del auditor" severity="secondary" outlined @click="openAuditor">
+          <template #icon><IconUserCheck :size="18" /></template>
+        </Button>
       </section>
 
       <section>

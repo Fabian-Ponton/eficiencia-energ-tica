@@ -250,6 +250,36 @@ export function routeChart(opts: {
   };
 }
 
+/**
+ * Seguimiento del ahorro: por mes del año de seguimiento, el consumo del año anterior y el real (barras) y la línea base (línea).
+ * Los meses sin factura quedan vacíos.
+ */
+export function followUpChart(opts: {
+  months: { label: string; previousKwh: number | null; actualKwh: number | null; baselineKwh: number | null }[];
+  yearLabel: string;
+  previousLabel: string;
+  dark: boolean;
+}): ChartOption {
+  const p = chartPalette(opts.dark);
+  const labels = opts.months.map((m) => m.label);
+  const hasBaseline = opts.months.some((m) => m.baselineKwh !== null);
+  return {
+    animationDuration: 500,
+    grid: { left: 8, right: 10, top: 48, bottom: 4, containLabel: true },
+    legend: legend(p, true),
+    tooltip: { ...tooltip(p, 'kWh', 0), trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: withAlpha(p.axis, 0.12) } } },
+    xAxis: categoryAxis(p, labels),
+    yAxis: valueAxis(p, 'kWh', 0, { min: 0 }),
+    series: [
+      { type: 'bar', name: opts.previousLabel, barMaxWidth: 14, barGap: '20%', itemStyle: { color: p.estimate, borderRadius: [4, 4, 0, 0] }, data: opts.months.map((m) => m.previousKwh) },
+      { type: 'bar', name: opts.yearLabel, barMaxWidth: 14, itemStyle: { color: p.series[0], borderRadius: [4, 4, 0, 0] }, data: opts.months.map((m) => m.actualKwh) },
+      ...(hasBaseline
+        ? [{ type: 'line', name: 'Línea base', symbol: 'circle', symbolSize: 6, lineStyle: { color: p.series[1], width: 2, type: 'dashed' }, itemStyle: { color: p.series[1] }, z: 3, data: opts.months.map((m) => m.baselineKwh) }]
+        : []),
+    ],
+  };
+}
+
 /** Líneas por periodo (suma móvil de 12 meses, real frente a línea base…). */
 export function linesChart(opts: { labels: string[]; series: SeriesSpec[]; unit?: string; decimals?: number; dark: boolean; minZero?: boolean }): ChartOption {
   const p = chartPalette(opts.dark);

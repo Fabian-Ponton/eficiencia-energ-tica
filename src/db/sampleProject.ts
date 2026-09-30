@@ -133,6 +133,7 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
     calendar: { daysPerWeek: 5, holidays: [], vacationDaysPerYear: 40 },
     economics: { tariffCopPerKwh: TARIFF, discountRate: 0.12, tariffEscalation: 0.04, horizonYears: 10, emissionFactorKgPerKwh: 0.126 },
     peakSunHours: 5.5,
+    audit: { date: '2026-09-12' },
   };
 
   // Días del mes facturado, reactiva del 35 % (FP ≈ 0,94) y demanda con un factor de carga del 22 %
