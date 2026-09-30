@@ -80,7 +80,7 @@ export function buildImplementationDocument(m: AuditModel, input: Implementation
     ...coverPage({
       kicker: 'PLAN DE IMPLEMENTACIÓN',
       title: project.name,
-      subtitle: [project.client, project.city].filter(Boolean).join(' · ') || 'Instalación auditada',
+      subtitle: [project.client, project.site?.name, project.city].filter(Boolean).join(' · ') || 'Instalación auditada',
       facts: [
         ['Fecha', formatDate(today)],
         ['Código del proyecto', project.code ?? '—'],

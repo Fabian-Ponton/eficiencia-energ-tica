@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { IconCheck, IconChevronRight, IconDownload, IconTrash } from '@tabler/icons-vue';
+import { IconAlertCircle, IconCheck, IconChevronRight, IconDownload, IconTrash } from '@tabler/icons-vue';
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import ProgressSegments from '@/components/ProgressSegments.vue';
 import type { ProjectSummary } from '@/db/projects';
+import { characterization, groupStatus } from '@/domain/compliance';
 import { currentStage } from '@/domain/progress';
 import { STAGES } from '@/navigation';
 import { formatNumber } from '@/utils/format';
@@ -18,6 +19,9 @@ const finished = computed(() => !current.value);
 const stageIndex = computed(() => (current.value ? STAGES.findIndex((s) => s.id === current.value?.id) + 1 : STAGES.length));
 const stageLabel = computed(() => STAGES.find((s) => s.id === current.value?.id)?.shortLabel ?? '');
 const started = computed(() => props.summary.progress.some((s) => s.done > 0));
+const place = computed(() => [project.value.client, project.value.site?.name, project.value.city].filter(Boolean).join(' · '));
+// Datos de la entidad que la norma pide y aún faltan: se avisa, pero nunca se bloquea el proyecto
+const missing = computed(() => groupStatus(characterization(project.value)).missing.length);
 </script>
 
 <template>
@@ -26,7 +30,7 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
       <div class="titulos">
         <span v-if="project.code || project.sector" class="eyebrow">{{ [project.code, project.sector].filter(Boolean).join(' · ') }}</span>
         <RouterLink class="nombre" :to="{ name: 'inicio', params: { projectId: project.id } }">{{ project.name }}</RouterLink>
-        <span v-if="project.client || project.city" class="lugar">{{ [project.client, project.city].filter(Boolean).join(' · ') }}</span>
+        <span v-if="place" class="lugar">{{ place }}</span>
       </div>
       <span v-if="finished" class="chip terminado"><IconCheck :size="14" stroke="2.4" />Terminado</span>
       <span v-else-if="started" class="chip"><span class="punto" />En curso</span>
@@ -58,6 +62,11 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
         <span class="unidad">equipos</span>
       </div>
     </div>
+
+    <p v-if="missing" class="faltan">
+      <IconAlertCircle :size="15" />
+      {{ missing === 1 ? 'Falta 1 dato' : `Faltan ${missing} datos` }} de la entidad para el informe
+    </p>
 
     <div class="pie">
       <span>Actualizado {{ relativeTime(project.updatedAt) }}</span>
@@ -190,6 +199,18 @@ const started = computed(() => props.summary.progress.some((s) => s.done > 0));
 .unidad {
   color: var(--muted);
   font-size: 11px;
+}
+.faltan {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--warning-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.faltan svg {
+  flex-shrink: 0;
 }
 .pie {
   display: flex;

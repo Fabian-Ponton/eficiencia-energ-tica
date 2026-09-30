@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconAdjustmentsHorizontal, IconAlertTriangle, IconBook2, IconDatabase, IconFileImport, IconHistory, IconPlus, IconSearch, IconStack2 } from '@tabler/icons-vue';
+import { IconAdjustmentsHorizontal, IconAlertTriangle, IconBook2, IconBuildingCommunity, IconDatabase, IconFileImport, IconHistory, IconPlus, IconSearch, IconStack2 } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import { useConfirm } from 'primevue/useconfirm';
@@ -20,6 +20,7 @@ import { importLegacyIntoDb, readLegacyLocalStorage, type LegacyData } from '@/d
 import { addProject, listProjects, markBackup, restoreProject, softDeleteProject, summarizeProject, type NewProjectInput, type ProjectSummary } from '@/db/projects';
 import { createSampleProject } from '@/db/sampleProject';
 import { getDb } from '@/db/schema';
+import { groupBySite } from '@/domain/entities';
 import { deliverFile } from '@/utils/share';
 import { relativeTime } from '@/utils/time';
 
@@ -51,9 +52,13 @@ const visible = computed(() => {
     if (filter.value === 'terminados' && !isFinished(s)) return false;
     if (!q) return true;
     const p = s.project;
-    return [p.name, p.client, p.city, p.code].some((text) => text?.toLowerCase().includes(q));
+    return [p.name, p.client, p.city, p.code, p.site?.name, p.site?.upmeCode].some((text) => text?.toLowerCase().includes(q));
   });
 });
+// Con más de una entidad o sede, la lista se separa por grupos; con una sola queda como siempre
+const groups = computed(() => groupBySite(visible.value, (s) => s.project));
+const showGroups = computed(() => groups.value.length > 1);
+const allProjects = computed(() => all.value.map((s) => s.project));
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'todos', label: 'Todos' },
   { id: 'curso', label: 'En curso' },
@@ -242,9 +247,19 @@ const storagePercent = computed(() =>
 
       <InstallCard />
 
-      <TransitionGroup v-if="visible.length" name="list" tag="div" class="lista">
-        <ProjectCard v-for="s in visible" :key="s.project.id" :summary="s" @open="open(s.project.id)" @remove="remove(s)" @export="exportProject(s)" />
-      </TransitionGroup>
+      <template v-if="visible.length">
+        <section v-for="g in groups" :key="g.key" class="grupo">
+          <h2 v-if="showGroups" class="grupo-titulo">
+            <IconBuildingCommunity :size="16" />
+            <span>{{ g.entity || 'Sin entidad definida' }}</span>
+            <span v-if="g.site" class="grupo-sede">{{ g.site }}</span>
+            <span class="grupo-cuenta mono">{{ g.items.length }}</span>
+          </h2>
+          <TransitionGroup name="list" tag="div" class="lista">
+            <ProjectCard v-for="s in g.items" :key="s.project.id" :summary="s" @open="open(s.project.id)" @remove="remove(s)" @export="exportProject(s)" />
+          </TransitionGroup>
+        </section>
+      </template>
 
       <div v-else-if="summaries && !all.length" class="card">
         <EmptyState :icon="IconStack2" title="Crea tu primera auditoría" text="Todo lo que registres queda guardado en este equipo y funciona sin internet.">
@@ -301,7 +316,7 @@ const storagePercent = computed(() =>
       </Button>
     </div>
 
-    <NewProjectDialog v-model:visible="showNew" @create="create" />
+    <NewProjectDialog v-model:visible="showNew" :previous="allProjects" @create="create" />
     <SettingsDialog v-model:visible="showSettings" />
 
     <Dialog
@@ -464,6 +479,35 @@ h1 {
 .lista {
   display: grid;
   gap: 12px;
+}
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.grupo-titulo svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.grupo-sede::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--muted);
+}
+.grupo-cuenta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 .aviso-legado {
   display: flex;

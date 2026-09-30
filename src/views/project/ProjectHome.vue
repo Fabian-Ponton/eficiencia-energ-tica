@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconArrowDown, IconArrowUp, IconCamera, IconChevronRight, IconDownload, IconFileZip, IconPlug, IconReceipt } from '@tabler/icons-vue';
+import { IconAlertCircle, IconArrowDown, IconArrowUp, IconCamera, IconChevronRight, IconCircleCheck, IconDownload, IconFileZip, IconPlug, IconReceipt } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { computed, ref } from 'vue';
@@ -19,6 +19,7 @@ import { isActive } from '@/db/records';
 import { getDb } from '@/db/schema';
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { sum } from '@/domain/calc/stats';
+import { checkCompliance, groupStatus } from '@/domain/compliance';
 import { currentStage } from '@/domain/progress';
 import type { EndUseCategory } from '@/domain/types';
 import { ALL_STEPS, STAGES } from '@/navigation';
@@ -69,6 +70,17 @@ const endUses = computed(() => {
   for (const e of equipment.value ?? []) totals[e.category] = (totals[e.category] ?? 0) + annualEnergyKwh(e, e.operatingDaysPerMonth);
   return totals;
 });
+
+// Cumplimiento normativo: cada grupo dice qué exige la norma, cuántos datos tiene y cuáles faltan
+const compliance = computed(() =>
+  project.value
+    ? checkCompliance({ project: project.value }).map((group) => ({
+        group,
+        status: groupStatus(group),
+        required: group.items.filter((item) => item.level === 'obligatorio'),
+      }))
+    : [],
+);
 
 const progress = computed(() => summary.value?.progress ?? []);
 const current = computed(() => currentStage(progress.value));
@@ -193,6 +205,28 @@ async function downloadBackup() {
         </span>
         <IconChevronRight :size="20" class="siguiente-flecha" />
       </RouterLink>
+
+      <section v-if="compliance.length" class="card cumplimiento">
+        <div class="encabezado">
+          <h2>Cumplimiento normativo</h2>
+          <span class="eyebrow">Res. 40412 · art. 4</span>
+        </div>
+        <ul class="requisitos">
+          <li v-for="row in compliance" :key="row.group.id" :class="{ completo: row.status.complete }">
+            <span class="req-icono">
+              <IconCircleCheck v-if="row.status.complete" :size="20" />
+              <IconAlertCircle v-else :size="20" />
+            </span>
+            <span class="req-texto">
+              <strong>{{ row.group.title }}</strong>
+              <span>{{ row.group.reference }} · {{ row.status.done }} de {{ row.status.total }}</span>
+              <span class="segmentos" aria-hidden="true"><i v-for="item in row.required" :key="item.id" :class="{ lleno: item.ok }" /></span>
+              <span v-if="row.status.missing.length" class="req-faltan">Faltan: {{ row.status.missing.map((item) => item.label.toLowerCase()).join(', ') }}.</span>
+            </span>
+            <RouterLink v-if="!row.status.complete" :to="{ name: row.group.step, params: { projectId } }" class="req-completar">Completar</RouterLink>
+          </li>
+        </ul>
+      </section>
 
       <UpcomingTasks />
 
@@ -361,7 +395,8 @@ h1 {
 .proceso,
 .grafica,
 .usos,
-.fotos {
+.fotos,
+.cumplimiento {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -483,6 +518,85 @@ h1 {
   flex-shrink: 0;
   color: var(--muted);
 }
+.cumplimiento .encabezado {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.cumplimiento .encabezado .eyebrow {
+  white-space: nowrap;
+}
+.requisitos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.requisitos li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.req-icono {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--warning-wash);
+  color: var(--warning-text);
+}
+.requisitos li.completo .req-icono {
+  background: var(--accent-wash);
+  color: var(--accent-strong);
+}
+.req-texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 12px;
+}
+.req-texto strong {
+  font-size: 14px;
+}
+.req-texto > span {
+  color: var(--muted);
+}
+.segmentos {
+  display: flex;
+  gap: 3px;
+  margin: 3px 0;
+}
+.segmentos i {
+  flex: 1;
+  max-width: 34px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--divider);
+}
+.segmentos i.lleno {
+  background: var(--accent);
+}
+.req-faltan {
+  line-height: 1.4;
+}
+.req-completar {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.req-completar:hover {
+  background: var(--accent-wash);
+}
 .pie-grafica {
   display: flex;
   justify-content: space-between;
@@ -577,6 +691,7 @@ h1 {
       'kpi kpi'
       'proceso proceso'
       'siguiente grafica'
+      'cumplimiento grafica'
       'usos grafica'
       'fotos respaldo';
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -591,6 +706,9 @@ h1 {
   }
   .siguiente {
     grid-area: siguiente;
+  }
+  .cumplimiento {
+    grid-area: cumplimiento;
   }
   .grafica {
     grid-area: grafica;
@@ -610,6 +728,7 @@ h1 {
       'kpi kpi'
       'proceso proceso'
       'siguiente grafica'
+      'cumplimiento grafica'
       'usos grafica'
       'tareas respaldo'
       'fotos fotos';

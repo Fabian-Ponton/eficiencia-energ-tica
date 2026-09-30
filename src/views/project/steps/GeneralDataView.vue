@@ -1,8 +1,24 @@
 <script setup lang="ts">
-import { IconAlertTriangle, IconBolt, IconBuilding, IconCircleCheck, IconCloudCheck, IconId, IconLoader2, IconReportMoney, IconSun } from '@tabler/icons-vue';
+import {
+  IconAlertTriangle,
+  IconBolt,
+  IconBuilding,
+  IconBuildingCommunity,
+  IconCalendarTime,
+  IconCircleCheck,
+  IconCloudCheck,
+  IconId,
+  IconInfoCircle,
+  IconLoader2,
+  IconReportMoney,
+  IconSun,
+  IconTargetArrow,
+  IconUsers,
+} from '@tabler/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
+import Textarea from 'primevue/textarea';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import NumberInput from '@/components/ui/NumberInput.vue';
@@ -11,7 +27,11 @@ import StatusChip from '@/components/ui/StatusChip.vue';
 import { useCurrentProject } from '@/composables/useCurrentProject';
 import { updateProject } from '@/db/projects';
 import { getDb } from '@/db/schema';
-import { daysPerMonth, GRID_OPERATORS, SECTORS, VOLTAGE_LEVELS } from '@/domain/catalogs';
+import { daysPerMonth, ENTITY_KINDS, ENTITY_ORDERS, GRID_OPERATORS, SECTORS, VOLTAGE_LEVELS } from '@/domain/catalogs';
+import { characterization, groupStatus, nextAuditDate, type CharacterizationSource } from '@/domain/compliance';
+import { tenureInfo, TENURES, tenureScope } from '@/domain/tenure';
+import type { EntityKind, EntityOrder, Tenure } from '@/domain/types';
+import { formatDate } from '@/utils/dates';
 import { round } from '@/utils/format';
 
 const db = getDb();
@@ -42,6 +62,27 @@ interface GeneralForm {
   horizonYears?: number;
   emissionFactor?: number;
   peakSunHours?: number;
+  entityKind?: EntityKind;
+  entityOrder?: EntityOrder;
+  siteName?: string;
+  siteCode?: string;
+  contactName?: string;
+  contactRole?: string;
+  tenure?: Tenure;
+  builtYear?: number;
+  floors?: number;
+  activity?: string;
+  surroundings?: string;
+  students?: number;
+  staff?: number;
+  floating?: number;
+  auditDate?: string;
+  surveyDate?: string;
+  boundary?: string;
+  objectives?: string;
+  limitations?: string;
+  fnce: 'potencial' | 'excluida';
+  fnceNote?: string;
 }
 
 const DAYS = [
@@ -50,7 +91,7 @@ const DAYS = [
   { value: 7, label: '7 días' },
 ] as const;
 
-const form = reactive<GeneralForm>({ name: '', daysPerWeek: 5 });
+const form = reactive<GeneralForm>({ name: '', daysPerWeek: 5, fnce: 'potencial' });
 const status = ref<'guardado' | 'pendiente' | 'guardando' | 'error'>('guardado');
 let ready = false;
 
@@ -87,6 +128,27 @@ watch(
       horizonYears: p.economics.horizonYears,
       emissionFactor: p.economics.emissionFactorKgPerKwh || undefined,
       peakSunHours: p.peakSunHours,
+      entityKind: p.entity?.kind,
+      entityOrder: p.entity?.order,
+      siteName: p.site?.name,
+      siteCode: p.site?.upmeCode,
+      contactName: p.institutionalContact?.name,
+      contactRole: p.institutionalContact?.role,
+      tenure: p.building?.tenure,
+      builtYear: p.building?.builtYear,
+      floors: p.building?.floors,
+      activity: p.building?.activity,
+      surroundings: p.building?.surroundings,
+      students: p.population?.students,
+      staff: p.population?.staff,
+      floating: p.population?.floating,
+      auditDate: p.audit?.date,
+      surveyDate: p.surveyDate,
+      boundary: p.scope?.boundary,
+      objectives: p.scope?.objectives,
+      limitations: p.scope?.limitations,
+      fnce: p.scope?.fnce ?? 'potencial',
+      fnceNote: p.scope?.fnceNote,
     });
     void nextTick(() => {
       ready = true;
@@ -100,6 +162,30 @@ const statusText = computed(() => {
   if (nameError.value) return 'Falta el nombre';
   return { guardado: 'Guardado', pendiente: 'Guardando…', guardando: 'Guardando…', error: 'No se pudo guardar' }[status.value];
 });
+
+/** Agrupa solo lo que tiene valor: un bloque vacío no se guarda. */
+const compact = <T extends object>(block: T): T | undefined => (Object.values(block).some((value) => value !== undefined) ? block : undefined);
+
+/** Los bloques de la caracterización de la entidad, tal como se guardan en el proyecto. */
+const details = computed(() => ({
+  entity: form.entityKind ? { kind: form.entityKind, order: form.entityKind === 'publica' ? form.entityOrder : undefined } : undefined,
+  site: compact({ name: clean(form.siteName), upmeCode: clean(form.siteCode) }),
+  building: compact({ builtYear: form.builtYear, floors: form.floors, activity: clean(form.activity), surroundings: clean(form.surroundings), tenure: form.tenure }),
+  population: compact({ students: form.students, staff: form.staff, floating: form.floating }),
+  institutionalContact: compact({ name: clean(form.contactName), role: clean(form.contactRole) }),
+  audit: compact({ date: form.auditDate || undefined }),
+  // El alcance solo se guarda si el auditor escribió algo o excluyó las FNCER; sin nada, el informe usa el valor por omisión (potencial)
+  scope:
+    form.boundary?.trim() || form.objectives?.trim() || form.limitations?.trim() || form.fnceNote?.trim() || form.fnce === 'excluida'
+      ? {
+          boundary: clean(form.boundary),
+          objectives: clean(form.objectives),
+          limitations: clean(form.limitations),
+          fnce: form.fnce,
+          fnceNote: form.fnce === 'excluida' ? clean(form.fnceNote) : undefined,
+        }
+      : undefined,
+}));
 
 const persist = useDebounceFn(async () => {
   const p = project.value;
@@ -132,6 +218,8 @@ const persist = useDebounceFn(async () => {
         emissionFactorKgPerKwh: form.emissionFactor ?? 0,
       },
       peakSunHours: form.peakSunHours,
+      ...details.value,
+      surveyDate: form.surveyDate || undefined,
     });
     status.value = 'guardado';
   } catch {
@@ -148,6 +236,39 @@ watch(
   },
   { deep: true },
 );
+
+// «Usuarios» sigue la suma de estudiantes y personal mientras nadie lo cambie a mano
+const fixedPopulation = computed(() => (form.students ?? 0) + (form.staff ?? 0));
+watch(fixedPopulation, (now, before) => {
+  if (!ready || now <= 0) return;
+  if (form.users === undefined || form.users === before) form.users = now;
+});
+
+// La verificación del art. 4(a) mira el formulario, no lo guardado: el chip cambia al escribir
+const source = computed<CharacterizationSource>(() => ({
+  client: form.client,
+  city: form.city,
+  address: form.address,
+  operatingHours: form.operatingHours,
+  areaM2: form.areaM2,
+  users: form.users,
+  entity: details.value.entity,
+  site: details.value.site,
+  building: details.value.building,
+  population: details.value.population,
+  institutionalContact: details.value.institutionalContact,
+}));
+const art4 = computed(() => groupStatus(characterization(source.value)));
+const art4Items = computed(() => characterization(source.value).items.filter((item) => item.level === 'obligatorio'));
+
+const tenureHelp = computed(() => tenureInfo(form.tenure)?.help);
+const tenureTone = computed(() => (tenureScope(form.tenure, form.entityKind) === 'todas' ? 'info' : 'alerta'));
+const nextAudit = computed(() => nextAuditDate(form.auditDate));
+const FNCE_CHOICES = [
+  { value: 'potencial', label: 'Mostrar el potencial de referencia' },
+  { value: 'excluida', label: 'Excluir del alcance' },
+] as const;
+const TENURE_OPTIONS = TENURES.map((t) => ({ value: t.id, label: t.label }));
 
 const required = computed(() => [
   { label: 'Cliente', ok: Boolean(form.client?.trim()) },
@@ -181,6 +302,12 @@ const complete = computed(() => required.value.every((r) => r.ok));
         <span class="eyebrow">{{ complete ? 'Paso completo' : 'Para completar el paso' }}</span>
         <div class="chips">
           <StatusChip v-for="r in required" :key="r.label" :tone="r.ok ? 'good' : 'neutral'" :icon="r.ok ? IconCircleCheck : undefined" :label="r.label" />
+        </div>
+      </div>
+      <div class="grupo">
+        <span class="eyebrow">Exigido para el informe · art. 4(a) de la Res. 40412 · {{ art4.done }} de {{ art4.total }}</span>
+        <div class="chips">
+          <StatusChip v-for="item in art4Items" :key="item.id" :tone="item.ok ? 'good' : 'neutral'" :icon="item.ok ? IconCircleCheck : undefined" :label="item.label" />
         </div>
       </div>
       <div class="grupo">
@@ -247,10 +374,48 @@ const complete = computed(() => required.value.every((r) => r.ok));
 
       <section class="card seccion">
         <header class="seccion-cabecera">
+          <span class="seccion-icono"><IconBuildingCommunity :size="20" /></span>
+          <div>
+            <h2>Entidad y sede</h2>
+            <p>Quién es el titular y de qué sede se trata. La UPME recibe un reporte por cada sede.</p>
+          </div>
+        </header>
+        <div class="form-grid">
+          <div class="campo completo">
+            <span class="etiqueta">Tipo de entidad</span>
+            <ChoiceChips v-model="form.entityKind" :options="ENTITY_KINDS" label="Tipo de entidad" fill clearable />
+            <small class="ayuda">La Resolución 40412 de 2024 rige a las entidades públicas.</small>
+          </div>
+          <div v-if="form.entityKind === 'publica'" class="campo completo">
+            <span class="etiqueta">Orden</span>
+            <ChoiceChips v-model="form.entityOrder" :options="ENTITY_ORDERS" label="Orden de la entidad" fill clearable />
+          </div>
+          <label class="campo">
+            <span class="etiqueta">Nombre de la sede</span>
+            <InputText v-model="form.siteName" placeholder="Ej.: Sede Riohacha" />
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Código de la sede</span>
+            <InputText v-model="form.siteCode" class="mono" placeholder="Lo define la entidad" />
+          </label>
+          <small class="ayuda-seccion completo">La UPME pide un código exclusivo por sede que elige la propia entidad. Déjalo en blanco hasta tenerlo.</small>
+          <label class="campo">
+            <span class="etiqueta">Responsable institucional</span>
+            <InputText v-model="form.contactName" />
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Cargo</span>
+            <InputText v-model="form.contactRole" />
+          </label>
+        </div>
+      </section>
+
+      <section class="card seccion">
+        <header class="seccion-cabecera">
           <span class="seccion-icono"><IconBuilding :size="20" /></span>
           <div>
-            <h2>Edificación y operación</h2>
-            <p>Tamaño, ocupación y calendario: definen los indicadores y la anualización.</p>
+            <h2>Edificio</h2>
+            <p>Lo que el art. 4(a) de la Res. 40412 pide para caracterizar la edificación.</p>
           </div>
         </header>
         <div class="form-grid">
@@ -259,9 +424,58 @@ const complete = computed(() => required.value.every((r) => r.ok));
             <NumberInput v-model="form.areaM2" :decimals="1" suffix="m²" />
           </label>
           <label class="campo">
-            <span class="etiqueta">Usuarios</span>
+            <span class="etiqueta">Pisos</span>
+            <NumberInput v-model="form.floors" :decimals="0" :max="200" suffix="pisos" />
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Año de construcción</span>
+            <NumberInput v-model="form.builtYear" :decimals="0" :min="1800" :max="2100" :grouping="false" />
+          </label>
+          <div class="campo completo">
+            <span class="etiqueta">Tenencia del edificio</span>
+            <ChoiceChips v-model="form.tenure" :options="TENURE_OPTIONS" label="Tenencia del edificio" />
+            <p v-if="tenureHelp" class="aviso-linea" :class="tenureTone">
+              <IconInfoCircle :size="16" />{{ tenureHelp }}
+            </p>
+            <small v-else class="ayuda">Define qué medidas puede implementar la entidad en este edificio.</small>
+          </div>
+          <label class="campo completo">
+            <span class="etiqueta">Proceso o actividad desempeñada</span>
+            <InputText v-model="form.activity" placeholder="Ej.: docencia y prácticas de laboratorio" />
+          </label>
+          <label class="campo completo">
+            <span class="etiqueta">Entorno</span>
+            <Textarea v-model="form.surroundings" auto-resize rows="2" placeholder="Ej.: campus urbano junto a una vía principal; clima cálido y húmedo" />
+          </label>
+        </div>
+      </section>
+
+      <section class="card seccion">
+        <header class="seccion-cabecera">
+          <span class="seccion-icono"><IconUsers :size="20" /></span>
+          <div>
+            <h2>Población y operación</h2>
+            <p>Quiénes usan el edificio y cuándo: definen los indicadores y la anualización.</p>
+          </div>
+        </header>
+        <div class="form-grid">
+          <label class="campo">
+            <span class="etiqueta">Estudiantes</span>
+            <NumberInput v-model="form.students" :decimals="0" suffix="personas" />
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Personal docente y administrativo</span>
+            <NumberInput v-model="form.staff" :decimals="0" suffix="personas" />
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Población flotante</span>
+            <NumberInput v-model="form.floating" :decimals="0" suffix="personas" />
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Usuarios para los indicadores</span>
             <NumberInput v-model="form.users" :decimals="0" suffix="personas" />
           </label>
+          <small class="ayuda-seccion completo">Los usuarios son la base de kWh/usuario·mes. Siguen la suma de estudiantes y personal mientras no los cambies a mano.</small>
           <label class="campo completo">
             <span class="etiqueta">Horario de operación</span>
             <InputText v-model="form.operatingHours" placeholder="Ej.: lunes a viernes, 06:00 – 22:00" />
@@ -274,6 +488,62 @@ const complete = computed(() => required.value.every((r) => r.ok));
           <label class="campo">
             <span class="etiqueta">Vacaciones al año</span>
             <NumberInput v-model="form.vacationDaysPerYear" :decimals="0" :max="365" suffix="días" />
+          </label>
+        </div>
+      </section>
+
+      <section class="card seccion">
+        <header class="seccion-cabecera">
+          <span class="seccion-icono"><IconCalendarTime :size="20" /></span>
+          <div>
+            <h2>Ciclo de auditoría</h2>
+            <p>La ley pide repetir la auditoría energética cada cuatro años.</p>
+          </div>
+        </header>
+        <div class="form-grid">
+          <label class="campo">
+            <span class="etiqueta">Levantamiento en campo</span>
+            <input v-model="form.surveyDate" type="date" class="p-inputtext p-component" />
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Fecha de la auditoría</span>
+            <input v-model="form.auditDate" type="date" class="p-inputtext p-component" />
+          </label>
+          <p v-if="nextAudit" class="aviso-linea completo">
+            <IconInfoCircle :size="16" />La próxima auditoría se hace a más tardar el {{ formatDate(nextAudit) }} (Ley 1715 de 2014, art. 30, modificado por la Ley 2294 de 2023, art. 237).
+          </p>
+        </div>
+      </section>
+
+      <section class="card seccion">
+        <header class="seccion-cabecera">
+          <span class="seccion-icono"><IconTargetArrow :size="20" /></span>
+          <div>
+            <h2>Alcance y FNCER</h2>
+            <p>Hasta dónde llega la auditoría y cómo se trata la generación con fuentes no convencionales.</p>
+          </div>
+        </header>
+        <div class="form-grid">
+          <label class="campo completo">
+            <span class="etiqueta">Frontera de la auditoría</span>
+            <Textarea v-model="form.boundary" auto-resize rows="3" placeholder="Ej.: el edificio de laboratorios, su acometida y los equipos de uso final; no incluye los edificios vecinos." />
+          </label>
+          <label class="campo completo">
+            <span class="etiqueta">Objetivos</span>
+            <Textarea v-model="form.objectives" auto-resize rows="2" placeholder="Ej.: caracterizar el uso de la energía y priorizar medidas para el PGEE." />
+          </label>
+          <label class="campo completo">
+            <span class="etiqueta">Limitaciones</span>
+            <Textarea v-model="form.limitations" auto-resize rows="2" placeholder="Ej.: un laboratorio estuvo en mantenimiento durante el levantamiento." />
+          </label>
+          <div class="campo completo">
+            <span class="etiqueta">Fuentes no convencionales (FNCER)</span>
+            <ChoiceChips v-model="form.fnce" :options="FNCE_CHOICES" label="Tratamiento de las FNCER" fill />
+            <small class="ayuda">El diseño de generación fotovoltaica no forma parte del alcance: el informe solo muestra un potencial de referencia con la cubierta disponible y las horas de sol pico.</small>
+          </div>
+          <label v-if="form.fnce === 'excluida'" class="campo completo">
+            <span class="etiqueta">Motivo de la exclusión</span>
+            <Textarea v-model="form.fnceNote" auto-resize rows="2" placeholder="Ej.: la cubierta no está disponible o la entidad no lo contempla." />
           </label>
         </div>
       </section>
@@ -429,10 +699,16 @@ const complete = computed(() => required.value.every((r) => r.ok));
   color: var(--muted);
   font-size: 13px;
 }
+/* En PC las secciones se acomodan en dos columnas que se leen de arriba abajo, sin dejar huecos entre tarjetas de distinta altura */
 @media (min-width: 1024px) {
   .secciones {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+    display: block;
+    column-count: 2;
+    column-gap: 14px;
+  }
+  .secciones > .seccion {
+    break-inside: avoid;
+    margin-bottom: 14px;
   }
 }
 </style>

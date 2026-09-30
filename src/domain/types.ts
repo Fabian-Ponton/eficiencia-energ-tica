@@ -26,6 +26,8 @@ export type ElectricalKind = 'red' | 'transformador' | 'medidor' | 'acometida' |
 export type Orientation = 'N' | 'S' | 'E' | 'O';
 /** Tenencia del edificio: si no es propio, la Res. 40412 (art. 3) solo permite buenas prácticas de operación. */
 export type Tenure = 'propia' | 'arrendada' | 'comodato' | 'compartida' | 'otra';
+export type EntityKind = 'publica' | 'privada';
+export type EntityOrder = 'nacional' | 'territorial';
 /** Energético. Un registro sin `carrier` es electricidad. */
 export type EnergyCarrier = 'electricidad' | 'gas-natural' | 'glp' | 'otro';
 /** Cómo se usa un equipo. Un equipo sin régimen se trata como `horario`. */
@@ -86,19 +88,19 @@ export interface Project extends BaseRecord {
   sizing?: SizingOverrides;
   /** Informes y exportaciones generados (el más reciente primero): historial y avance del paso de informes. */
   reports?: ReportRecord[];
-  /** Entidad titular del edificio (art. 4a de la Res. 40412). */
-  entity?: { name: string; nit?: string; kind: 'publica' | 'privada'; order?: 'nacional' | 'territorial' };
+  /** Naturaleza de la entidad. Su nombre y su NIT son `client` y `nit`; la Res. 40412 de 2024 aplica a las entidades públicas. */
+  entity?: { kind: EntityKind; order?: EntityOrder };
   /** Sede. El código único que pide la UPME lo define la propia entidad. */
-  site?: { name: string; upmeCode?: string };
-  /** Caracterización del edificio: edad, pisos, actividad, entorno y tenencia. */
-  building?: { builtYear?: number; floors?: number; activity?: string; surroundings?: string; tenure: Tenure };
+  site?: { name?: string; upmeCode?: string };
+  /** Caracterización del edificio (art. 4a): edad, pisos, actividad, entorno y tenencia. */
+  building?: { builtYear?: number; floors?: number; activity?: string; surroundings?: string; tenure?: Tenure };
   /** Población fija y flotante. `users` se conserva: es lo que usan los indicadores por usuario. */
   population?: { students?: number; staff?: number; floating?: number };
   institutionalContact?: { name?: string; role?: string };
   /** Fecha del levantamiento en campo (AAAA-MM-DD). */
   surveyDate?: string;
-  /** Ciclo de la auditoría: se repite cada cuatro años (Ley 1715, art. 30). */
-  audit?: { date?: string; periodStart?: string; periodEnd?: string };
+  /** Fecha de la auditoría. Se repite cada cuatro años (Ley 1715, art. 30, modificado por la Ley 2294, art. 237). */
+  audit?: { date?: string };
   /** Alcance y frontera de la auditoría; `fnce` dice cómo se trata el potencial de fuentes no convencionales. */
   scope?: { boundary?: string; objectives?: string; limitations?: string; fnce: 'potencial' | 'excluida'; fnceNote?: string };
   /** El auditor revisó la seguridad eléctrica y no encontró hallazgos. */

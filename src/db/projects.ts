@@ -1,6 +1,6 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { computeProgress, type ProjectCounts, type StageProgress } from '@/domain/progress';
-import type { Bill, Project, ReportRecord } from '@/domain/types';
+import type { Bill, EntityKind, EntityOrder, Project, ReportRecord, Tenure } from '@/domain/types';
 import { isActive } from './records';
 import type { PontiaDb } from './schema';
 
@@ -8,13 +8,22 @@ export interface NewProjectInput {
   name: string;
   code?: string;
   client?: string;
+  nit?: string;
   city?: string;
+  address?: string;
   sector?: string;
   areaM2?: number;
+  entityKind?: EntityKind;
+  entityOrder?: EntityOrder;
+  siteName?: string;
+  siteCode?: string;
+  tenure?: Tenure;
 }
 
 export function createProjectRecord(input: NewProjectInput, now = Date.now()): Project {
   const text = (value?: string) => value?.trim() || undefined;
+  const siteName = text(input.siteName);
+  const siteCode = text(input.siteCode);
   return {
     id: crypto.randomUUID(),
     createdAt: now,
@@ -22,9 +31,14 @@ export function createProjectRecord(input: NewProjectInput, now = Date.now()): P
     name: input.name.trim(),
     code: text(input.code),
     client: text(input.client),
+    nit: text(input.nit),
     city: text(input.city),
+    address: text(input.address),
     sector: text(input.sector),
     areaM2: input.areaM2 || undefined,
+    entity: input.entityKind ? { kind: input.entityKind, order: input.entityKind === 'publica' ? input.entityOrder : undefined } : undefined,
+    site: siteName || siteCode ? { name: siteName, upmeCode: siteCode } : undefined,
+    building: input.tenure ? { tenure: input.tenure } : undefined,
     calendar: { daysPerWeek: 5, holidays: [], vacationDaysPerYear: 0 },
     economics: { tariffCopPerKwh: 0, discountRate: 0.12, tariffEscalation: 0, horizonYears: 10, emissionFactorKgPerKwh: 0 },
   };

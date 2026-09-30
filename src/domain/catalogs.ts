@@ -46,6 +46,17 @@ export const TASK_STATUSES: readonly { id: TaskStatus; label: string }[] = [
 
 export const SECTORS = ['Educativo', 'Comercial', 'Industrial', 'Salud', 'Público', 'Hotelero', 'Residencial', 'Otro'];
 
+/** La Res. 40412 de 2024 rige a las entidades públicas; una privada no queda obligada por ella. */
+export const ENTITY_KINDS = [
+  { value: 'publica', label: 'Pública' },
+  { value: 'privada', label: 'Privada' },
+] as const;
+
+export const ENTITY_ORDERS = [
+  { value: 'nacional', label: 'Nacional' },
+  { value: 'territorial', label: 'Territorial' },
+] as const;
+
 export interface SpaceType {
   id: string;
   label: string;

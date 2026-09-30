@@ -8,6 +8,7 @@ import { derivePower } from '@/domain/measurements';
 import type { EndUseCategory, Finding, Photo, Severity } from '@/domain/types';
 import { formatDate, formatDateTime, periodLabel, periodLabelLong } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
+import { characterizationFacts, characterizationNotes } from '../characterization';
 import type { ReportFigure } from '../figures';
 import { billedDailyKwh, measuredWeekdayKwh, type AuditModel, type AutoFinding, type FindingTone } from '../model';
 import {
@@ -136,22 +137,18 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     );
   }
 
-  // 2. Alcance y descripción de la instalación
-  const facts: Cell[][] = [
-    ['Cliente', project.client ?? '—'],
-    ['Ubicación', [project.address, project.city].filter(Boolean).join(', ') || '—'],
-    ['Sector', project.sector ?? '—'],
-    ['Área construida', project.areaM2 ? `${formatNumber(project.areaM2)} m²` : '—'],
-    ['Usuarios', project.users ? formatNumber(project.users) : '—'],
-    ['Horario de operación', project.operatingHours ?? '—'],
-    ['Días de operación', `${project.calendar.daysPerWeek} por semana`],
-    ['Operador de red', [project.gridOperator, project.voltageLevel].filter(Boolean).join(' · ') || '—'],
-    ['Tarifa de referencia', project.economics.tariffCopPerKwh ? `${formatCop(project.economics.tariffCopPerKwh)} por kWh` : '—'],
-  ];
+  // 2. Alcance y descripción de la instalación: la caracterización que exige el art. 4(a) de la Res. 40412
+  const facts: Cell[][] = characterizationFacts(project, new Date(m.data.generatedAt).getFullYear());
+  const notes = characterizationNotes(project);
   body.push(
     heading('2. Alcance y descripción de la instalación'),
     ...table('Datos generales de la instalación.', dataTable([{ header: 'Dato', width: 0.35 }, { header: 'Valor', width: 0.65 }], facts)),
   );
+  if (notes.tenure) body.push(para([text('Tenencia. ', { bold: true }), text(notes.tenure)]));
+  for (const block of notes.scope) body.push(heading(block.title, 2), para(block.text));
+  if (notes.missing.length) {
+    body.push(note(`Borrador: la caracterización de la entidad (art. 4, literal a, de la Resolución 40412 de 2024) está incompleta. Faltan: ${notes.missing.join(', ')}.`));
+  }
   if (m.data.areas.length) {
     body.push(
       heading('Espacios evaluados', 2),
@@ -629,7 +626,7 @@ function cover(m: AuditModel): FileChild[] {
             children: [
               para([text('INFORME DE AUDITORÍA ENERGÉTICA', { color: 'CFE3FF', size: 18, bold: true })], { spacing: { after: 160 } }),
               para([text(project.name, { font: FONT.heading, size: 52, color: 'FFFFFF' })], { spacing: { after: 120 } }),
-              para([text([project.client, project.city].filter(Boolean).join(' · ') || 'Instalación auditada', { size: 24, color: 'E8EEF8' })], { spacing: { after: 0 } }),
+              para([text([project.client, project.site?.name, project.city].filter(Boolean).join(' · ') || 'Instalación auditada', { size: 24, color: 'E8EEF8' })], { spacing: { after: 0 } }),
             ],
           }),
         ],
@@ -641,6 +638,7 @@ function cover(m: AuditModel): FileChild[] {
     ['Código del proyecto', project.code ?? '—'],
     ['Auditor', project.auditor ?? '—'],
     ['Referencia', 'ISO 50002 · ISO 50001 · ISO 50006 · IPMVP'],
+    ...(characterizationNotes(project).missing.length ? ([['Estado', 'Borrador · faltan datos de la caracterización de la entidad']] as [string, string][]) : []),
   ];
   return [
     new Paragraph({ spacing: { before: 1800 }, children: [] }),

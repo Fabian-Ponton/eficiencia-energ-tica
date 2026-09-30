@@ -99,7 +99,7 @@ export function buildPgeeDocument(m: AuditModel, input: PgeeInput, figures: read
     ...coverPage({
       kicker: 'PLAN DE GESTIÓN EFICIENTE DE LA ENERGÍA',
       title: project.name,
-      subtitle: [project.client, project.city].filter(Boolean).join(' · ') || 'Instalación auditada',
+      subtitle: [project.client, project.site?.name, project.city].filter(Boolean).join(' · ') || 'Instalación auditada',
       facts: [
         ['Fecha', formatDate(iso(generatedAt))],
         ['Código del proyecto', project.code ?? '—'],

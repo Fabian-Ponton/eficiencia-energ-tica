@@ -46,4 +46,37 @@ describe('proyectos en la base local', () => {
   it('solo reporta consumo anual con al menos 12 facturas', () => {
     expect(lastTwelveMonthsKwh([])).toBeNull();
   });
+
+  it('un proyecto nuevo guarda la entidad, la sede y la tenencia solo si se dieron', async () => {
+    const db = createDb('pontia-prueba-entidad');
+    const simple = await addProject(db, { name: 'Sin entidad' });
+    expect(simple.entity).toBeUndefined();
+    expect(simple.site).toBeUndefined();
+    expect(simple.building).toBeUndefined();
+
+    const completo = await addProject(db, {
+      name: 'Laboratorios',
+      client: 'Universidad de ejemplo',
+      nit: ' 900.000.000-0 ',
+      address: 'Calle 1 # 2-3',
+      entityKind: 'publica',
+      entityOrder: 'territorial',
+      siteName: ' Sede Riohacha ',
+      siteCode: 'SEDE-01',
+      tenure: 'propia',
+    });
+    expect(completo).toMatchObject({
+      nit: '900.000.000-0',
+      address: 'Calle 1 # 2-3',
+      entity: { kind: 'publica', order: 'territorial' },
+      site: { name: 'Sede Riohacha', upmeCode: 'SEDE-01' },
+      building: { tenure: 'propia' },
+    });
+    expect((await db.projects.get(completo.id))?.site?.upmeCode).toBe('SEDE-01');
+
+    // El orden solo tiene sentido en una entidad pública
+    const privada = await addProject(db, { name: 'Clínica', entityKind: 'privada', entityOrder: 'nacional' });
+    expect(privada.entity).toEqual({ kind: 'privada', order: undefined });
+    db.close();
+  });
 });

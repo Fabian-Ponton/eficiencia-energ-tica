@@ -74,4 +74,45 @@ describe('informe Word de auditoría', () => {
     expect(xml).toContain('w:titlePg');
     db.close();
   });
+
+  it('la caracterización de la entidad sale en la tabla 1; si falta, el informe queda como borrador', async () => {
+    const db = createDb('pontia-prueba-docx-entidad');
+    const ejemplo = await createSampleProject(db);
+    const leer = async () => {
+      const model = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
+      const buffer = await Packer.toBuffer(buildAuditDocument(model, [], { figures: new Map(), photos: [] }));
+      const xml = (await (await JSZip.loadAsync(buffer)).file('word/document.xml')?.async('string')) ?? '';
+      return xml.replace(/<[^>]+>/g, '');
+    };
+
+    // El ejemplo no trae edad, actividad, entorno ni tenencia: el informe lo dice y no inventa nada
+    const incompleto = await leer();
+    expect(incompleto).toContain('ESTADO');
+    expect(incompleto).toContain('Borrador · faltan datos de la caracterización de la entidad');
+    expect(incompleto).toContain('está incompleta. Faltan:');
+    expect(incompleto).toContain('entorno de la edificación');
+    expect(incompleto).toContain('tenencia del edificio');
+    expect(incompleto).toContain('La tenencia del edificio está por confirmar');
+
+    await db.projects.update(ejemplo.id, {
+      entity: { kind: 'publica', order: 'territorial' },
+      site: { name: 'Sede Riohacha', upmeCode: 'SEDE-01' },
+      operatingHours: 'Lunes a viernes, 07:00 – 21:00',
+      address: 'Calle 1 # 2-3',
+      building: { builtYear: 1998, floors: 2, activity: 'Docencia y prácticas de laboratorio', surroundings: 'Campus urbano', tenure: 'arrendada' },
+      scope: { boundary: 'El edificio de laboratorios y su acometida.', fnce: 'potencial' },
+    });
+    const completo = await leer();
+    expect(completo).not.toContain('Borrador');
+    expect(completo).toContain('Pública · orden territorial');
+    expect(completo).toContain('Sede Riohacha · código SEDE-01');
+    expect(completo).toContain('1998 (28 años) · 2 pisos');
+    expect(completo).toContain('Docencia y prácticas de laboratorio');
+    // Edificio arrendado: la restricción de la Res. 40412 queda escrita en el informe
+    expect(completo).toContain('Edificio en arrendamiento');
+    expect(completo).toContain('solo se pueden implementar medidas asociadas a buenas prácticas de operación');
+    expect(completo).toContain('Frontera de la auditoría');
+    expect(completo).toContain('El edificio de laboratorios y su acometida.');
+    db.close();
+  });
 });
