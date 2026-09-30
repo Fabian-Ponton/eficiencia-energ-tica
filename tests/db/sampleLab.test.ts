@@ -76,7 +76,8 @@ describe('ejemplo «Laboratorios · Sede Riohacha»', () => {
     // Gas natural: 12 facturas y los equipos que lo usan, aparte de lo eléctrico
     expect(data.otherBills).toHaveLength(12);
     expect(data.otherBills.every((b) => b.carrier === 'gas-natural' && b.unit === 'm3')).toBe(true);
-    expect(data.otherEquipment.map((e) => e.name)).toEqual(['Mechero Bunsen', 'Baño de agua a gas']);
+    // Los equipos salen de la base en el orden de su identificador (aleatorio): se comparan ordenados
+    expect(data.otherEquipment.map((e) => e.name).sort()).toEqual(['Baño de agua a gas', 'Mechero Bunsen']);
     expect(data.equipment.every((e) => !e.carrier)).toBe(true);
     // Horarios de uso de dos periodos académicos
     expect([...new Set(data.occupancy.map((o) => o.term))].sort()).toEqual(['2026-1', '2026-2']);
