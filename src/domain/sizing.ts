@@ -4,7 +4,7 @@ import { coolingAdequacy, coolingLoad, type CoolingAdequacy, type CoolingLoadRes
 import { achievedLux, lightingStatus, luminairesRequired, type LightingStatus } from './calc/sizing/lighting';
 import { COMMERCIAL_SIZES_BTU_H, nearestCommercialSize } from './calc/solutions/hvac';
 import { sum } from './calc/stats';
-import { SPACE_TYPES, spaceTypeOf } from './catalogs';
+import { isLabType, SPACE_TYPES, spaceTypeOf } from './catalogs';
 import { descendantIds, electricalRows } from './electrical';
 import { derivePower, imbalanceLevel, type ImbalanceLevel } from './measurements';
 import type { Area, Bill, ElectricalNode, Equipment, IntervalSeries, Measurement, Orientation, SizingOverrides } from './types';
@@ -57,11 +57,16 @@ export interface SizingParameters {
 
 export type GlobalSizingKey = Exclude<keyof SizingParameters, 'spaces' | 'solarBtuHPerM2'>;
 
-/** Carga de envolvente y límite VEEI por tipo de espacio; la iluminancia sale del catálogo de espacios. */
+/**
+ * Carga de envolvente y límite VEEI por tipo de espacio; la iluminancia sale del catálogo de espacios.
+ * El VEEI de «Aulas y laboratorios» (4,0) y el de «Administrativa en general» (3,0) son los de la tabla 3.2.5.a del Libro 3 del
+ * RETILAP (Res. 40286 de 2026), verificados en el texto oficial el 2026-09-29; las aulas de práctica de ordenador cuentan como
+ * aulas. Los demás valores siguen siendo orientativos. Los tipos de laboratorio usan los del laboratorio general.
+ */
 const SPACE_DEFAULTS: Record<string, { envelope: number; veei: number }> = {
-  aula: { envelope: 300, veei: 3.5 },
-  laboratorio: { envelope: 300, veei: 3.5 },
-  'sala-computo': { envelope: 300, veei: 3.5 },
+  aula: { envelope: 300, veei: 4 },
+  laboratorio: { envelope: 300, veei: 4 },
+  'sala-computo': { envelope: 300, veei: 4 },
   oficina: { envelope: 300, veei: 3 },
   'sala-reuniones': { envelope: 300, veei: 3 },
   biblioteca: { envelope: 300, veei: 3.5 },
@@ -94,7 +99,7 @@ export const SIZING_DEFAULTS: Omit<SizingParameters, 'spaces'> = {
 };
 
 export function defaultSpaceReference(spaceType: string): SpaceReference {
-  const d = SPACE_DEFAULTS[spaceType] ?? SPACE_DEFAULTS.otro;
+  const d = SPACE_DEFAULTS[spaceType] ?? (isLabType(spaceType) ? SPACE_DEFAULTS.laboratorio : SPACE_DEFAULTS.otro);
   return { lux: spaceTypeOf(spaceType)?.lux ?? 300, envelopeBtuHPerM2: d.envelope, veeiLimit: d.veei };
 }
 

@@ -56,7 +56,7 @@ describe('parámetros de referencia', () => {
     const custom = resolveSizing({ btuHPerPerson: 400, safetyFactor: Number.NaN, spaces: { aula: { lux: 300 } }, solarBtuHPerM2: { O: 900 } });
     expect(custom.btuHPerPerson).toBe(400);
     expect(custom.safetyFactor).toBe(0.1);
-    expect(custom.spaces.aula).toEqual({ lux: 300, envelopeBtuHPerM2: 300, veeiLimit: 3.5 });
+    expect(custom.spaces.aula).toEqual({ lux: 300, envelopeBtuHPerM2: 300, veeiLimit: 4 });
     expect(custom.spaces.oficina.lux).toBe(500);
     expect(custom.solarBtuHPerM2).toEqual({ N: 300, S: 500, E: 700, O: 900 });
   });
@@ -115,7 +115,13 @@ describe('iluminación por espacio', () => {
     expect(r.status).toBe('insuficiente');
     expect(r.lpd).toBeCloseTo(11.667, 3);
     expect(r.veei).toBeCloseTo(3.739, 3);
-    expect(r.veeiOk).toBe(false);
+    // Aulas y laboratorios: límite de 4,0 según la tabla 3.2.5.a del RETILAP 2026
+    expect(r.veeiLimit).toBe(4);
+    expect(r.veeiOk).toBe(true);
+    // Con menos iluminancia por la misma potencia, el VEEI supera el límite
+    const dim = areaLighting(aula({ measuredLuxAvg: 280 }), classroom, params)!;
+    expect(dim.veei).toBeCloseTo(4.167, 3);
+    expect(dim.veeiOk).toBe(false);
   });
 
   it('usa la iluminancia calculada o la luminaria de referencia cuando faltan datos', () => {

@@ -15,7 +15,7 @@ import NumberInput from '@/components/ui/NumberInput.vue';
 import type { FieldErrors } from '@/composables/useRecordEditor';
 import type { Draft } from '@/db/records';
 import { dailyEnergyKwh, installedPowerKw } from '@/domain/calc/equipment';
-import { COMMON_BTU, CONDITIONS, EQUIPMENT_SUGGESTIONS, LAMP_TYPES } from '@/domain/catalogs';
+import { AC_TYPES, COMMON_BTU, CONDITIONS, EQUIPMENT_SUGGESTIONS, FIXTURE_TYPES, LAMP_TYPES, LIGHT_CONTROLS, regimeOf, USAGE_REGIMES } from '@/domain/catalogs';
 import type { Area, ElectricalNode, Equipment } from '@/domain/types';
 import { CONDITION_STATUS } from '@/ui/icons';
 import { formatCop, formatNumber, round } from '@/utils/format';
@@ -28,11 +28,17 @@ const UNITS = [
   { value: 'W', label: 'W' },
   { value: 'kW', label: 'kW' },
 ] as const;
+const REGIME_OPTIONS = USAGE_REGIMES.map((r) => ({ value: r.id, label: r.label }));
+const PHASE_OPTIONS = [
+  { value: 1, label: 'Monofásico' },
+  { value: 2, label: 'Bifásico' },
+  { value: 3, label: 'Trifásico' },
+] as const;
 const CONDITION_OPTIONS = CONDITIONS.map((c) => ({ value: c.id, label: c.label, icon: CONDITION_STATUS[c.id].icon }));
 const thisYear = new Date().getFullYear();
 
 // La potencia se escribe en W o en kW, como venga en la placa; siempre se guarda en kW
-const unit = ref<'W' | 'kW'>(['iluminacion', 'ti', 'otros'].includes(draft.value.category) ? 'W' : 'kW');
+const unit = ref<'W' | 'kW'>(['iluminacion', 'ti', 'laboratorio', 'otros'].includes(draft.value.category) ? 'W' : 'kW');
 const power = computed({
   get: () => (Number.isFinite(draft.value.powerKw) ? (unit.value === 'W' ? round(draft.value.powerKw * 1000, 3) : draft.value.powerKw) : Number.NaN),
   set: (value: number) => {
@@ -51,6 +57,17 @@ const efficiencyPct = computed({
     draft.value.efficiency = value === undefined ? undefined : value / 100;
   },
 });
+
+// Un equipo continuo funciona las 24 horas de todos los días del mes: se llenan sus horas y sus días
+watch(
+  () => draft.value.regime,
+  (regime) => {
+    if (regime !== 'continuo') return;
+    draft.value.hoursPerDay = 24;
+    draft.value.operatingDaysPerMonth = 30;
+    draft.value.activeHours = Array.from({ length: 24 }, () => true);
+  },
+);
 
 // El horario marcado define las horas de uso al día
 watch(
@@ -135,6 +152,22 @@ function useHorsepower() {
 
   <section class="form-seccion">
     <h3 class="form-seccion-titulo"><IconBolt :size="16" />Potencia y uso</h3>
+    <div class="campo">
+      <span class="etiqueta">Régimen de uso</span>
+      <ChoiceChips v-model="draft.regime" :options="REGIME_OPTIONS" label="Régimen de uso del equipo" clearable />
+      <small class="ayuda">{{ regimeOf(draft.regime).hint }}<template v-if="!draft.regime"> Si no eliges, se trata como «por horario».</template></small>
+      <p v-if="draft.regime === 'continuo' && (draft.hoursPerDay !== 24 || draft.operatingDaysPerMonth < 28)" class="aviso-linea alerta">
+        Un equipo continuo trabaja 24 horas casi todos los días del mes. Si tiene tandas o pausas largas, elige «Por ciclos».
+      </p>
+    </div>
+    <label class="fila-interruptor">
+      <span>No se puede apagar<small>Conserva muestras o procesos: se excluye de las medidas de apagado.</small></span>
+      <ToggleSwitch v-model="draft.nonInterruptible" />
+    </label>
+    <label v-if="draft.nonInterruptible" class="campo">
+      <span class="etiqueta">Motivo</span>
+      <InputText v-model="draft.nonInterruptibleReason" placeholder="Ej.: conserva cepas y reactivos" />
+    </label>
     <div class="form-grid">
       <div class="campo completo">
         <span class="etiqueta">Potencia de una unidad</span>
@@ -180,6 +213,14 @@ function useHorsepower() {
         <span class="etiqueta">EER</span>
         <NumberInput v-model="draft.eer" :decimals="2" suffix="BTU/h·W" />
       </label>
+      <label class="campo">
+        <span class="etiqueta">Tipo de aire</span>
+        <Select v-model="draft.acType" :options="AC_TYPES" placeholder="Elegir" show-clear />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Temperatura configurada</span>
+        <NumberInput v-model="draft.setpointC" :decimals="0" :min="10" :max="30" suffix="°C" />
+      </label>
     </div>
     <div class="valores-rapidos">
       <button v-for="btu in COMMON_BTU" :key="btu" type="button" class="valor-rapido" :class="{ activo: draft.capacityBtuH === btu }" @click="draft.capacityBtuH = btu">
@@ -209,6 +250,14 @@ function useHorsepower() {
       <label class="campo">
         <span class="etiqueta">Flujo por luminaria</span>
         <NumberInput v-model="draft.lumens" :decimals="0" suffix="lm" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Tipo de luminaria</span>
+        <Select v-model="draft.fixtureType" :options="FIXTURE_TYPES" placeholder="Elegir" show-clear />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Control</span>
+        <Select v-model="draft.lightControl" :options="[...LIGHT_CONTROLS]" option-label="label" option-value="id" placeholder="Elegir" show-clear />
       </label>
     </div>
     <p v-if="efficacy" class="aviso-linea">Eficacia: <strong>{{ formatNumber(efficacy, 0) }} lm/W</strong>{{ efficacy < 80 ? ' · candidata a cambio por LED' : '' }}</p>
@@ -247,6 +296,22 @@ function useHorsepower() {
       <label class="campo">
         <span class="etiqueta">Año de fabricación</span>
         <NumberInput v-model="draft.year" :decimals="0" :min="1950" :max="thisYear" :grouping="false" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Voltaje</span>
+        <NumberInput v-model="draft.voltageV" :decimals="0" suffix="V" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Corriente nominal</span>
+        <NumberInput v-model="draft.currentA" :decimals="1" suffix="A" />
+      </label>
+      <div class="campo completo">
+        <span class="etiqueta">Fases</span>
+        <ChoiceChips v-model="draft.phases" :options="PHASE_OPTIONS" label="Fases del equipo" clearable />
+      </div>
+      <label class="campo completo">
+        <span class="etiqueta">Modo de uso</span>
+        <InputText v-model="draft.usageMode" placeholder="Ej.: por lotes de 4 horas, en espera el resto del día" />
       </label>
     </div>
   </section>

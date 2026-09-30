@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
+import { reactive } from 'vue';
 import { addProject, summarizeProject } from '@/db/projects';
-import { compact, discardPhotos, restoreRecords, saveRecord, softDeleteRecords } from '@/db/records';
+import { compact, discardPhotos, plain, restoreRecords, saveRecord, softDeleteRecords } from '@/db/records';
 import { createDb } from '@/db/schema';
 
 const stepDone = async (db: ReturnType<typeof createDb>, projectId: string, step: string) => {
@@ -13,6 +14,43 @@ const stepDone = async (db: ReturnType<typeof createDb>, projectId: string, step
 describe('registros del levantamiento', () => {
   it('compact quita campos vacíos y recorta textos', () => {
     expect(compact({ a: '  hola ', b: '', c: null, d: undefined, e: 0, f: false })).toEqual({ a: 'hola', e: 0, f: false });
+  });
+
+  it('guarda un registro que viene de un formulario reactivo con un array dentro (el horario típico de un equipo)', async () => {
+    const db = createDb('pontia-prueba-reactivo');
+    const project = await addProject(db, { name: 'Prueba' });
+    // El formulario entrega proxies de Vue: IndexedDB no los puede clonar si no se convierten antes
+    const formulario = reactive({
+      id: 'e-reactivo',
+      projectId: project.id,
+      name: 'Ultracongelador',
+      category: 'refrigeracion' as const,
+      powerKw: 0.9,
+      quantity: 1,
+      hoursPerDay: 24,
+      operatingDaysPerMonth: 30,
+      useFactor: 1,
+      condition: 'bueno' as const,
+      regime: 'continuo' as const,
+      activeHours: Array.from({ length: 24 }, () => true),
+    });
+    await expect(saveRecord(db, 'equipment', formulario)).resolves.toMatchObject({ name: 'Ultracongelador' });
+    const guardado = await db.equipment.get('e-reactivo');
+    expect(guardado?.activeHours).toHaveLength(24);
+    expect(guardado?.regime).toBe('continuo');
+    db.close();
+  });
+
+  it('plain copia arrays y objetos simples, y deja pasar Blob y fechas', () => {
+    const blob = new Blob(['x']);
+    const fecha = new Date(2026, 8, 29);
+    const original = { lista: [1, { dentro: true }], blob, fecha, nulo: null };
+    const copia = plain(reactive(original));
+    expect(copia).toEqual(original);
+    expect(copia.lista).not.toBe(original.lista);
+    expect(copia.blob).toBe(blob);
+    expect(copia.fecha).toBe(fecha);
+    expect(() => structuredClone(copia)).not.toThrow();
   });
 
   it('guarda y edita un área, y marca el proyecto como modificado', async () => {

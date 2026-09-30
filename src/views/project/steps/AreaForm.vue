@@ -15,7 +15,7 @@ import type { FieldErrors } from '@/composables/useRecordEditor';
 import type { Draft } from '@/db/records';
 import { floorAreaOf, roomIndexOf, volumeOf } from '@/domain/areas';
 import { lightingStatus } from '@/domain/calc/sizing/lighting';
-import { SPACE_TYPES, spaceTypeOf } from '@/domain/catalogs';
+import { SPACE_GROUPS, spaceTypeOf } from '@/domain/catalogs';
 import type { Area } from '@/domain/types';
 import { LIGHTING_STATUS } from '@/ui/icons';
 import { formatNumber, formatPercent } from '@/utils/format';
@@ -75,13 +75,34 @@ const uniformity = computed(() => {
     <div class="form-grid">
       <label class="campo completo">
         <span class="etiqueta">Nombre del espacio</span>
-        <InputText v-model="draft.name" placeholder="Ej.: Aula 601" :invalid="Boolean(errors.name)" />
+        <InputText v-model="draft.name" placeholder="Ej.: Laboratorio de química 1" :invalid="Boolean(errors.name)" />
         <small v-if="errors.name" class="error">{{ errors.name }}</small>
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Código</span>
+        <InputText v-model="draft.code" class="mono" placeholder="Ej.: LQ-01" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Piso</span>
+        <InputText v-model="draft.floor" placeholder="Ej.: 2" />
       </label>
       <label class="campo completo">
         <span class="etiqueta">Tipo de espacio</span>
-        <Select v-model="draft.spaceType" :options="[...SPACE_TYPES]" option-label="label" option-value="id" placeholder="Elegir" show-clear />
-        <small v-if="space?.lux" class="ayuda">Iluminancia de referencia: {{ formatNumber(space.lux) }} lux (valida con el RETILAP).</small>
+        <Select
+          v-model="draft.spaceType"
+          :options="[...SPACE_GROUPS]"
+          option-label="label"
+          option-value="id"
+          option-group-label="label"
+          option-group-children="items"
+          placeholder="Elegir"
+          show-clear
+        />
+        <small v-if="space?.lux" class="ayuda">
+          Iluminancia de referencia: {{ formatNumber(space.lux) }} lux<template v-if="space.reference"> · {{ space.reference }}</template
+          ><template v-else> (valida con el RETILAP)</template>.
+          <template v-if="space.uo"> Uniformidad ≥ {{ formatNumber(space.uo, 2) }} · Ra ≥ {{ space.ra }} · UGR ≤ {{ space.ugr }}.</template>
+        </small>
       </label>
     </div>
   </section>

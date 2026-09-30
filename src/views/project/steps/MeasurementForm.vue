@@ -123,6 +123,14 @@ const calc = computed(() => {
         <span class="etiqueta">Instrumento</span>
         <InputText v-model="draft.instrument" :list="instrumentsId" placeholder="Ej.: Analizador de redes" />
       </label>
+      <label class="campo">
+        <span class="etiqueta">Condición de la medición</span>
+        <InputText v-model="draft.condition" placeholder="Ej.: laboratorio ocupado, carga normal" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Responsable</span>
+        <InputText v-model="draft.responsible" placeholder="Quién midió" />
+      </label>
     </div>
     <datalist :id="instrumentsId">
       <option v-for="name in instruments" :key="name" :value="name" />
@@ -185,6 +193,14 @@ const calc = computed(() => {
       <label class="campo">
         <span class="etiqueta">THD de corriente</span>
         <NumberInput v-model="draft.thdI" :decimals="1" :max="100" suffix="%" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Frecuencia</span>
+        <NumberInput v-model="draft.frequencyHz" :decimals="2" :max="70" suffix="Hz" />
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Energía registrada</span>
+        <NumberInput v-model="draft.energyKwh" :decimals="2" suffix="kWh" />
       </label>
     </div>
     <small v-if="errors.values" class="error">{{ errors.values }}</small>

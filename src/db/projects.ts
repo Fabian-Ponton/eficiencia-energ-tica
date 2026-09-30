@@ -1,7 +1,7 @@
 import { annualEnergyKwh } from '@/domain/calc/equipment';
 import { computeProgress, type ProjectCounts, type StageProgress } from '@/domain/progress';
 import type { Bill, EntityKind, EntityOrder, Project, ReportRecord, Tenure } from '@/domain/types';
-import { isActive } from './records';
+import { isActive, plain } from './records';
 import type { PontiaDb } from './schema';
 
 export interface NewProjectInput {
@@ -52,7 +52,7 @@ export async function addProject(db: PontiaDb, input: NewProjectInput): Promise<
 
 /** Guarda cambios de los datos generales y marca el proyecto como modificado. */
 export async function updateProject(db: PontiaDb, id: string, changes: Partial<Omit<Project, 'id' | 'createdAt'>>, now = Date.now()): Promise<void> {
-  await db.projects.update(id, { ...changes, updatedAt: now });
+  await db.projects.update(id, { ...plain(changes), updatedAt: now });
 }
 
 /** Registra la descarga del respaldo sin cambiar la fecha de modificación. */

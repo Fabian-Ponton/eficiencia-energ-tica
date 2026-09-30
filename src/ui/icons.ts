@@ -9,6 +9,7 @@ import {
   IconDeviceDesktop,
   IconEngine,
   IconFlag,
+  IconFlask2,
   IconFridge,
   IconInfoCircle,
   IconPlug,
@@ -32,6 +33,7 @@ export const END_USE_ICONS: Record<EndUseCategory, Component> = {
   iluminacion: IconBulb,
   cocina: IconToolsKitchen2,
   ti: IconDeviceDesktop,
+  laboratorio: IconFlask2,
   otros: IconPlug,
 };
 

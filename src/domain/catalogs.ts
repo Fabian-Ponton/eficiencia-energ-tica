@@ -1,4 +1,4 @@
-import type { Condition, DataType, ElectricalKind, EndUseCategory, PhotoKind, TaskStatus } from './types';
+import type { Condition, DataType, ElectricalKind, EndUseCategory, PhotoKind, TaskStatus, UsageRegime } from './types';
 
 /**
  * Usos finales con su color fijo. El orden es el de la paleta validada para daltonismo:
@@ -11,6 +11,8 @@ export const END_USES: readonly { id: EndUseCategory; label: string; color: stri
   { id: 'iluminacion', label: 'Iluminación', color: '#eda100', colorDark: '#c98500' },
   { id: 'cocina', label: 'Cocina', color: '#e87ba4', colorDark: '#d55181' },
   { id: 'ti', label: 'TI y oficina', color: '#008300', colorDark: '#008300' },
+  // Octavo color de la paleta validada (violeta). Se validó el orden completo, en claro y oscuro, con el validador de la habilidad dataviz
+  { id: 'laboratorio', label: 'Equipos de laboratorio', color: '#4a3aa7', colorDark: '#9085e9' },
   { id: 'otros', label: 'Otros', color: '#898781', colorDark: '#898781' },
 ];
 
@@ -22,6 +24,8 @@ export const PHOTO_KINDS: readonly { id: PhotoKind; label: string }[] = [
   { id: 'instalacion', label: 'Instalación' },
   { id: 'estado-fisico', label: 'Estado físico' },
   { id: 'termografia', label: 'Termografía' },
+  { id: 'documento', label: 'Documento o plano' },
+  { id: 'instrumento', label: 'Instrumento y medición' },
   { id: 'otra', label: 'Otra evidencia' },
 ];
 
@@ -60,17 +64,36 @@ export const ENTITY_ORDERS = [
 export interface SpaceType {
   id: string;
   label: string;
-  /** Iluminancia media de referencia (lux). */
+  /** Iluminancia mantenida de referencia (lux). */
   lux?: number;
+  /** Uniformidad mínima (Uo), índice de reproducción cromática mínimo (Ra) y deslumbramiento máximo (UGRL) de la misma fila. */
+  uo?: number;
+  ra?: number;
+  ugr?: number;
+  /** Fila de la tabla de iluminancias del RETILAP de la que sale el valor. */
+  reference?: string;
+  /** Los tipos de laboratorio se agrupan aparte en el selector. */
+  group?: 'laboratorio';
 }
 
 /**
- * Tipos de espacio con una iluminancia de referencia orientativa.
- * Cada valor se debe validar con el RETILAP y el criterio del auditor antes de usarlo en un informe.
+ * Tipos de espacio con su iluminancia de referencia.
+ * Los de aula y laboratorio salen de la tabla 36 («Locales educativos») del Libro 3 del RETILAP (Res. 40286 de 2026),
+ * verificada en el texto oficial el 2026-09-29. Los demás son orientativos y el auditor los valida con el RETILAP.
  */
+const RETILAP_EDU = 'RETILAP 2026, Libro 3, tabla 36';
+const LAB_ROW = { uo: 0.6, ra: 80, ugr: 19 } as const;
 export const SPACE_TYPES: readonly SpaceType[] = [
-  { id: 'aula', label: 'Aula', lux: 500 },
-  { id: 'laboratorio', label: 'Laboratorio', lux: 500 },
+  { id: 'aula', label: 'Aula', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,1 (aula o salón de clases)` },
+  { id: 'laboratorio', label: 'Laboratorio', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,14 (salas de prácticas y laboratorios)`, group: 'laboratorio' },
+  { id: 'lab-quimica', label: 'Laboratorio de química', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,14`, group: 'laboratorio' },
+  { id: 'lab-fisica', label: 'Laboratorio de física', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,14`, group: 'laboratorio' },
+  { id: 'lab-biologia', label: 'Laboratorio de biología y microbiología', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,14`, group: 'laboratorio' },
+  { id: 'lab-electronica', label: 'Laboratorio de electrónica y eléctrica', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,14`, group: 'laboratorio' },
+  { id: 'lab-computo', label: 'Laboratorio de cómputo', lux: 300, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,11 (solo trabajos con computadoras)`, group: 'laboratorio' },
+  { id: 'lab-mecanica', label: 'Taller de mecánica y materiales', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,16 (taller de enseñanza)`, group: 'laboratorio' },
+  { id: 'lab-ambiental', label: 'Laboratorio ambiental y de suelos', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,14`, group: 'laboratorio' },
+  { id: 'lab-otro', label: 'Otro laboratorio', lux: 500, ...LAB_ROW, reference: `${RETILAP_EDU}, ref. 36,14`, group: 'laboratorio' },
   { id: 'sala-computo', label: 'Sala de cómputo', lux: 500 },
   { id: 'oficina', label: 'Oficina', lux: 500 },
   { id: 'sala-reuniones', label: 'Sala de reuniones', lux: 500 },
@@ -87,6 +110,36 @@ export const SPACE_TYPES: readonly SpaceType[] = [
 ];
 
 export const spaceTypeOf = (id?: string) => SPACE_TYPES.find((type) => type.id === id);
+
+/** Tipos de espacio para el selector: los laboratorios aparte del resto. */
+export const SPACE_GROUPS: readonly { label: string; items: readonly SpaceType[] }[] = [
+  { label: 'Laboratorios y talleres', items: SPACE_TYPES.filter((t) => t.group === 'laboratorio') },
+  { label: 'Otros espacios', items: SPACE_TYPES.filter((t) => t.group !== 'laboratorio') },
+];
+
+export const isLabType = (id?: string): boolean => spaceTypeOf(id)?.group === 'laboratorio';
+
+/** Cómo se usa un equipo a lo largo del día. */
+export const USAGE_REGIMES: readonly { id: UsageRegime; label: string; hint: string }[] = [
+  { id: 'horario', label: 'Por horario', hint: 'Funciona en el horario de clases o de trabajo.' },
+  { id: 'continuo', label: 'Continuo 24 h', hint: 'Está encendido todo el día, todos los días: neveras, ultracongeladores, servidores.' },
+  { id: 'ciclos', label: 'Por ciclos', hint: 'Trabaja por tandas: hornos, mufla, autoclaves. Indica las horas efectivas al día.' },
+  { id: 'respaldo', label: 'De respaldo', hint: 'Solo entra en una falla o emergencia: planta, UPS.' },
+];
+
+export const regimeOf = (id?: UsageRegime) => USAGE_REGIMES.find((r) => r.id === (id ?? 'horario')) ?? USAGE_REGIMES[0];
+
+export const AC_TYPES = ['Mini-split', 'De ventana', 'Central o de paquete', 'Cassette', 'Piso-techo', 'Manejadora con chiller', 'Otro'];
+
+export const FIXTURE_TYPES = ['Panel LED', 'Tubo LED', 'Luminaria fluorescente T8', 'Luminaria fluorescente T5', 'Reflector', 'Bombillo', 'Downlight', 'Otra'];
+
+export const LIGHT_CONTROLS: readonly { id: 'manual' | 'sensor' | 'temporizador' | 'automatico' | 'otro'; label: string }[] = [
+  { id: 'manual', label: 'Interruptor manual' },
+  { id: 'sensor', label: 'Sensor de presencia' },
+  { id: 'temporizador', label: 'Temporizador' },
+  { id: 'automatico', label: 'Automático por luz natural' },
+  { id: 'otro', label: 'Otro' },
+];
 
 export const LAMP_TYPES: readonly { id: string; label: string }[] = [
   { id: 'LED', label: 'LED' },
@@ -131,11 +184,29 @@ export const COMMON_SECONDARY_V = ['208/120 V', '220/127 V', '240/120 V', '440/2
 export const EQUIPMENT_SUGGESTIONS: Record<EndUseCategory, string[]> = {
   climatizacion: ['Aire acondicionado mini-split', 'Aire acondicionado de ventana', 'Aire acondicionado central', 'Unidad manejadora de aire', 'Ventilador de techo', 'Extractor'],
   motores: ['Bomba de agua', 'Motor trifásico', 'Compresor de aire', 'Ascensor', 'Motobomba'],
-  refrigeracion: ['Nevera', 'Congelador', 'Enfriador de agua', 'Cuarto frío', 'Dispensador de agua'],
+  refrigeracion: ['Nevera', 'Congelador', 'Enfriador de agua', 'Cuarto frío', 'Dispensador de agua', 'Refrigerador de laboratorio', 'Ultracongelador de −80 °C', 'Cámara de conservación de muestras'],
   iluminacion: ['Luminaria LED', 'Panel LED 60×60', 'Luminaria fluorescente 2×32 W T8', 'Bombillo LED', 'Reflector LED', 'Luminaria de alumbrado exterior'],
   cocina: ['Horno microondas', 'Estufa eléctrica', 'Greca', 'Cafetera', 'Horno eléctrico', 'Licuadora'],
   ti: ['Computador de escritorio', 'Portátil', 'Monitor', 'Impresora', 'Videoproyector', 'Servidor', 'Switch de red', 'Televisor'],
-  otros: ['Cargadores y equipos menores', 'UPS', 'Secador de manos', 'Equipo de laboratorio'],
+  laboratorio: [
+    'Horno de secado',
+    'Mufla',
+    'Autoclave',
+    'Incubadora',
+    'Campana de extracción',
+    'Cabina de bioseguridad',
+    'Centrífuga',
+    'Balanza analítica',
+    'Agitador magnético con calefacción',
+    'Baño termostático',
+    'Destilador de agua',
+    'Espectrofotómetro',
+    'Microscopio',
+    'Osciloscopio',
+    'Fuente de poder',
+    'Plancha de calentamiento',
+  ],
+  otros: ['Cargadores y equipos menores', 'UPS', 'Secador de manos'],
 };
 
 /** Días de operación al mes según los días de trabajo por semana (5 → 22, 6 → 26, 7 → 30). */

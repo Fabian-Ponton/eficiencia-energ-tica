@@ -4,8 +4,10 @@ import { useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import EmptyState from '@/components/EmptyState.vue';
 import EndUseBar from '@/components/EndUseBar.vue';
+import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import FormSheet from '@/components/ui/FormSheet.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusChip from '@/components/ui/StatusChip.vue';
@@ -16,12 +18,14 @@ import { useQuickAdd } from '@/composables/useQuickAdd';
 import { useRecordEditor } from '@/composables/useRecordEditor';
 import { useTheme } from '@/composables/useTheme';
 import { installedPowerKw, monthlyEnergyKwh } from '@/domain/calc/equipment';
-import { daysPerMonth, END_USES, LAMP_TYPES } from '@/domain/catalogs';
+import { daysPerMonth, END_USES, LAMP_TYPES, regimeOf, USAGE_REGIMES } from '@/domain/catalogs';
+import { maintenanceStatus } from '@/domain/maintenance';
 import type { EndUseCategory, Equipment } from '@/domain/types';
 import { CONDITION_STATUS, END_USE_ICONS } from '@/ui/icons';
 import { formatMillionsCop, formatNumber } from '@/utils/format';
 import { incrementCode, normalizeText } from '@/utils/text';
 import EquipmentForm from './EquipmentForm.vue';
+import MaintenanceTab from './MaintenanceTab.vue';
 
 const { projectId, project } = useCurrentProject();
 const desktop = useMediaQuery('(min-width: 1024px)');
@@ -30,11 +34,22 @@ const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompar
 const { rows: equipment, ready } = useProjectRecords('equipment', byName);
 const { rows: areas } = useProjectRecords('areas', byName);
 const { rows: electrical } = useProjectRecords('electrical', byName);
+const { rows: maintenance, ready: maintenanceReady } = useProjectRecords('maintenance');
 const photoCounts = usePhotoCounts('equipo');
+
+const route = useRoute();
+const TABS = [
+  { value: 'equipos', label: 'Equipos' },
+  { value: 'mantenimiento', label: 'Mantenimiento' },
+] as const;
+type Tab = (typeof TABS)[number]['value'];
+const tab = ref<Tab>(TABS.find((t) => t.value === route.query.tab)?.value ?? 'equipos');
+const maintenanceTab = ref<InstanceType<typeof MaintenanceTab>>();
 
 const search = ref('');
 const category = ref<EndUseCategory | 'todas'>('todas');
 const areaFilter = ref<string | null>(null);
+const regimeFilter = ref<string | null>(null);
 const lastCategory = ref<EndUseCategory>('iluminacion');
 
 const tariff = computed(() => project.value?.economics.tariffCopPerKwh ?? 0);
@@ -53,6 +68,7 @@ const filtered = computed(() => {
     if (category.value !== 'todas' && e.category !== category.value) return false;
     if (areaFilter.value === 'sin-area' && e.areaId) return false;
     if (areaFilter.value && areaFilter.value !== 'sin-area' && e.areaId !== areaFilter.value) return false;
+    if (regimeFilter.value === 'no-interrumpible' ? !e.nonInterruptible : regimeFilter.value && (e.regime ?? 'horario') !== regimeFilter.value) return false;
     if (!q) return true;
     return [e.name, e.code, e.brand, e.model, e.areaId ? areaName.value.get(e.areaId) : undefined].some((t) => t && normalizeText(t).includes(q));
   });
@@ -83,15 +99,28 @@ const categoryCounts = computed(() => {
 const presentUses = computed(() => END_USES.filter((use) => categoryCounts.value.get(use.id)));
 const areaOptions = computed(() => [{ id: 'sin-area', name: 'Sin espacio asignado' }, ...areas.value.map((a) => ({ id: a.id, name: a.name }))]);
 const filtering = computed(() => filtered.value.length !== equipment.value.length);
+const REGIME_FILTERS = [...USAGE_REGIMES.map((r) => ({ id: r.id as string, name: r.label })), { id: 'no-interrumpible', name: 'No se pueden apagar' }];
 
-const stats = computed(() => [
-  { label: 'Equipos', value: formatNumber(totals.value.count), unit: 'unid.' },
-  { label: 'Potencia instalada', value: formatNumber(totals.value.kw, 1), unit: 'kW' },
-  { label: 'Consumo estimado', value: formatNumber(totals.value.kwh), unit: 'kWh/mes' },
-  tariff.value > 0
-    ? { label: 'Costo estimado', value: formatMillionsCop(totals.value.kwh * tariff.value), unit: 'COP/mes' }
-    : { label: 'Costo estimado', value: '—', unit: 'falta la tarifa' },
-]);
+const stats = computed(() => {
+  if (tab.value === 'mantenimiento') {
+    const states = maintenance.value.map((m) => maintenanceStatus(m));
+    const count = (s: string) => formatNumber(states.filter((x) => x === s).length);
+    return [
+      { label: 'Registros', value: formatNumber(maintenance.value.length) },
+      { label: 'Atrasados', value: count('atrasado') },
+      { label: 'Próximos', value: count('proximo'), unit: '30 días' },
+      { label: 'Al día', value: count('al-dia') },
+    ];
+  }
+  return [
+    { label: 'Equipos', value: formatNumber(totals.value.count), unit: 'unid.' },
+    { label: 'Potencia instalada', value: formatNumber(totals.value.kw, 1), unit: 'kW' },
+    { label: 'Consumo estimado', value: formatNumber(totals.value.kwh), unit: 'kWh/mes' },
+    tariff.value > 0
+      ? { label: 'Costo estimado', value: formatMillionsCop(totals.value.kwh * tariff.value), unit: 'COP/mes' }
+      : { label: 'Costo estimado', value: '—', unit: 'falta la tarifa' },
+  ];
+});
 
 const { visible, draft, isNew, errors, saving, openNew, openEdit, save, saveAndDuplicate, remove } = useRecordEditor('equipment', {
   empty: () => ({
@@ -124,21 +153,28 @@ const { visible, draft, isNew, errors, saving, openNew, openEdit, save, saveAndD
   duplicate: (d) => ({ ...d, code: incrementCode(d.code) }),
 });
 
-useFabAction({ label: 'Agregar equipo', icon: IconPlus, run: () => openNew() });
-useQuickAdd(() => openNew());
+const addAction = () => (tab.value === 'mantenimiento' ? maintenanceTab.value?.openNew() : openNew());
+useFabAction(() => ({ label: tab.value === 'mantenimiento' ? 'Agregar mantenimiento' : 'Agregar equipo', icon: IconPlus, run: addAction }));
+useQuickAdd(() => {
+  tab.value = 'equipos';
+  openNew();
+});
 </script>
 
 <template>
   <div class="vista">
     <PageHeader step="inventario" :stats="equipment.length ? stats : undefined">
       <template v-if="desktop" #actions>
-        <Button label="Agregar equipo" @click="openNew()">
+        <Button :label="tab === 'mantenimiento' ? 'Agregar mantenimiento' : 'Agregar equipo'" @click="addAction()">
           <template #icon><IconPlus :size="18" stroke="2.2" /></template>
         </Button>
       </template>
+      <ChoiceChips v-model="tab" :options="TABS" label="Tema del inventario" fill />
     </PageHeader>
 
-    <template v-if="equipment.length">
+    <MaintenanceTab v-if="tab === 'mantenimiento'" ref="maintenanceTab" :rows="maintenance" :equipment="equipment" :areas="areas" :ready="maintenanceReady" />
+
+    <template v-else-if="equipment.length">
       <section class="card usos">
         <div class="usos-cabecera">
           <h2>Consumo por uso final</h2>
@@ -154,6 +190,7 @@ useQuickAdd(() => openNew());
           <input v-model="search" type="search" placeholder="Buscar por nombre, código, marca o espacio" />
         </label>
         <Select v-model="areaFilter" :options="areaOptions" option-label="name" option-value="id" placeholder="Todos los espacios" show-clear class="filtro-area" />
+        <Select v-model="regimeFilter" :options="REGIME_FILTERS" option-label="name" option-value="id" placeholder="Todos los regímenes" show-clear class="filtro-area" />
       </div>
       <div class="categorias" role="tablist" aria-label="Filtrar por uso final">
         <button type="button" role="tab" class="categoria" :class="{ activa: category === 'todas' }" :aria-selected="category === 'todas'" @click="category = 'todas'">
@@ -201,7 +238,9 @@ useQuickAdd(() => openNew());
             <tr v-for="e in group.items" :key="e.id" class="fila-clic" tabindex="0" @click="openEdit(e)" @keydown.enter="openEdit(e)">
               <td>
                 <div class="nombre">{{ e.name }}</div>
-                <div class="sub">{{ [e.code, e.areaId ? areaName.get(e.areaId) : undefined].filter(Boolean).join(' · ') || '—' }}</div>
+                <div class="sub">
+                  {{ [e.code, e.areaId ? areaName.get(e.areaId) : undefined, e.regime && e.regime !== 'horario' ? regimeOf(e.regime).label : undefined, e.nonInterruptible ? 'no se apaga' : undefined].filter(Boolean).join(' · ') || '—' }}
+                </div>
               </td>
               <td class="der">{{ formatNumber(e.quantity) }}</td>
               <td class="der">{{ formatNumber(e.powerKw, 3) }}</td>
@@ -249,6 +288,8 @@ useQuickAdd(() => openNew());
                 <StatusChip v-bind="CONDITION_STATUS[e.condition]" />
                 <StatusChip v-if="e.capacityBtuH" tone="info" :label="`${formatNumber(e.capacityBtuH)} BTU/h${e.eer ? ` · EER ${formatNumber(e.eer, 1)}` : ''}`" />
                 <StatusChip v-if="e.lampType" tone="neutral" :label="lampLabel(e.lampType) ?? ''" />
+                <StatusChip v-if="e.regime && e.regime !== 'horario'" tone="info" :label="regimeOf(e.regime).label" />
+                <StatusChip v-if="e.nonInterruptible" tone="warning" label="No se apaga" />
                 <span v-if="e.areaId && areaName.get(e.areaId)" class="dato"><IconMapPin :size="14" />{{ areaName.get(e.areaId) }}</span>
                 <span v-if="photoCounts.get(e.id)" class="dato"><IconCamera :size="14" />{{ photoCounts.get(e.id) }}</span>
               </span>
@@ -262,7 +303,7 @@ useQuickAdd(() => openNew());
       </div>
     </template>
 
-    <div v-else-if="ready" class="card">
+    <div v-else-if="ready && tab === 'equipos'" class="card">
       <EmptyState
         :icon="IconPlug"
         title="Aún no hay equipos en el censo"

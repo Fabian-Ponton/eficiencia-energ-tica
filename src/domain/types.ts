@@ -14,10 +14,10 @@ export interface ProjectScoped extends BaseRecord {
 }
 
 /** Usos finales, en el orden de la paleta validada para daltonismo (importa en barras apiladas). */
-export type EndUseCategory = 'climatizacion' | 'motores' | 'refrigeracion' | 'iluminacion' | 'cocina' | 'ti' | 'otros';
+export type EndUseCategory = 'climatizacion' | 'motores' | 'refrigeracion' | 'iluminacion' | 'cocina' | 'ti' | 'laboratorio' | 'otros';
 export type Condition = 'bueno' | 'regular' | 'deficiente';
 export type DataType = 'medido' | 'calculado' | 'estimado' | 'ingresado';
-export type PhotoKind = 'placa' | 'vista-general' | 'instalacion' | 'estado-fisico' | 'termografia' | 'otra';
+export type PhotoKind = 'placa' | 'vista-general' | 'instalacion' | 'estado-fisico' | 'termografia' | 'documento' | 'instrumento' | 'otra';
 export type EntityType = 'proyecto' | 'area' | 'equipo' | 'electrico' | 'medicion' | 'factura' | 'hallazgo' | 'medida' | 'tarea' | 'seguridad' | 'mantenimiento';
 export type Severity = 'critico' | 'alto' | 'medio' | 'bajo';
 export type TaskStatus = 'pendiente' | 'en-ejecucion' | 'implementada';
@@ -249,8 +249,9 @@ export interface Measurement extends ProjectScoped {
   thdV?: number;
   thdI?: number;
   instrument?: string;
-  /** Frecuencia (Hz), condición de carga en que se midió y responsable (Formato 7). */
+  /** Frecuencia (Hz), energía registrada durante la medición (kWh), condición de carga en que se midió y responsable (Formato 7). */
   frequencyHz?: number;
+  energyKwh?: number;
   condition?: string;
   responsible?: string;
   dataType: DataType;

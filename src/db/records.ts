@@ -65,6 +65,19 @@ const PHOTO_ENTITY: Partial<Record<RecordTable, EntityType>> = {
   maintenance: 'mantenimiento',
 };
 
+/**
+ * Copia profunda de arrays y objetos simples. Los formularios entregan objetos reactivos de Vue (proxies) y IndexedDB no
+ * puede clonarlos: sin esta copia, un registro con un array dentro (el horario típico de un equipo) no se guardaba.
+ * Lo que no es un objeto simple (un Blob de una foto, una fecha) pasa tal cual.
+ */
+export function plain<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(plain) as unknown as T;
+  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, field]) => [key, plain(field)])) as T;
+  }
+  return value;
+}
+
 /** Quita los campos vacíos (null, undefined o texto en blanco) y recorta los textos. */
 export function compact<T extends object>(value: T): T {
   const out: Record<string, unknown> = {};
@@ -87,7 +100,7 @@ export async function saveRecord<K extends RecordTable>(
   draft: Draft<RecordTables[K]>,
   now = Date.now(),
 ): Promise<RecordTables[K]> {
-  const record = { ...compact(draft), createdAt: draft.createdAt ?? now, updatedAt: now } as unknown as RecordTables[K];
+  const record = { ...compact(plain(draft)), createdAt: draft.createdAt ?? now, updatedAt: now } as unknown as RecordTables[K];
   const table = tableOf(db, name);
   await db.transaction('rw', [table, db.projects], async () => {
     await table.put(record);

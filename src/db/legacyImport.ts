@@ -43,6 +43,11 @@ export interface ImportedProject {
 }
 
 const CATEGORY_KEYWORDS: [EndUseCategory, RegExp][] = [
+  // Los equipos de laboratorio van primero: «estufa de secado» o «horno de mufla» no son de cocina
+  [
+    'laboratorio',
+    /mufla|autoclave|incubadora|centr[ií]fuga|balanza anal[ií]tica|balanza de precisi[oó]n|agitador|espectrofot[oó]metro|microscopio|destilador|ba[ñn]o (termost[aá]tico|mar[ií]a)|horno de (secado|laboratorio)|estufa de (secado|cultivo)|campana de (extracci[oó]n|gases)|cabina de bioseguridad|osciloscopio|potenci[oó]metro|termociclador|liofilizador|plancha de calentamiento/i,
+  ],
   ['climatizacion', /aire|split|climatiz|ventilador|chiller|fan ?coil/i],
   ['iluminacion', /l[aá]mpara|luminaria|bombillo|foco|tubo|reflector|panel led|\bled\b|fluorescente/i],
   ['refrigeracion', /nevera|refrigerador|congelador|enfriador|dispensador|vitrina/i],

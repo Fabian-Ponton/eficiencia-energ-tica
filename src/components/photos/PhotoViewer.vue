@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconChevronLeft, IconChevronRight, IconTrash, IconX } from '@tabler/icons-vue';
+import { IconChevronLeft, IconChevronRight, IconShieldCheck, IconTrash, IconX } from '@tabler/icons-vue';
 import Drawer from 'primevue/drawer';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
@@ -41,7 +41,7 @@ function go(step: number) {
   index.value = (index.value + step + props.photos.length) % props.photos.length;
 }
 
-async function update(changes: { kind?: PhotoKind; caption?: string }) {
+async function update(changes: { kind?: PhotoKind; caption?: string; authorized?: boolean }) {
   const photo = current.value;
   if (photo) await saveRecord(db, 'photos', { ...photo, ...changes });
 }
@@ -102,6 +102,16 @@ const kindLabel = (kind: PhotoKind) => PHOTO_KINDS.find((k) => k.id === kind)?.l
             @update:model-value="(kind: PhotoKind) => update({ kind })"
           />
           <InputText v-model="caption" class="texto" placeholder="Descripción de la foto" aria-label="Descripción" @blur="saveCaption" @keydown.enter="saveCaption" />
+          <button
+            type="button"
+            class="autoriza"
+            :class="{ activa: current.authorized }"
+            :aria-pressed="Boolean(current.authorized)"
+            title="Marca las fotos que se tomaron con la autorización de la entidad"
+            @click="update({ authorized: !current.authorized })"
+          >
+            <IconShieldCheck :size="18" /><span>Con autorización</span>
+          </button>
           <button type="button" class="boton eliminar" aria-label="Eliminar foto" @click="remove"><IconTrash :size="20" /></button>
         </footer>
       </div>
@@ -195,6 +205,25 @@ const kindLabel = (kind: PhotoKind) => PHOTO_KINDS.find((k) => k.id === kind)?.l
 .eliminar {
   color: #f29090;
 }
+.autoriza {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d7deea;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.autoriza.activa {
+  background: rgba(34, 160, 86, 0.3);
+  color: #a7efc2;
+}
 @media (max-width: 560px) {
   .pie {
     flex-wrap: wrap;
@@ -206,6 +235,11 @@ const kindLabel = (kind: PhotoKind) => PHOTO_KINDS.find((k) => k.id === kind)?.l
   .texto {
     order: 3;
     flex-basis: 100%;
+  }
+  .autoriza {
+    order: 4;
+    flex-basis: 100%;
+    justify-content: center;
   }
 }
 </style>

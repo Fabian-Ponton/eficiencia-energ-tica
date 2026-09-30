@@ -185,7 +185,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
     bullet('Línea base por regresión con variables relevantes (ISO 50006) y criterios de ASHRAE Guideline 14; los ahorros se verificarán con el protocolo IPMVP.'),
     bullet('Carga térmica simplificada y método de los lúmenes para verificar la climatización y la iluminación de cada espacio.'),
     ...(m.data.measures.length ? [bullet('Evaluación económica de cada medida de ahorro: retorno simple, valor presente neto y tasa interna de retorno.')] : []),
-    note('Los parámetros de referencia (iluminancia, carga de envolvente, VEEI y umbrales) son orientativos y se validan con el RETILAP, el RETIE y el criterio del auditor.'),
+    note('Las iluminancias de aulas y laboratorios y el VEEI de aulas, laboratorios y oficinas salen del RETILAP (Resolución 40286 de 2026). Los demás parámetros de referencia (carga de envolvente, otros tipos de espacio y umbrales) son orientativos y se validan con el RETILAP, el RETIE y el criterio del auditor.'),
   );
 
   // 4. Comportamiento del consumo

@@ -3,8 +3,10 @@ import { IconCamera, IconPlug, IconPlus, IconRuler2, IconSearch, IconUsers } fro
 import { useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import EmptyState from '@/components/EmptyState.vue';
 import RoomPlan from '@/components/diagrams/RoomPlan.vue';
+import ChoiceChips from '@/components/ui/ChoiceChips.vue';
 import FormSheet from '@/components/ui/FormSheet.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusChip from '@/components/ui/StatusChip.vue';
@@ -16,17 +18,29 @@ import { useRecordEditor } from '@/composables/useRecordEditor';
 import { floorAreaOf, roomIndexOf, volumeOf } from '@/domain/areas';
 import { lightingStatus } from '@/domain/calc/sizing/lighting';
 import { spaceTypeOf } from '@/domain/catalogs';
+import { useByArea } from '@/domain/occupancy';
 import type { Area } from '@/domain/types';
 import { LIGHTING_STATUS } from '@/ui/icons';
 import { formatNumber } from '@/utils/format';
 import { incrementCode, normalizeText } from '@/utils/text';
 import AreaForm from './AreaForm.vue';
+import OccupancyTab from './OccupancyTab.vue';
 
 const { projectId } = useCurrentProject();
 const desktop = useMediaQuery('(min-width: 1024px)');
 const { rows: areas, ready } = useProjectRecords('areas', (a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }));
 const { rows: equipment } = useProjectRecords('equipment');
+const { rows: occupancy, ready: occupancyReady } = useProjectRecords('occupancy');
 const photoCounts = usePhotoCounts('area');
+
+const route = useRoute();
+const TABS = [
+  { value: 'espacios', label: 'Espacios' },
+  { value: 'ocupacion', label: 'Horarios y ocupación' },
+] as const;
+type Tab = (typeof TABS)[number]['value'];
+const tab = ref<Tab>(TABS.find((t) => t.value === route.query.tab)?.value ?? 'espacios');
+const occupancyTab = ref<InstanceType<typeof OccupancyTab>>();
 const search = ref('');
 
 const equipmentByArea = computed(() => {
@@ -42,12 +56,22 @@ const visibleAreas = computed(() => {
 });
 
 const sum = (values: (number | null | undefined)[]) => values.reduce<number>((total, v) => total + (v ?? 0), 0);
-const stats = computed(() => [
-  { label: 'Espacios', value: formatNumber(areas.value.length) },
-  { label: 'Área de piso', value: formatNumber(sum(areas.value.map(floorAreaOf)), 1), unit: 'm²' },
-  { label: 'Volumen', value: formatNumber(sum(areas.value.map(volumeOf))), unit: 'm³' },
-  { label: 'Ocupantes', value: formatNumber(sum(areas.value.map((a) => a.occupants))), unit: 'personas' },
-]);
+const stats = computed(() => {
+  if (tab.value === 'ocupacion') {
+    const use = [...useByArea(occupancy.value).values()];
+    return [
+      { label: 'Espacios con horario', value: `${formatNumber(use.length)} de ${formatNumber(areas.value.length)}` },
+      { label: 'Bloques de uso', value: formatNumber(occupancy.value.length) },
+      { label: 'Horas por semana', value: formatNumber(sum(use.map((u) => u.weeklyHours)), 1), unit: 'h' },
+    ];
+  }
+  return [
+    { label: 'Espacios', value: formatNumber(areas.value.length) },
+    { label: 'Área de piso', value: formatNumber(sum(areas.value.map(floorAreaOf)), 1), unit: 'm²' },
+    { label: 'Volumen', value: formatNumber(sum(areas.value.map(volumeOf))), unit: 'm³' },
+    { label: 'Ocupantes', value: formatNumber(sum(areas.value.map((a) => a.occupants))), unit: 'personas' },
+  ];
+});
 
 function luxStatus(area: Area) {
   const target = spaceTypeOf(area.spaceType)?.lux;
@@ -75,21 +99,28 @@ const { visible, draft, isNew, errors, saving, openNew, openEdit, save, saveAndD
   duplicate: (d) => ({ ...d, name: incrementCode(d.name) ?? d.name, measuredLuxAvg: undefined, measuredLuxMin: undefined }),
 });
 
-useFabAction({ label: 'Agregar espacio', icon: IconPlus, run: () => openNew() });
-useQuickAdd(() => openNew());
+const addAction = () => (tab.value === 'ocupacion' ? occupancyTab.value?.openNew() : openNew());
+useFabAction(() => ({ label: tab.value === 'ocupacion' ? 'Agregar horario' : 'Agregar espacio', icon: IconPlus, run: addAction }));
+useQuickAdd(() => {
+  tab.value = 'espacios';
+  openNew();
+});
 </script>
 
 <template>
   <div class="vista">
     <PageHeader step="areas" :stats="areas.length ? stats : undefined">
       <template v-if="desktop" #actions>
-        <Button label="Agregar espacio" @click="openNew()">
+        <Button :label="tab === 'ocupacion' ? 'Agregar horario' : 'Agregar espacio'" @click="addAction()">
           <template #icon><IconPlus :size="18" stroke="2.2" /></template>
         </Button>
       </template>
+      <ChoiceChips v-model="tab" :options="TABS" label="Tema de los espacios" fill />
     </PageHeader>
 
-    <template v-if="areas.length">
+    <OccupancyTab v-if="tab === 'ocupacion'" ref="occupancyTab" :rows="occupancy" :areas="areas" :ready="occupancyReady" />
+
+    <template v-else-if="areas.length">
       <label v-if="areas.length > 6" class="buscador card">
         <IconSearch :size="18" />
         <span class="sr-only">Buscar espacios</span>
@@ -104,7 +135,9 @@ useQuickAdd(() => openNew());
               <span class="nombre">{{ area.name }}</span>
               <StatusChip v-if="luxStatus(area)" v-bind="luxStatus(area)!" />
             </span>
-            <span class="tipo">{{ spaceTypeOf(area.spaceType)?.label ?? 'Sin tipo' }} · {{ dimensions(area) }}</span>
+            <span class="tipo">
+              {{ [area.code, spaceTypeOf(area.spaceType)?.label ?? 'Sin tipo', area.floor ? `piso ${area.floor}` : ''].filter(Boolean).join(' · ') }} · {{ dimensions(area) }}
+            </span>
             <span class="mono medidas">
               {{ floorAreaOf(area) ? `${formatNumber(floorAreaOf(area) ?? 0, 1)} m²` : 'Sin área' }}
               <template v-if="volumeOf(area)"> · {{ formatNumber(volumeOf(area) ?? 0, 1) }} m³</template>
@@ -123,7 +156,7 @@ useQuickAdd(() => openNew());
       </div>
     </template>
 
-    <div v-else-if="ready" class="card">
+    <div v-else-if="ready && tab === 'espacios'" class="card">
       <EmptyState
         :icon="IconRuler2"
         title="Aún no hay espacios"
