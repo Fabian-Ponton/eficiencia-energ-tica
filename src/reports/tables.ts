@@ -3,6 +3,7 @@ import { carrierInfo, unitLabel } from '@/domain/carriers';
 import { CONDITIONS, electricalKindOf, endUseOf, spaceTypeOf } from '@/domain/catalogs';
 import { FINDING_STATUS_LABEL, findingTopicLabel, SEVERITY_LABEL } from '@/domain/diagnosis';
 import { PHASE_ORDER, phaseOf, TASK_STATUS_LABEL, taskDays } from '@/domain/implementation';
+import { documentKindInfo, interventionLabel, registryText, RETIE_REGIMES, RETIE_STATE_LABEL, retieRegime, retieState } from '@/domain/retie';
 import { MEASURE_KIND_LABEL, measureEconomics, PRIORITY_LABEL, savingsTypeInfo, savingsTypeOf } from '@/domain/measures';
 import { CONTROL_HIERARCHY, levelOf, RISK_LEVELS, riskFactorInfo, safetyCodes, SAFETY_STATUS_LABEL, type RiskLevel } from '@/domain/safety';
 import { derivePower } from '@/domain/measurements';
@@ -58,6 +59,21 @@ export function taskTable(tasks: readonly Task[], measures: readonly Pick<Measur
     { header: 'Indicador', value: (t) => t.kpi },
     { header: 'Verificación', value: (t) => t.verification },
     { header: 'Observaciones', value: (t) => t.notes },
+    { header: 'Ejecuta', value: (t) => t.executor?.name },
+    { header: 'Tipo de ejecutor', value: (t) => t.executor?.kind },
+    { header: 'Rol del ejecutor', value: (t) => t.executor?.role },
+    { header: 'Registro profesional', value: (t) => registryText(t.executor) },
+    { header: 'Intervención eléctrica', value: (t) => (t.works ? interventionLabel(t.works.interventionType) : '') },
+    { header: 'Inicio de la obra', value: (t) => t.works?.startDate },
+    { header: 'Régimen del RETIE', value: (t) => (t.works ? RETIE_REGIMES[retieRegime(t.works.startDate)].label : '') },
+    { header: 'Estado del RETIE', value: (t) => (retieState(t) === 'sin-obra' ? '' : RETIE_STATE_LABEL[retieState(t)]) },
+    {
+      header: 'Documentos del RETIE',
+      value: (t) => (t.retie?.documents ?? []).map((d) => `${documentKindInfo(d.kind).label}${d.reference ? ` ${d.reference}` : ''}${d.result ? ` (${d.result === 'cumple' ? 'cumple' : 'no cumple'})` : ''}`).join(' | '),
+    },
+    { header: 'Verificó (RETIE)', value: (t) => t.retie?.verifiedBy },
+    { header: 'Fecha de verificación (RETIE)', value: (t) => t.retie?.verifiedAt },
+    { header: 'Justificación (RETIE)', value: (t) => t.retie?.justification },
   ]);
 }
 

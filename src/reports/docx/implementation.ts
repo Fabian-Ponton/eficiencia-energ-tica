@@ -1,5 +1,6 @@
 import { Document, Paragraph, TableOfContents, type FileChild } from 'docx';
 import { budgetByPhase, budgetBySource, isOverdue, PHASE_ORDER, planCashFlow, scheduleSummary, TASK_PHASES, TASK_STATUS_LABEL, upcomingTasks } from '@/domain/implementation';
+import { documentKindInfo, interventionLabel, registryText, RETIE_REGIMES, RETIE_STATE_LABEL, retieGate, retieRegime, retieState, retieSummary, type RetieState } from '@/domain/retie';
 import type { Measure, Task } from '@/domain/types';
 import { formatDate, periodLabel, periodLabelLong, toLocalDate } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
@@ -32,7 +33,8 @@ import {
 
 /**
  * Plan de implementación del PGEE: alcance, cronograma por plazo (Gantt), presupuesto y financiación,
- * flujo de caja de la inversión frente al ahorro, responsables con sus indicadores y seguimiento.
+ * flujo de caja de la inversión frente al ahorro, responsables con sus indicadores, ejecutores con la
+ * verificación del RETIE de las obras eléctricas, y seguimiento.
  */
 
 export interface ImplementationInput {
@@ -41,6 +43,19 @@ export interface ImplementationInput {
 }
 
 const STATUS_COLOR = { pendiente: COLOR.muted, 'en-ejecucion': COLOR.info, implementada: COLOR.good } as const;
+const RETIE_COLOR: Record<Exclude<RetieState, 'sin-obra'>, string> = {
+  'por-definir': COLOR.warning,
+  pendiente: COLOR.muted,
+  'en-revision': COLOR.info,
+  cumple: COLOR.good,
+  'no-cumple': COLOR.critical,
+  'no-aplica': COLOR.muted,
+};
+const APPLIES_TEXT = { si: 'Sí', no: 'No', 'por-definir': 'Por definir' } as const;
+const shortState = (state: Exclude<RetieState, 'sin-obra'>) => {
+  const label = RETIE_STATE_LABEL[state].replace('RETIE ', '');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
 
 export function buildImplementationDocument(m: AuditModel, input: ImplementationInput, figures: readonly ReportFigure[], assets: Pick<AuditAssets, 'figures'>): Document {
   const { project, generatedAt } = m.data;
@@ -267,13 +282,96 @@ export function buildImplementationDocument(m: AuditModel, input: Implementation
     body.push(para('Aún no hay tareas con responsable.'));
   }
 
-  // 6. Seguimiento
+  // 6. Ejecución y cumplimiento del RETIE
+  const executors = tasks.filter((t) => t.executor?.name.trim());
+  const works = tasks.filter((t) => t.works);
+  const retie = retieSummary(tasks);
+  body.push(heading('6. Ejecución y cumplimiento del RETIE'), heading('6.1 Quién ejecuta', 2));
+  if (executors.length) {
+    body.push(
+      ...table(
+        'Ejecutor de cada tarea y su registro profesional.',
+        dataTable(
+          [
+            { header: 'Tarea', width: 0.32 },
+            { header: 'Ejecuta', width: 0.26 },
+            { header: 'Rol', width: 0.16 },
+            { header: 'Registro profesional', width: 0.26 },
+          ],
+          executors.map((t) => [taskLabel(t), t.executor?.name ?? '—', t.executor?.role ?? '—', registryText(t.executor) || '—']),
+        ),
+      ),
+    );
+  } else {
+    body.push(para('Aún no hay ejecutores registrados: se asignan en cada tarea del plan.'));
+  }
+  const noExecutor = works.filter((t) => !t.executor?.name.trim()).length;
+  if (noExecutor) body.push(note(`${noExecutor} ${noExecutor === 1 ? 'tarea de obra eléctrica no tiene' : 'tareas de obra eléctrica no tienen'} ejecutor registrado.`));
+
+  body.push(heading('6.2 Verificación del RETIE', 2));
+  if (works.length) {
+    body.push(
+      para(
+        'Las tareas que intervienen la instalación eléctrica deben demostrar la conformidad con el RETIE con las declaraciones de cumplimiento y, en los casos que aplique, el dictamen de inspección de un organismo acreditado por el ONAC. ' +
+          'El régimen depende de la fecha de inicio de la obra: la Resolución 40284 de 2026 si inicia desde el 1 de enero de 2026, y la Resolución 90708 de 2013 si inició antes.',
+      ),
+      ...table(
+        'Verificación del RETIE de las tareas con obra eléctrica.',
+        dataTable(
+          [
+            { header: 'Tarea', width: 0.22 },
+            { header: 'Intervención', width: 0.14 },
+            { header: 'Régimen', width: 0.13 },
+            { header: '¿Aplica?', width: 0.09 },
+            { header: 'Estado', width: 0.13 },
+            { header: 'Documentos', width: 0.29 },
+          ],
+          works.map((t): Cell[] => {
+            const state = retieState(t);
+            const documents = (t.retie?.documents ?? []).map((d) => `${documentKindInfo(d.kind).label}${d.reference ? ` ${d.reference}` : ''}${d.result ? ` (${d.result === 'cumple' ? 'cumple' : 'no cumple'})` : ''}`).join('; ');
+            return [
+              taskLabel(t),
+              t.works ? interventionLabel(t.works.interventionType) : '—',
+              RETIE_REGIMES[retieRegime(t.works?.startDate)].label,
+              APPLIES_TEXT[t.retie?.applies ?? 'por-definir'],
+              state === 'sin-obra' ? '—' : { text: shortState(state), color: RETIE_COLOR[state], bold: state === 'no-cumple' || state === 'por-definir' },
+              documents || '—',
+            ];
+          }),
+        ),
+      ),
+    );
+    for (const t of works) {
+      const v = t.retie;
+      const gate = retieGate(t);
+      if (t.status === 'implementada' && gate.waived) {
+        body.push(bullet([text(`${taskLabel(t)}: `, { bold: true, color: COLOR.serious }), text(`implementada sin la verificación del RETIE en «Cumple». Justificación: ${v?.justification}`)]));
+      } else if (t.status === 'implementada' && !gate.ok) {
+        body.push(bullet([text(`${taskLabel(t)}: `, { bold: true, color: COLOR.critical }), text(`implementada sin el RETIE resuelto ni una justificación (${gate.reason})`)]));
+      } else if (v?.applies === 'no' && v.justification) {
+        body.push(bullet([text(`${taskLabel(t)}: `, { bold: true }), text(`el RETIE no aplica. ${v.justification}`)]));
+      }
+      if (v?.verifiedBy && v.verifiedAt && retieState(t) === 'cumple') {
+        body.push(bullet([text(`${taskLabel(t)}: `, { bold: true }), text(`verificada por ${v.verifiedBy} el ${formatDate(v.verifiedAt)}.`)]));
+      }
+    }
+    body.push(
+      para(
+        `De ${retie.works} ${retie.works === 1 ? 'tarea con obra eléctrica' : 'tareas con obra eléctrica'}: ${retie.byState.cumple} ${retie.byState.cumple === 1 ? 'cumple' : 'cumplen'}, ${retie.byState['en-revision']} en revisión, ${retie.byState.pendiente} ${retie.byState.pendiente === 1 ? 'pendiente' : 'pendientes'}, ${retie.byState['por-definir']} por definir, ${retie.byState['no-cumple']} sin cumplir y ${retie.byState['no-aplica']} donde no aplica.`,
+      ),
+    );
+  } else {
+    body.push(para('Ninguna tarea del plan está marcada como obra sobre la instalación eléctrica por ahora.'));
+  }
+  body.push(note('PONTIA registra quién ejecuta, los documentos y la verificación, y recuerda lo que dice el reglamento. No decide qué documento aplica a cada instalación ni reemplaza el dictamen de inspección.'));
+
+  // 7. Seguimiento
   const overdue = tasks.filter((t) => isOverdue(t, today));
   const next = upcomingTasks(tasks, today)
     .filter((t) => !isOverdue(t, today))
     .slice(0, 8);
   body.push(
-    heading('6. Seguimiento'),
+    heading('7. Seguimiento'),
     para(
       `Al ${formatDate(today)} el plan lleva un avance del ${formatPercent(summary.progress, 0)}, ponderado por la duración de las tareas: ` +
         `${summary.done} ${summary.done === 1 ? 'implementada' : 'implementadas'}, ${summary.running} en ejecución y ${summary.pending} ${summary.pending === 1 ? 'pendiente' : 'pendientes'}.`,

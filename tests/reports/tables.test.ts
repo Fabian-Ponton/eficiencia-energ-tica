@@ -54,6 +54,20 @@ describe('tablas para CSV y Excel', () => {
     expect(measuresHeader).toContain('Prioridad;Clase de potencial;Consumo actual del sistema (kWh/año);Hallazgos que atiende;Evidencia;Responsable;Plazo;Indicador de seguimiento');
   });
 
+  it('las tareas exportan quién ejecuta, su registro y la verificación del RETIE al final de las columnas de siempre', async () => {
+    const tables = await sampleTables('pontia-prueba-tablas-retie');
+    const tareas = tables.find((t) => t.id === 'tareas')!;
+    const [header, ...filas] = csvLines(tareas);
+    expect(header).toContain('Observaciones;Ejecuta;Tipo de ejecutor;Rol del ejecutor;Registro profesional;Intervención eléctrica;Inicio de la obra;Régimen del RETIE;Estado del RETIE;Documentos del RETIE;Verificó (RETIE);Fecha de verificación (RETIE);Justificación (RETIE)');
+    const iluminacion = filas.find((f) => f.includes('Contratista de iluminación (ejemplo)'))!;
+    expect(iluminacion).toContain(';Contratista de iluminación (ejemplo);empresa;Constructor;CONTE · TE-1;Remodelación;2027-03-31;RETIE de 2026;RETIE pendiente;');
+    const solar = filas.find((f) => f.includes('Contratista de energía solar (ejemplo)'))!;
+    expect(solar).toContain(';Diseñador y constructor;COPNIA · Ingeniero electricista;Instalación nueva;2027-05-31;RETIE de 2026;RETIE en revisión;Declaración de cumplimiento del diseño DD-ejemplo (cumple);');
+    // Las tareas sin obra eléctrica no traen nada de RETIE
+    const campana = filas.find((f) => f.startsWith('Preparación de la campaña'))!;
+    expect(campana.endsWith(';;;;;;;;;;;;')).toBe(true);
+  });
+
   it('la ruta anual sale con la meta, el ahorro previsto y su estado, y dice si es propuesta o está confirmada', async () => {
     const tables = await sampleTables('pontia-prueba-tablas-ruta');
     const ruta = tables.find((t) => t.id === 'ruta-anual')!;

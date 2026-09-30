@@ -1,7 +1,7 @@
 import { planTasks } from '@/domain/implementation';
 import { proposeRoute } from '@/domain/route';
 import { hvacMeasure, ledMeasure, measureEconomics, pvMeasure, specsText, suggestedPriority, type CalculatorResult } from '@/domain/measures';
-import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalDay, IntervalSeries, Measure, Measurement, MeterReadingRecord, Pgee, Project, Task } from '@/domain/types';
+import type { Area, Bill, ElectricalNode, EndUseCategory, Equipment, Finding, IntervalDay, IntervalSeries, Measure, Measurement, MeterReadingRecord, Pgee, Project, RetieVerification, Task, TaskExecutor } from '@/domain/types';
 import { summarizeDays } from './intervals';
 import type { PontiaDb } from './schema';
 
@@ -335,7 +335,8 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
       annualCostCop: Math.round(r.annualCostCop),
       lifetimeYears: r.lifetimeYears,
     };
-    return { ...stamp(), code, title: r.title, category: r.category, kind: r.kind, ...values, priority: suggestedPriority(measureEconomics(values, project.economics), values.investmentCop), ...extra };
+    // La clase de potencial que trae la calculadora (la solar es FNCER) también queda en las medidas del ejemplo
+    return { ...stamp(), code, title: r.title, category: r.category, kind: r.kind, ...(r.savingsType ? { savingsType: r.savingsType } : {}), ...values, priority: suggestedPriority(measureEconomics(values, project.economics), values.investmentCop), ...extra };
   };
   const led = ledMeasure({ currentCount: t8, currentW: 70, proposedCount: t8, proposedW: 36, hoursPerYear: 2112, costPerLuminaire: 150_000, tariff: TARIFF });
   const airReplacement = hvacMeasure({ units: classroomSplits, capacityBtuH: 18_000, currentEer: 10.9, newEer: 16, fullLoadHoursPerYear: 1267, costPerUnit: 3_200_000, tariff: TARIFF });
@@ -390,6 +391,23 @@ export async function createSampleProject(db: PontiaDb, now = Date.now()): Promi
   });
   tasks[0] = { ...tasks[0], status: 'implementada', progress: 100 };
   tasks[1] = { ...tasks[1], status: 'en-ejecucion', progress: 25 };
+
+  // Ejecutores y verificación del RETIE de las obras eléctricas: datos de ejemplo, sin personas reales ni números de matrícula
+  const EXECUTOR: Record<string, TaskExecutor> = {
+    M1: { kind: 'empresa', name: 'Contratista de iluminación (ejemplo)', role: 'Constructor', registry: { body: 'CONTE', category: 'TE-1' } },
+    M2: { kind: 'dependencia', name: 'Mantenimiento', role: 'Instalación' },
+    M3: { kind: 'empresa', name: 'Contratista de energía solar (ejemplo)', role: 'Diseñador y constructor', registry: { body: 'COPNIA', category: 'Ingeniero electricista' } },
+  };
+  // La instalación solar ya tiene el diseño declarado y está en revisión (falta el dictamen); la de iluminación, con el RETIE aplicable y pendiente; la de los aires, por definir
+  const RETIE: Record<string, Partial<RetieVerification>> = {
+    M1: { applies: 'si', status: 'pendiente' },
+    M3: { applies: 'si', status: 'en-revision', riskAnalysisDone: true, documents: [{ kind: 'declaracion-diseno', reference: 'DD-ejemplo', issuer: 'Diseñador (ejemplo)', date: '2027-03-15', result: 'cumple' }] },
+  };
+  tasks.forEach((t, i) => {
+    const code = codeOf.get(t.measureId ?? '') ?? '';
+    if (!t.works || !EXECUTOR[code] || !t.retie) return;
+    tasks[i] = { ...t, executor: EXECUTOR[code], works: { ...t.works, startDate: t.start, startProof: 'contrato' }, retie: { ...t.retie, ...RETIE[code] } };
+  });
 
   // Ruta anual confirmada: la que propone PONTIA con las fechas de las tareas (el primer año supera el 15 % de la ley)
   pgee.annualRoute = proposeRoute({

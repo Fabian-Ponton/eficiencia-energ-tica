@@ -1,5 +1,6 @@
 import { addDays, addMonths, nextPeriod, parseLocal, toLocalDate, toPeriod } from '@/utils/dates';
 import { formatCop, formatNumber } from '@/utils/format';
+import { suggestedWorks } from './retie';
 import type { Measure, Project, Task, TaskStatus } from './types';
 
 /**
@@ -23,8 +24,19 @@ export const PHASE_OF_PRIORITY: Record<NonNullable<Measure['priority']>, TaskPha
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = { pendiente: 'Pendiente', 'en-ejecucion': 'En ejecución', implementada: 'Implementada' };
 
-/** Fuentes de financiación frecuentes; el auditor puede escribir otra. */
-export const FUNDING_SOURCES = ['Recursos propios', 'Crédito bancario', 'Cofinanciación', 'Incentivos de la Ley 1715 de 2014', 'Contrato con una ESCO (pago con los ahorros)'] as const;
+/**
+ * Fuentes de financiación frecuentes; el auditor puede escribir otra. Los ahorros reinvertidos los permite el art. 30 de la Ley 1715 y el
+ * FENOGE es el fondo de esa ley (Res. 40412 de 2024, art. 8).
+ */
+export const FUNDING_SOURCES = [
+  'Recursos propios',
+  'Ahorros reinvertidos (Ley 1715, art. 30)',
+  'FENOGE',
+  'Crédito bancario',
+  'Cofinanciación',
+  'Incentivos de la Ley 1715 de 2014',
+  'Contrato con una ESCO (pago con los ahorros)',
+] as const;
 
 /** Tareas tipo de cada clase de medida: preparación y ejecución, con su duración en días. */
 const STEPS: Record<Measure['kind'], readonly (readonly [name: string, days: number])[]> = {
@@ -60,7 +72,8 @@ const planOrder = (a: Measure, b: Measure) =>
 /**
  * Cronograma propuesto para las medidas del plan: una tarea de preparación y otra de ejecución por
  * medida, en el plazo que le da su prioridad; dentro de un mismo plazo cada medida arranca un mes
- * después de la anterior. La inversión de la medida queda como presupuesto de la ejecución.
+ * después de la anterior. La inversión de la medida queda como presupuesto de la ejecución. La ejecución de una medida que interviene la
+ * instalación eléctrica sale con sus datos de obra y la verificación del RETIE por definir; las buenas prácticas no.
  */
 export function planTasks(measures: readonly Measure[], projectId: string, start: string): TaskDraft[] {
   const stagger: Record<TaskPhase, number> = { corto: 0, mediano: 0, largo: 0 };
@@ -86,6 +99,7 @@ export function planTasks(measures: readonly Measure[], projectId: string, start
         progress: 0,
         kpi: last ? kpiFor(m) : undefined,
         verification: last ? verificationFor(m) : undefined,
+        ...(last ? suggestedWorks(m) : {}),
       });
       from = addDays(end, 1);
     });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconAlertTriangle, IconCalendarPlus, IconCalendarStats, IconCamera, IconCash, IconDownload, IconFileText, IconLoader2, IconPlus, IconTable } from '@tabler/icons-vue';
+import { IconAlertTriangle, IconBolt, IconCalendarPlus, IconCalendarStats, IconCamera, IconCash, IconDownload, IconFileText, IconLoader2, IconPlus, IconTable } from '@tabler/icons-vue';
 import { useLocalStorage, useMediaQuery } from '@vueuse/core';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
@@ -22,12 +22,13 @@ import { logReport } from '@/db/projects';
 import { saveRecord } from '@/db/records';
 import { getDb } from '@/db/schema';
 import { budgetByPhase, budgetBySource, isOverdue, planCashFlow, planTasks, scheduleSummary, TASK_PHASES } from '@/domain/implementation';
+import { RETIE_STATE_LABEL, retieSaveProblem, retieState, retieSummary, tidyRetieFields, type RetieState } from '@/domain/retie';
 import type { Task, TaskStatus } from '@/domain/types';
 import { toCsv, type CsvFormat } from '@/reports/csv';
 import { generateImplementationReport, reportFileName } from '@/reports/generate';
 import { cashFlowOption, ganttOption, phaseColors } from '@/reports/implementationFigures';
 import { taskTable } from '@/reports/tables';
-import { OVERDUE_STATUS, TASK_STATUS } from '@/ui/icons';
+import { OVERDUE_STATUS, TASK_STATUS, type Tone } from '@/ui/icons';
 import { formatDate, periodLabel, periodLabelLong, toLocalDate } from '@/utils/dates';
 import { formatCop, formatMillionsCop, formatNumber, formatPercent } from '@/utils/format';
 import { deliverFile } from '@/utils/share';
@@ -49,6 +50,16 @@ const economics = computed(() => project.value?.economics ?? DEFAULT_ECONOMICS);
 const plan = computed(() => measures.value.filter((m) => m.selected));
 const measureById = computed(() => new Map(measures.value.map((m) => [m.id, m])));
 const summary = computed(() => scheduleSummary(tasks.value, today));
+const retie = computed(() => retieSummary(tasks.value));
+/** Tareas con obra eléctrica cuyo RETIE está por definir, pendiente, en revisión o sin cumplir. */
+const OPEN_RETIE: readonly RetieState[] = ['por-definir', 'pendiente', 'en-revision', 'no-cumple'];
+const retieOpen = computed(() => tasks.value.filter((t) => OPEN_RETIE.includes(retieState(t))).length);
+const RETIE_TONE: Record<Exclude<RetieState, 'sin-obra'>, Tone> = { 'por-definir': 'warning', pendiente: 'neutral', 'en-revision': 'info', cumple: 'good', 'no-cumple': 'critical', 'no-aplica': 'neutral' };
+const retieChip = (t: Task) => {
+  const state = retieState(t);
+  return state === 'sin-obra' ? null : { tone: RETIE_TONE[state], label: RETIE_STATE_LABEL[state], icon: IconBolt };
+};
+const retieCounts = computed(() => (Object.keys(retie.value.byState) as Exclude<RetieState, 'sin-obra'>[]).filter((s) => retie.value.byState[s] > 0).map((s) => ({ state: s, count: retie.value.byState[s], tone: RETIE_TONE[s], label: RETIE_STATE_LABEL[s] })));
 const flow = computed(() => planCashFlow(measures.value, tasks.value, economics.value));
 /** Medidas del plan que todavía no tienen ninguna tarea. */
 const unscheduled = computed(() => {
@@ -107,15 +118,18 @@ const phases = computed(() => {
 const sources = computed(() => budgetBySource(tasks.value));
 
 // Lista de tareas por plazo, con filtro por estado
-type Filter = 'todas' | TaskStatus | 'atrasadas';
+type Filter = 'todas' | TaskStatus | 'atrasadas' | 'retie';
 const filter = ref<Filter>('todas');
 const FILTERS = computed(() => [
   { value: 'todas' as const, label: `Todas · ${tasks.value.length}` },
   ...(['pendiente', 'en-ejecucion', 'implementada'] as const).map((s) => ({ value: s, label: `${TASK_STATUS[s].label} · ${tasks.value.filter((t) => t.status === s).length}` })),
   ...(summary.value.overdue ? [{ value: 'atrasadas' as const, label: `Atrasadas · ${summary.value.overdue}` }] : []),
+  ...(retieOpen.value ? [{ value: 'retie' as const, label: `RETIE abierto · ${retieOpen.value}` }] : []),
 ]);
 const groups = computed(() => {
-  const shown = tasks.value.filter((t) => filter.value === 'todas' || (filter.value === 'atrasadas' ? isOverdue(t, today) : t.status === filter.value));
+  const shown = tasks.value.filter(
+    (t) => filter.value === 'todas' || (filter.value === 'atrasadas' ? isOverdue(t, today) : filter.value === 'retie' ? OPEN_RETIE.includes(retieState(t)) : t.status === filter.value),
+  );
   return TASK_PHASES.map((p) => {
     const list = shown.filter((t) => t.phase === p.id).sort((a, b) => (a.start ?? '9999').localeCompare(b.start ?? '9999') || a.name.localeCompare(b.name, 'es'));
     return { ...p, tasks: list, budget: list.reduce((total, t) => total + (t.budgetCop ?? 0), 0) };
@@ -131,6 +145,8 @@ const { visible, draft, isNew, errors, saving, openNew, openEdit, save, saveAndD
     name: d.name.trim() ? undefined : 'Escribe la tarea en pocas palabras.',
     end: d.start && d.end && d.end < d.start ? 'La fecha de fin es anterior a la de inicio.' : undefined,
     progress: Number.isFinite(d.progress) && d.progress >= 0 && d.progress <= 100 ? undefined : 'El avance va de 0 a 100 %.',
+    // Una tarea de obra eléctrica no queda «Cumple» sin evidencia ni «Implementada» sin el RETIE resuelto (o sin una justificación escrita)
+    retie: retieSaveProblem(d),
   }),
   describe: (d) => d.name || 'Tarea',
   photoEntity: 'tarea',
@@ -138,7 +154,7 @@ const { visible, draft, isNew, errors, saving, openNew, openEdit, save, saveAndD
   prepare: (d) => {
     const progress = d.status === 'implementada' ? 100 : Math.round(Math.min(100, Math.max(0, d.progress || 0)));
     const status: TaskStatus = progress >= 100 ? 'implementada' : d.status === 'pendiente' && progress > 0 ? 'en-ejecucion' : d.status;
-    return { ...d, progress, status };
+    return { ...d, progress, status, ...tidyRetieFields(d) };
   },
   duplicate: (d) => ({ ...d, status: 'pendiente', progress: 0 }),
 });
@@ -254,6 +270,26 @@ const downloadCsv = () =>
         <p v-else class="nota">El flujo de caja aparece cuando las tareas tienen fechas.</p>
       </section>
 
+      <section v-if="retie.works" class="card seccion retie">
+        <div class="cabecera-seccion apilada">
+          <h2><IconBolt :size="18" />Cumplimiento del RETIE</h2>
+          <span class="eyebrow">Res. 40284 de 2026 · libro 4 · {{ retie.works }} {{ retie.works === 1 ? 'tarea con obra eléctrica' : 'tareas con obra eléctrica' }}</span>
+        </div>
+        <div class="retie-conteo">
+          <StatusChip v-for="c in retieCounts" :key="c.state" :tone="c.tone" :label="`${c.count} · ${c.label.replace('RETIE ', '')}`" />
+        </div>
+        <p v-if="retie.breaking" class="aviso-linea alerta" role="alert">
+          <IconAlertTriangle :size="16" />
+          <span>{{ retie.breaking }} {{ retie.breaking === 1 ? 'tarea implementada no tiene' : 'tareas implementadas no tienen' }} el RETIE resuelto ni una justificación. Ábrelas y registra la verificación.</span>
+        </p>
+        <p v-if="retie.waived" class="aviso-linea">
+          <span>{{ retie.waived }} {{ retie.waived === 1 ? 'tarea se implementó' : 'tareas se implementaron' }} sin la verificación en «Cumple», con su justificación. El informe las señala.</span>
+        </p>
+        <p class="nota">
+          PONTIA registra quién ejecuta, los documentos y la verificación, y recuerda lo que dice el RETIE. No decide qué documento aplica a cada instalación: el dictamen de inspección lo emite un organismo acreditado por el ONAC.
+        </p>
+      </section>
+
       <section class="card seccion">
         <div class="cabecera-seccion">
           <h2><IconTable :size="18" />Tareas</h2>
@@ -287,8 +323,12 @@ const downloadCsv = () =>
                       <span v-if="photoCounts.get(t.id)" class="fotos"><IconCamera :size="13" />{{ photoCounts.get(t.id) }}</span>
                     </span>
                     <span v-if="measureTitle(t)" class="sub">{{ measureTitle(t) }}</span>
+                    <span v-if="retieChip(t)" class="sub"><StatusChip v-bind="retieChip(t)!" /></span>
                   </td>
-                  <td>{{ t.responsible ?? '—' }}</td>
+                  <td>
+                    {{ t.responsible ?? '—' }}
+                    <span v-if="t.executor?.name" class="sub">Ejecuta: {{ t.executor.name }}</span>
+                  </td>
                   <td class="mono fecha">{{ formatDate(t.start) }}</td>
                   <td class="mono fecha">{{ formatDate(t.end) }}</td>
                   <td class="der">{{ t.budgetCop ? formatCop(t.budgetCop) : '—' }}</td>
@@ -326,8 +366,9 @@ const downloadCsv = () =>
                         <span class="pista"><span class="relleno" :style="{ width: `${t.progress}%` }" /></span>
                         <span class="mono pct">{{ t.progress }} %</span>
                       </span>
-                      <span class="responsable">{{ t.responsible ?? '' }}</span>
+                      <span class="responsable">{{ t.executor?.name ?? t.responsible ?? '' }}</span>
                     </span>
+                    <span v-if="retieChip(t)" class="fila-secundaria"><StatusChip v-bind="retieChip(t)!" /></span>
                   </button>
                 </li>
               </ul>
@@ -401,6 +442,14 @@ const downloadCsv = () =>
 .arranque,
 .documento {
   border-left: 3px solid var(--accent);
+}
+.retie {
+  border-left: 3px solid var(--serious);
+}
+.retie-conteo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .texto {
   margin: 0;

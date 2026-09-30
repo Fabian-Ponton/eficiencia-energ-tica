@@ -486,8 +486,11 @@ export interface TaskExecutor {
   registry?: { body: 'CONTE' | 'COPNIA' | 'otra'; category?: string; number?: string };
 }
 
+/** Documentos con que se demuestra la conformidad (Libro 4, art. 4.3.8): las declaraciones de cumplimiento son tres, una por etapa. */
+export type RetieDocumentKind = 'declaracion-diseno' | 'declaracion-construccion' | 'declaracion-operacion' | 'dictamen-inspeccion' | 'esquema-constructivo' | 'certificado-producto' | 'otro';
+
 export interface RetieDocument {
-  kind: 'esquema-constructivo' | 'declaracion-cumplimiento' | 'dictamen-inspeccion' | 'certificado-producto' | 'otro';
+  kind: RetieDocumentKind;
   reference?: string;
   issuer?: string;
   date?: string;
@@ -502,6 +505,8 @@ export interface RetieVerification {
   status: 'pendiente' | 'en-revision' | 'cumple' | 'no-cumple' | 'no-aplica';
   verifiedBy?: string;
   verifiedAt?: string;
+  /** Por qué el RETIE no aplica, o por qué la tarea se implementó sin la verificación en «Cumple»: queda en el informe. */
+  justification?: string;
 }
 
 /** Formato 6: horarios, uso y ocupación de un espacio en un periodo académico. */

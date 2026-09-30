@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { budgetByPhase, ganttRows, monthlyBudget, planCashFlow, planTasks, scheduleSummary, taskDays } from '@/domain/implementation';
+import { budgetByPhase, FUNDING_SOURCES, ganttRows, monthlyBudget, planCashFlow, planTasks, scheduleSummary, taskDays } from '@/domain/implementation';
 import type { Measure, Task } from '@/domain/types';
 
 const measure = (id: string, code: string, priority: Measure['priority'], kind: Measure['kind'], extra: Partial<Measure> = {}): Measure => ({
@@ -39,6 +39,33 @@ describe('plan de implementación', () => {
     expect(tasks[4]).toMatchObject({ measureId: 'c', start: '2027-08-01' });
     expect(taskDays({ start: '2027-01-01', end: '2027-01-31' })).toBe(31);
     expect(taskDays({ start: '2027-02-01', end: '2027-01-31' })).toBeNull();
+  });
+
+  it('la ejecución de una medida que interviene la instalación eléctrica sale con obra y el RETIE por definir; las buenas prácticas y la preparación, no', () => {
+    const tasks = planTasks(
+      [
+        measure('a', 'M1', 'alta', 'operativa'),
+        measure('b', 'M2', 'alta', 'baja-inversion'),
+        measure('c', 'M3', 'media', 'alta-inversion', { savingsType: 'fncer' }),
+      ],
+      'p',
+      '2027-01-01',
+    );
+    const de = (id: string) => tasks.filter((t) => t.measureId === id);
+    // Operativa: ninguna tarea toca la instalación
+    expect(de('a').every((t) => !t.works && !t.retie)).toBe(true);
+    // Baja inversión: solo la última tarea (la instalación) es obra, una remodelación con el RETIE por definir
+    expect(de('b')[0].works).toBeUndefined();
+    expect(de('b')[1].works).toEqual({ interventionType: 'remodelacion' });
+    expect(de('b')[1].retie).toEqual({ applies: 'por-definir', documents: [], status: 'pendiente' });
+    // Generación con FNCER: instalación nueva
+    expect(de('c')[1].works).toEqual({ interventionType: 'nueva' });
+  });
+
+  it('entre las fuentes de financiación están los ahorros reinvertidos (Ley 1715, art. 30) y el FENOGE', () => {
+    expect(FUNDING_SOURCES).toContain('Ahorros reinvertidos (Ley 1715, art. 30)');
+    expect(FUNDING_SOURCES).toContain('FENOGE');
+    expect(FUNDING_SOURCES).toContain('Recursos propios');
   });
 
   it('reparte el presupuesto por días y pondera el avance por la duración', () => {
