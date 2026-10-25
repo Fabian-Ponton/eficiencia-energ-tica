@@ -1,4 +1,4 @@
-import { AlignmentType, BorderStyle, Document, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow, WidthType, type FileChild } from 'docx';
+import { BorderStyle, Document, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow, WidthType, type FileChild } from 'docx';
 import { BASELINE_VARIABLES } from '@/domain/analysis';
 import { art4Counts, verifyArt4, type ReportPart } from '@/domain/art4';
 import { hasAuditorData } from '@/domain/auditor';
@@ -34,6 +34,7 @@ import {
   kpiGrid,
   note,
   NUMBERING,
+  ownershipBlock,
   PAGE,
   pageBreak,
   pageFooter,
@@ -718,7 +719,7 @@ export function buildAuditDocument(m: AuditModel, figures: readonly ReportFigure
         },
         // La portada (primera página) no lleva encabezado ni número de página
         headers: { default: pageHeader(project.name), first: blankHeader() },
-        footers: { default: pageFooter(), first: blankFooter() },
+        footers: { default: pageFooter(m.data.copyrightHolder), first: blankFooter() },
         children: body,
       },
     ],
@@ -765,11 +766,7 @@ function cover(m: AuditModel): FileChild[] {
         border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: COLOR.rule, space: 4 } },
       }),
     ),
-    new Paragraph({
-      spacing: { before: 1200 },
-      alignment: AlignmentType.LEFT,
-      children: [text('Elaborado con PONTIA · plataforma de auditoría y eficiencia energética', { size: 17, color: COLOR.muted, italics: true })],
-    }),
+    ...ownershipBlock(m.data.copyrightHolder),
   ];
 }
 

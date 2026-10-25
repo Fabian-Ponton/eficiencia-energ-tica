@@ -7,6 +7,7 @@ import { useToast } from 'primevue/usetoast';
 import { computed, ref, shallowRef } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLogo from '@/components/AppLogo.vue';
+import BrandFooter from '@/components/BrandFooter.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InstallCard from '@/components/InstallCard.vue';
 import NewProjectDialog from '@/components/NewProjectDialog.vue';
@@ -322,6 +323,7 @@ const storagePercent = computed(() =>
         </Button>
       </div>
       <input ref="fileInput" type="file" accept=".zip,application/zip" class="sr-only" tabindex="-1" aria-hidden="true" @change="onBackupChosen" />
+      <BrandFooter class="marca-proyectos" />
     </main>
 
     <div class="accion-movil">
@@ -595,6 +597,9 @@ h1 {
 .alerta {
   flex-shrink: 0;
   color: var(--warning-text);
+}
+.marca-proyectos {
+  padding: 4px 2px 8px;
 }
 .secundarias {
   display: flex;

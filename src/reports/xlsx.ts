@@ -1,4 +1,5 @@
 import type { Workbook } from 'exceljs';
+import { copyrightShort } from '@/domain/ownership';
 import type { CsvColumn } from './csv';
 import type { ExportTable } from './tables';
 
@@ -14,12 +15,13 @@ const cellValue = (value: string | number | null | undefined) => (typeof value =
  * Libro de Excel con una hoja por tabla: encabezado azul con filtro, fila de títulos fija,
  * anchos según el contenido y formato numérico por columna. ExcelJS se carga solo al exportar.
  */
-export async function buildWorkbook(tables: readonly ExportTable[], meta: { title: string; created?: Date }): Promise<Blob> {
+export async function buildWorkbook(tables: readonly ExportTable[], meta: { title: string; created?: Date; holder?: string }): Promise<Blob> {
   const { default: ExcelJS } = await import('exceljs');
   const workbook: Workbook = new ExcelJS.Workbook();
   workbook.creator = 'PONTIA';
   workbook.title = meta.title;
   workbook.created = meta.created ?? new Date();
+  workbook.company = copyrightShort(meta.holder);
 
   for (const t of tables) {
     const columns = t.columns as unknown as CsvColumn<unknown>[];
@@ -41,6 +43,8 @@ export async function buildWorkbook(tables: readonly ExportTable[], meta: { titl
       column.width = Math.min(42, Math.max(10, Math.ceil(c.header.length * 0.9) + 2, longest + 2));
     });
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
+    // El aviso de propiedad acompaña a la hoja al imprimirla o pasarla a PDF
+    sheet.headerFooter = { oddFooter: `&L&9${copyrightShort(meta.holder)}&R&9Página &P de &N` };
   }
 
   const buffer = await workbook.xlsx.writeBuffer();

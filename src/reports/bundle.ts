@@ -1,5 +1,7 @@
 import JSZip from 'jszip';
 import { renderChartPng } from '@/charts/echarts';
+import { useOwnership } from '@/composables/useOwnership';
+import { copyrightShort } from '@/domain/ownership';
 import { toCsv, type CsvFormat } from './csv';
 import type { ReportFigure } from './figures';
 import type { Progress } from './generate';
@@ -25,10 +27,11 @@ export async function csvBundle(tables: readonly ExportTable[], format: CsvForma
 /** Todas las gráficas del informe en PNG (modo claro), dentro de un .zip. */
 export async function chartsBundle(figures: readonly ReportFigure[], onProgress?: Progress): Promise<Blob> {
   const zip = new JSZip();
+  const marca = copyrightShort(useOwnership().holder.value);
   for (const [index, figure] of figures.entries()) {
     onProgress?.(`Dibujando «${figure.title}»`, index, figures.length);
     await nextFrame();
-    const url = await renderChartPng(figure.option, figure.width, figure.height);
+    const url = await renderChartPng(figure.option, figure.width, figure.height, 2, marca);
     zip.file(numbered(index, figure.id, 'png'), url.split(',')[1] ?? '', { base64: true, compression: 'STORE' });
   }
   return toBlob(zip);

@@ -40,9 +40,15 @@ export { echarts };
  * Dibuja una gráfica fuera de pantalla y la devuelve como PNG (para el informe Word y las descargas).
  * Siempre en modo claro y sin animación. Espera el aviso «finished» de ECharts antes de capturarla.
  */
-export async function renderChartPng(option: ChartOption, width = 900, height = 420, pixelRatio = 2): Promise<string> {
+export async function renderChartPng(option: ChartOption, width = 900, height = 420, pixelRatio = 2, watermark?: string): Promise<string> {
   const host = document.createElement('div');
   const chart = echarts.init(host, undefined, { renderer: 'canvas', width, height });
+  // Las gráficas que se descargan sueltas llevan el aviso de propiedad; las que van dentro de un documento ya marcado, no
+  if (watermark) {
+    const previo = (option as { graphic?: unknown }).graphic;
+    const marca = { type: 'text', right: 8, bottom: 6, silent: true, style: { text: watermark, fontSize: 11, fill: '#8a93a3' } };
+    option = { ...option, graphic: [...(Array.isArray(previo) ? previo : previo ? [previo] : []), marca] } as ChartOption;
+  }
   try {
     const finished = new Promise<void>((resolve) => {
       chart.on('finished', () => resolve());

@@ -21,6 +21,7 @@ import { useToast } from 'primevue/usetoast';
 import { computed, ref, shallowRef } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import AppLogo from '@/components/AppLogo.vue';
+import BrandFooter from '@/components/BrandFooter.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import QuickPhotoSheet from '@/components/photos/QuickPhotoSheet.vue';
 import { provideCurrentProject } from '@/composables/useCurrentProject';
@@ -133,6 +134,7 @@ async function takeQuickPhoto(event: Event) {
         <IconWifiOff v-else :size="16" class="red-icono fuera" />
         <span>{{ online ? (cloudLabel ?? 'En línea · guardado en el equipo') : 'Sin conexión · todo se guarda aquí' }}</span>
       </div>
+      <BrandFooter compacto sobre-oscuro class="marca-lateral" />
     </aside>
 
     <div class="principal">
@@ -418,7 +420,8 @@ async function takeQuickPhoto(event: Event) {
     flex-direction: column;
     gap: 18px;
     height: 100dvh;
-    overflow-y: auto;
+    /* El scroll lo lleva el menú: así el estado de la red y la marca quedan siempre a la vista abajo */
+    overflow: hidden;
     padding: 18px 14px 16px;
     background-color: var(--navy);
     background-image: var(--blueprint);
@@ -483,6 +486,10 @@ async function takeQuickPhoto(event: Event) {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* Si los pasos no caben, el scroll es de la lista y no de toda la barra */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 .grupo {
   display: flex;
@@ -536,6 +543,9 @@ async function takeQuickPhoto(event: Event) {
 .red-icono {
   flex-shrink: 0;
   color: var(--accent);
+}
+.marca-lateral {
+  padding: 10px 10px 0;
 }
 .red-icono.fuera {
   color: var(--warning);

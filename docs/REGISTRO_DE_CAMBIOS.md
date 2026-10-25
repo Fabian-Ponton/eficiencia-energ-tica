@@ -359,3 +359,55 @@ Dos pendientes de la lista de chequeo se pudieron cerrar con información que ya
 **Una prueba inestable más.** En la corrida final falló una vez la prueba que busca datos personales en el ejemplo de laboratorios: algunos identificadores (UUID al azar, como `pointId` o `findingIds`) traen a veces ocho cifras seguidas y la prueba las tomaba por una cédula (pasaba en unas 7 de cada 60 creaciones del ejemplo). Ahora la prueba ignora los identificadores; la app no cambia. Es la segunda prueba inestable que se encuentra y se corrige (la primera dependía del orden de la base).
 
 **Lista de chequeo.** Pasa de 63 cumplidas, 13 parciales y 4 pendientes a **65, 11 y 4**: U-06 y R-4p2 quedan cumplidas y X-01 ya no tiene pendiente el cotejo de la matriz.
+
+### Marca, aviso de propiedad y pantalla de entrada (rama `marca-y-acceso`, hecho)
+
+Fabián pidió que nadie pueda copiar ni modificar la aplicación, que al entrar salga un aviso y que todo
+lleve su marca. Esto es lo que se hizo y, con la misma claridad, lo que no se puede hacer. El detalle
+completo está en `docs/PROTECCION_Y_MARCA.md`. Decidió **no** hacer privado el repositorio por ahora.
+
+**Lo que no se hizo, a propósito: bloquear la copia.** Desactivar el clic derecho o el `Ctrl+C` no protege
+nada —lo que se muestra en la pantalla de otra persona ya está en su equipo— y estorba a quien trabaja con
+la herramienta. En vez de eso se controla quién entra, se deja constancia del aviso y se marca lo que sale.
+
+**Pantalla de entrada.** Antes de ver nada aparece el aviso de propiedad y la clave. La aceptación queda
+guardada en ese equipo; en Ajustes está «Olvidar el acceso en este equipo». La clave no se guarda en texto:
+se guarda el resultado de pasarla 200.000 veces por PBKDF2-SHA256 con una sal. *Lo que protege:* es una
+barrera para el curioso y la constancia de que quien entró fue advertido. *Lo que no protege:* la aplicación
+se publica en internet y su programa llega al navegador de quien abra la dirección; además, con el
+repositorio público, la sal y el resultado se leen en el código. La protección real llega con el repositorio
+privado y el sitio detrás de un control del servidor.
+
+**La clave de ejemplo es `PONTIA-2026` y hay que cambiarla antes de publicar:** `npm run clave -- "la frase
+nueva"` imprime las dos líneas que se pegan en `domain/access.ts`.
+
+**Marca en todo lo que sale.** Pie de la lista de proyectos y del menú lateral; portada y pie de página del
+informe de auditoría, del PGEE, del plan de implementación y del manual; guía y pie de impresión de los
+formatos de Excel; marca de agua en las gráficas que se descargan sueltas o en .zip; `AVISO.txt` dentro del
+respaldo del proyecto; y el aviso en el `LEEME.txt` de los anexos de la UPME. Las figuras que van dentro de
+un documento no llevan marca de agua: el documento ya la lleva.
+
+**Titular configurable.** En Ajustes → Propiedad y acceso se escribe quién es el titular; mientras no se
+cambie se usa «Fabián Pontón». Afecta al pie de la app y a todos los documentos nuevos.
+
+**Licencia.** `LICENCIA.md` deja por escrito que son todos los derechos reservados, qué no está permitido y
+qué sí (que el cliente use los documentos de su auditoría). Un repositorio público sin licencia **no**
+autoriza a nadie: sin licencia abierta, todos los derechos quedan reservados.
+
+**Archivos.** Nuevos: `domain/ownership.ts`, `domain/access.ts`, `components/AccessGate.vue`,
+`components/BrandFooter.vue`, `composables/useOwnership.ts`, `scripts/clave.mjs`, `LICENCIA.md`,
+`docs/PROTECCION_Y_MARCA.md`. Cambian: `App.vue`, `SettingsDialog.vue`, `ProjectsView.vue`,
+`ProjectLayout.vue`, `PngButton.vue`, `db/backup.ts`, `db/settings.ts`, `domain/types.ts`,
+`charts/echarts.ts`, `reports/data.ts`, `reports/model.ts`, `reports/xlsx.ts`, `reports/formats.ts`,
+`reports/bundle.ts`, `reports/docx/theme.ts`, `docx/audit.ts`, `docx/pgee.ts`, `docx/implementation.ts`,
+`docx/manual.ts`, `reports/upme/package.ts`, `ReportsView.vue`, `package.json`.
+
+**Pruebas.** Nuevas (12). En `ownership.test.ts` (nueve): el titular por omisión y el propio, el año que se
+vuelve rango, el aviso con su cita legal, los tres términos de la pantalla, la clave correcta y las
+incorrectas, que la clave no esté escrita en el código, y la aceptación que se guarda, se recuerda, caduca
+al subir la versión del aviso y no se rompe sin almacenamiento. En `docx.test.ts` (una): el aviso en la
+portada y en el pie, con titular propio. En `formats.test.ts` (una): la guía y el pie de impresión de cada
+hoja. En `backup.test.ts` (una): el `AVISO.txt` del respaldo.
+
+**Lo que sigue pendiente y no lo hace la aplicación:** repositorio privado (es lo que protege `docs/`),
+control de acceso en el servidor, registro en la DNDA, registro de la marca y cláusulas en los contratos.

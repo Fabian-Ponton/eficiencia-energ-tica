@@ -7,6 +7,15 @@ export async function getSettings(db: PontiaDb): Promise<Settings> {
   return (await db.settings.get('app')) ?? DEFAULTS;
 }
 
+/** Titular de los derechos para el aviso de copyright; en blanco se vuelve al titular por omisión. */
+export async function saveCopyrightHolder(db: PontiaDb, holder: string): Promise<void> {
+  const settings = { ...(await getSettings(db)) };
+  const value = holder.trim();
+  if (value) settings.copyrightHolder = value;
+  else delete settings.copyrightHolder;
+  await db.settings.put(settings);
+}
+
 /** Guarda una plantilla de importación; si ya hay una con el mismo nombre, la reemplaza. */
 export async function saveImportTemplate(db: PontiaDb, template: Omit<ImportTemplate, 'id' | 'createdAt'>, now = Date.now()): Promise<ImportTemplate> {
   const settings = await getSettings(db);

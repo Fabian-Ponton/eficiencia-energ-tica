@@ -10,15 +10,18 @@ import {
   PageNumber,
   Paragraph,
   ShadingType,
+  Tab,
   Table,
   TableCell,
   TableRow,
+  TabStopType,
   TextRun,
   VerticalAlign,
   WidthType,
   type IParagraphOptions,
   type ParagraphChild,
 } from 'docx';
+import { copyrightShort, documentNotice, ownershipNotice } from '@/domain/ownership';
 import type { Kpi } from '../model';
 
 /**
@@ -266,8 +269,11 @@ export function pageHeader(projectName: string, documentName = 'Informe de audit
   });
 }
 
-/** Portada: franja azul con el tipo de documento, el proyecto y el cliente; debajo, los datos del documento. */
-export function coverPage(opts: { kicker: string; title: string; subtitle: string; facts: readonly [string, string][]; footer: string }): (Paragraph | Table)[] {
+/**
+ * Portada: franja azul con el tipo de documento, el proyecto y el cliente; debajo, los datos del documento
+ * y el aviso de propiedad, que acompaña a todo lo que sale de PONTIA.
+ */
+export function coverPage(opts: { kicker: string; title: string; subtitle: string; facts: readonly [string, string][]; holder?: string }): (Paragraph | Table)[] {
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } as const;
   const band = new Table({
     width: { size: CONTENT_TWIPS, type: WidthType.DXA },
@@ -299,7 +305,15 @@ export function coverPage(opts: { kicker: string; title: string; subtitle: strin
         border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: COLOR.rule, space: 4 } },
       }),
     ),
-    new Paragraph({ spacing: { before: 1200 }, children: [text(opts.footer, { size: 17, color: COLOR.muted, italics: true })] }),
+    ...ownershipBlock(opts.holder),
+  ];
+}
+
+/** Aviso de propiedad para el pie de una portada: una línea de autoría y el aviso legal en letra pequeña. */
+export function ownershipBlock(holder?: string): Paragraph[] {
+  return [
+    new Paragraph({ spacing: { before: 1200, after: 100 }, children: [text(documentNotice(holder), { size: 17, color: COLOR.muted, italics: true })] }),
+    new Paragraph({ children: [text(ownershipNotice(holder), { size: 14, color: COLOR.muted })] }),
   ];
 }
 
@@ -307,12 +321,16 @@ export function coverPage(opts: { kicker: string; title: string; subtitle: strin
 export const blankHeader = () => new Header({ children: [] });
 export const blankFooter = () => new Footer({ children: [] });
 
-export function pageFooter(): Footer {
+/** Pie de página: el aviso de derechos a la izquierda y el número de página a la derecha. */
+export function pageFooter(holder?: string): Footer {
   return new Footer({
     children: [
       new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        children: [new TextRun({ children: ['Página ', PageNumber.CURRENT, ' de ', PageNumber.TOTAL_PAGES], size: 16, color: COLOR.muted })],
+        tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_TWIPS }],
+        children: [
+          new TextRun({ text: copyrightShort(holder), size: 15, color: COLOR.muted }),
+          new TextRun({ children: [new Tab(), 'Página ', PageNumber.CURRENT, ' de ', PageNumber.TOTAL_PAGES], size: 16, color: COLOR.muted }),
+        ],
       }),
     ],
   });

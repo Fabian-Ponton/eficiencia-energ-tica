@@ -3,6 +3,8 @@ import { IconDownload } from '@tabler/icons-vue';
 import { useToast } from 'primevue/usetoast';
 import { ref } from 'vue';
 import { renderChartPng, type ChartOption } from '@/charts/echarts';
+import { useOwnership } from '@/composables/useOwnership';
+import { copyrightShort } from '@/domain/ownership';
 import { dataUrlToBlob, deliverFile } from '@/utils/share';
 
 /**
@@ -12,6 +14,7 @@ import { dataUrlToBlob, deliverFile } from '@/utils/share';
 const props = withDefaults(defineProps<{ option: () => ChartOption | null; name: string; width?: number; height?: number }>(), { width: 1000, height: 460 });
 
 const toast = useToast();
+const { holder } = useOwnership();
 const busy = ref(false);
 
 async function download() {
@@ -19,7 +22,7 @@ async function download() {
   if (!option || busy.value) return;
   busy.value = true;
   try {
-    const url = await renderChartPng(option, props.width, props.height);
+    const url = await renderChartPng(option, props.width, props.height, 2, copyrightShort(holder.value));
     await deliverFile(dataUrlToBlob(url), `${props.name}.png`);
   } catch (error) {
     toast.add({ severity: 'error', summary: 'No se pudo generar la imagen', detail: error instanceof Error ? error.message : String(error), life: 5000 });

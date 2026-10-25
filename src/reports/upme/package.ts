@@ -10,6 +10,7 @@ import { formatDate } from '@/utils/dates';
 import { buildFormatsWorkbook, generalRows } from '../formats';
 import type { AuditModel } from '../model';
 import type { ExportTable } from '../tables';
+import { ownershipNotice } from '@/domain/ownership';
 import { buildWorkbook } from '../xlsx';
 
 /**
@@ -170,7 +171,7 @@ export function upmeTables(m: AuditModel, options: { cycle?: Pick<UpmeCycle, 'ye
 /** Excel del paquete. */
 export async function buildUpmePackage(m: AuditModel, options: { cycle?: Pick<UpmeCycle, 'year' | 'caseNumber'>; route: RoutePlan }): Promise<{ blob: Blob; fileName: string }> {
   const year = options.cycle?.year ?? m.data.generatedAt.getFullYear();
-  const blob = await buildWorkbook(upmeTables(m, options), { title: `Paquete UPME · ${m.data.project.name}`, created: m.data.generatedAt });
+  const blob = await buildWorkbook(upmeTables(m, options), { title: `Paquete UPME · ${m.data.project.name}`, created: m.data.generatedAt, holder: m.data.copyrightHolder });
   return { blob, fileName: upmeFileName('paquete', { year, caseNumber: options.cycle?.caseNumber }) };
 }
 
@@ -194,6 +195,8 @@ export async function buildUpmeAnnexes(m: AuditModel, options: { cycle?: Pick<Up
       'Formatos de recolección: los formatos de Excel con la información levantada en campo.',
       '',
       'PONTIA no envía nada al SUU. La entidad diligencia el reporte con su usuario.',
+      '',
+      ownershipNotice(m.data.copyrightHolder),
     ].join('\r\n'),
   );
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });

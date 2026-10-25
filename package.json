@@ -3,6 +3,8 @@
   "private": true,
   "version": "2.0.0-alpha.0",
   "description": "PONTIA: plataforma de auditoría y eficiencia energética (PWA offline-first)",
+  "author": "Fabián Pontón",
+  "license": "SEE LICENSE IN LICENCIA.md",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "vue-tsc -b",
+    "clave": "node scripts/clave.mjs",
     "generate-pwa-assets": "pwa-assets-generator"
   },
   "dependencies": {

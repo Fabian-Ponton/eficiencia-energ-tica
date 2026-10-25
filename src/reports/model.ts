@@ -76,6 +76,8 @@ export interface ReportData {
   pgee?: Pgee;
   /** Perfil del auditor (local del equipo): se imprime como «Datos del auditor», sin documentos de identidad. */
   auditor?: AuditorProfile;
+  /** Titular de los derechos de PONTIA para el aviso de los documentos; vacío = el titular por omisión. */
+  copyrightHolder?: string;
   series: IntervalSeries[];
   /** Serie principal para la curva diaria: la de toda la instalación o, si no hay, la más reciente. */
   mainSeries?: { series: IntervalSeries; readings: IntervalReading[] };

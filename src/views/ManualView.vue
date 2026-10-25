@@ -6,6 +6,7 @@ import { useToast } from 'primevue/usetoast';
 import { ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import AppLogo from '@/components/AppLogo.vue';
+import { useOwnership } from '@/composables/useOwnership';
 import { MANUAL_DATA, MANUAL_FAQ, MANUAL_HIGHLIGHTS, MANUAL_MINIMUM, MANUAL_SECTIONS, MANUAL_START, MANUAL_WHAT } from '@/content/manual';
 import { findStep, stepEyebrow, STAGES } from '@/navigation';
 import { deliverFile } from '@/utils/share';
@@ -21,13 +22,14 @@ function goTo(id: string) {
 }
 
 // El manual en Word se arma con el mismo texto de esta pantalla
+const { holder } = useOwnership();
 const downloading = ref(false);
 async function download() {
   if (downloading.value) return;
   downloading.value = true;
   try {
     const { generateManual } = await import('@/reports/docx/manual');
-    const file = await generateManual();
+    const file = await generateManual(new Date(), holder.value);
     const result = await deliverFile(file.blob, file.fileName);
     if (result === 'cancelado') return;
     toast.add({ severity: 'success', summary: result === 'compartido' ? 'Manual compartido' : 'Manual descargado', detail: file.fileName, life: 5000 });

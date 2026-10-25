@@ -1,21 +1,53 @@
 <script setup lang="ts">
-import { IconBook2, IconCheck, IconCloud, IconCloudOff, IconDeviceMobile, IconDownload, IconUserCheck } from '@tabler/icons-vue';
+import { IconBook2, IconCheck, IconCloud, IconCloudOff, IconCopyright, IconDeviceMobile, IconDownload, IconLockOpen, IconUserCheck } from '@tabler/icons-vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
 import SelectButton from 'primevue/selectbutton';
-import { computed, ref } from 'vue';
+import { useConfirm } from 'primevue/useconfirm';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import CloudSyncDialog from '@/components/CloudSyncDialog.vue';
 import { useInstallPrompt } from '@/composables/useInstallPrompt';
+import { useOwnership } from '@/composables/useOwnership';
 import { useTheme } from '@/composables/useTheme';
+import { copyrightLine, DEFAULT_HOLDER } from '@/domain/ownership';
+import { readAccess, revokeAccess } from '@/domain/access';
 import { useCloudSync } from '@/sync/useCloudSync';
 
 const visible = defineModel<boolean>('visible', { required: true });
 const router = useRouter();
+const confirm = useConfirm();
 const { preference } = useTheme();
 const { canPrompt, installed, install, isIos } = useInstallPrompt();
 const cloud = useCloudSync();
 const showCloud = ref(false);
+
+// ——— Propiedad y acceso ———
+const { holder, setHolder } = useOwnership();
+const titular = ref(holder.value ?? '');
+const aceptado = ref(readAccess());
+const aviso = computed(() => copyrightLine(titular.value));
+const guardarTitular = () => setHolder(titular.value);
+// Al abrir el diálogo se releen: el titular pudo cargarse después y el acceso pudo cambiar en otra pestaña
+watch(visible, (abierto) => {
+  if (!abierto) return;
+  titular.value = holder.value ?? '';
+  aceptado.value = readAccess();
+});
+function olvidarAcceso() {
+  confirm.require({
+    header: 'Olvidar el acceso',
+    message: 'La próxima vez que abras PONTIA en este equipo se volverá a pedir la clave y el aviso. Tus auditorías no se tocan.',
+    acceptLabel: 'Olvidar el acceso',
+    rejectLabel: 'Cancelar',
+    accept: () => {
+      revokeAccess();
+      aceptado.value = null;
+      location.reload();
+    },
+  });
+}
 
 const THEMES = [
   { label: 'Claro', value: 'light' },
@@ -77,6 +109,26 @@ const cloudText = computed(() => {
         <p v-else class="estado">Abre PONTIA en Chrome o Edge para instalarla como app.</p>
       </section>
 
+      <section class="completa">
+        <h3 class="eyebrow">Propiedad y acceso</h3>
+        <p class="estado">
+          <IconCopyright :size="18" />
+          Quién es el titular de los derechos. Aparece en el pie de la app y en todo lo que PONTIA genera.
+        </p>
+        <label class="campo-titular">
+          <span class="sr-only">Titular de los derechos</span>
+          <InputText v-model="titular" fluid :placeholder="DEFAULT_HOLDER" @change="guardarTitular" />
+        </label>
+        <p class="vista-previa">{{ aviso }}</p>
+        <p v-if="aceptado" class="estado">
+          <IconLockOpen :size="18" />
+          Acceso aceptado en este equipo el {{ aceptado.at.replace('T', ' a las ') }}.
+        </p>
+        <Button label="Olvidar el acceso en este equipo" severity="secondary" outlined @click="olvidarAcceso">
+          <template #icon><IconLockOpen :size="18" /></template>
+        </Button>
+      </section>
+
       <section>
         <h3 class="eyebrow">Ayuda</h3>
         <p class="estado">Qué hace cada pantalla y qué datos necesita para funcionar.</p>
@@ -117,5 +169,16 @@ h3 {
 }
 .ok {
   color: var(--good);
+}
+.completa {
+  align-self: stretch;
+}
+.campo-titular {
+  width: 100%;
+}
+.vista-previa {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 </style>

@@ -54,7 +54,7 @@ const preview = shallowRef<{ tables: ExportTable[]; figures: ReportFigure[] } | 
 async function freshContent() {
   const data = await loadReportData(db, projectId.value);
   const model = buildAuditModel(data);
-  return { project: data.project, model, tables: exportTables(model), figures: auditFigures(model) };
+  return { project: data.project, model, holder: data.copyrightHolder, tables: exportTables(model), figures: auditFigures(model) };
 }
 onMounted(async () => {
   const { tables, figures } = await freshContent();
@@ -131,8 +131,8 @@ const downloadCsv = (id: string) =>
   });
 const downloadExcel = () =>
   run('excel', async () => {
-    const { project: p, tables } = await freshContent();
-    return { blob: await buildWorkbook(tables, { title: `Datos de la auditoría · ${p.name}` }), fileName: reportFileName(p, 'Datos', 'xlsx') };
+    const { project: p, tables, holder } = await freshContent();
+    return { blob: await buildWorkbook(tables, { title: `Datos de la auditoría · ${p.name}`, holder }), fileName: reportFileName(p, 'Datos', 'xlsx') };
   });
 const downloadCharts = () =>
   run('graficas', async () => {

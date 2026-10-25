@@ -715,6 +715,8 @@ export interface Settings {
   auditorName?: string;
   /** Perfil del auditor: local, sin sincronizar. */
   auditor?: AuditorProfile;
+  /** Titular de los derechos de PONTIA para el aviso de copyright; vacío = el titular por omisión. */
+  copyrightHolder?: string;
   csvFormat: 'es-CO' | 'estandar';
   theme: 'claro' | 'oscuro' | 'sistema';
   lastBackupAt?: number;

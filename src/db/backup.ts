@@ -1,6 +1,8 @@
 import type { Table } from 'dexie';
 import JSZip from 'jszip';
+import { ownershipNotice } from '@/domain/ownership';
 import type { IntervalDay, Photo, Project } from '@/domain/types';
+import { getSettings } from './settings';
 import type { PontiaDb } from './schema';
 
 /** Respaldo de un proyecto en un .zip: sirve para guardar copias y para pasar el proyecto del celular al PC. */
@@ -88,6 +90,18 @@ export async function exportProjectZip(db: PontiaDb, projectId: string, now = ne
   }
   const manifest: BackupManifest = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now.toISOString(), project, tables, intervalDays, photos };
   zip.file('proyecto.json', JSON.stringify(manifest, null, 1));
+  // El respaldo lleva el aviso de propiedad de la herramienta; los datos de la auditoría son del cliente
+  zip.file(
+    'AVISO.txt',
+    [
+      `Respaldo del proyecto «${project.name}» generado con PONTIA el ${now.toISOString().slice(0, 10)}.`,
+      '',
+      'Este archivo contiene los datos de la auditoría, que son del cliente, y se restaura desde la propia app',
+      '(lista de proyectos, «Importar respaldo»).',
+      '',
+      ownershipNotice((await getSettings(db)).copyrightHolder),
+    ].join('\r\n'),
+  );
   const bytes = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
   return new Blob([bytes], { type: 'application/zip' });
 }

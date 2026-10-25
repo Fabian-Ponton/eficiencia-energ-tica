@@ -140,6 +140,31 @@ describe('formatos de recolección en Excel', () => {
     db.close();
   });
 
+  it('cada hoja sale marcada con el aviso de propiedad, también al imprimirla', async () => {
+    const { db, datos } = await datosDelEjemplo('pontia-formatos-marca');
+    const libro = await load(await buildFormatsWorkbook(datos, { filled: true, created: AHORA }));
+    // La guía cierra con el aviso largo
+    const guia = libro.getWorksheet('00_Guia')!;
+    const textoGuia = guia
+      .getColumn(1)
+      .values.filter((v): v is string => typeof v === 'string')
+      .join(' ');
+    expect(textoGuia).toContain('Todos los derechos reservados');
+    expect(textoGuia).toContain('Ley 23 de 1982');
+    // Y todas las hojas llevan el aviso en el pie de impresión
+    for (const hoja of libro.worksheets) {
+      expect(hoja.headerFooter?.oddFooter).toContain('© 2026');
+      expect(hoja.headerFooter?.oddFooter).toContain('PONTIA');
+    }
+
+    // Con un titular propio, el aviso cambia en todas partes
+    await db.settings.put({ id: 'app', csvFormat: 'es-CO', theme: 'sistema', copyrightHolder: 'Energética del Caribe S.A.S.' });
+    const otros = await loadReportData(db, datos.project.id, new Date(2026, 8, 12));
+    const libro2 = await load(await buildFormatsWorkbook(otros, { filled: true, created: AHORA }));
+    expect(libro2.worksheets[0].headerFooter?.oddFooter).toContain('Energética del Caribe S.A.S.');
+    db.close();
+  });
+
   it('escribe la potencia siempre con unidad y le da nombre al archivo', () => {
     expect(powerText(0.25)).toBe('250 W');
     expect(powerText(0.036)).toBe('36 W');

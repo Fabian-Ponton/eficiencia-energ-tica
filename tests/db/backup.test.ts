@@ -72,6 +72,24 @@ describe('respaldo .zip del proyecto', () => {
     db.close();
   });
 
+  it('el respaldo lleva dentro el aviso de propiedad y aclara que los datos son del cliente', async () => {
+    const db = createDb('pontia-respaldo-aviso');
+    const proyecto = await createSampleProject(db);
+    const aviso = async () => {
+      const zip = await JSZip.loadAsync(await exportProjectZip(db, proyecto.id, new Date(2026, 8, 11)));
+      return (await zip.file('AVISO.txt')?.async('string')) ?? '';
+    };
+
+    const texto = await aviso();
+    expect(texto).toContain(proyecto.name);
+    expect(texto).toContain('Todos los derechos reservados');
+    expect(texto).toContain('los datos de la auditoría, que son del cliente');
+
+    await db.settings.put({ id: 'app', csvFormat: 'es-CO', theme: 'sistema', copyrightHolder: 'Energética del Caribe S.A.S.' });
+    expect(await aviso()).toContain('Energética del Caribe S.A.S.');
+    db.close();
+  });
+
   it('rechaza archivos que no son respaldos y arma nombres de archivo seguros', async () => {
     await expect(openBackup(new Blob(['hola']))).rejects.toThrow('.zip');
     expect(backupFileName({ name: 'Biblioteca Central · Riohacha' }, new Date(2026, 8, 11))).toBe('PONTIA_Biblioteca-Central-Riohacha_2026-09-11.zip');

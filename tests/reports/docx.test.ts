@@ -233,6 +233,33 @@ describe('informe Word de auditoría', () => {
     db.close();
   });
 
+  it('la portada y el pie de página llevan el aviso de propiedad, con el titular que el auditor configuró', async () => {
+    const db = createDb('pontia-prueba-docx-propiedad');
+    const ejemplo = await createSampleProject(db);
+    const armar = async () => {
+      const model = buildAuditModel(await loadReportData(db, ejemplo.id, new Date(2026, 8, 12)));
+      const zip = await JSZip.loadAsync(await Packer.toBuffer(buildAuditDocument(model, [], { figures: new Map(), photos: [] })));
+      const limpio = (xml: string) => xml.replace(/<[^>]+>/g, '');
+      const pie = Object.keys(zip.files).find((n) => /word\/footer\d*\.xml/.test(n))!;
+      return { cuerpo: limpio((await zip.file('word/document.xml')?.async('string')) ?? ''), pie: limpio((await zip.file(pie)?.async('string')) ?? '') };
+    };
+
+    // Sin configurar nada, el aviso sale con el titular por omisión
+    const base = await armar();
+    expect(base.cuerpo).toContain('Elaborado con PONTIA');
+    expect(base.cuerpo).toContain('Todos los derechos reservados');
+    expect(base.cuerpo).toContain('Queda prohibida su reproducción, modificación, distribución o uso comercial sin autorización escrita');
+    expect(base.pie).toContain('PONTIA');
+    expect(base.pie).toContain('Página');
+
+    // Con un titular propio, cambia en la portada y en el pie de todas las páginas
+    await db.settings.put({ id: 'app', csvFormat: 'es-CO', theme: 'sistema', copyrightHolder: 'Energética del Caribe S.A.S.' });
+    const propio = await armar();
+    expect(propio.cuerpo).toContain('Energética del Caribe S.A.S.');
+    expect(propio.pie).toContain('Energética del Caribe S.A.S.');
+    db.close();
+  });
+
   it('con el edificio en arriendo y la FNCER excluida, el informe dice qué medidas no pueden entrar al plan y por qué se excluye', async () => {
     const db = createDb('pontia-prueba-docx-tenencia');
     const ejemplo = await createSampleProject(db);

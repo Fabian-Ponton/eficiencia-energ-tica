@@ -8,6 +8,7 @@ import { buildCollection, STATUS_LABEL } from '@/domain/collection';
 import { FREQUENCIES, MAINTENANCE_TYPES } from '@/domain/maintenance';
 import { SAVINGS_TYPES, savingsTypeInfo, savingsTypeOf } from '@/domain/measures';
 import { DAY_OPTIONS, termsOf } from '@/domain/occupancy';
+import { copyrightShort, ownershipNotice } from '@/domain/ownership';
 import { tenureInfo, TENURES } from '@/domain/tenure';
 import type { Equipment } from '@/domain/types';
 import { formatNumber } from '@/utils/format';
@@ -761,7 +762,7 @@ export async function buildFormatsWorkbook(data: ReportData, options: FormatsWor
   guide.getCell('A3').font = { italic: true };
   guide.getCell('A4').value = 'Instrucciones';
   guide.getCell('A4').font = { bold: true, size: 12 };
-  [...GUIDE_LINES, '', 'Cómo trabajar con PONTIA', ...GUIDE_EXTRA].forEach((line, i) => {
+  [...GUIDE_LINES, '', 'Cómo trabajar con PONTIA', ...GUIDE_EXTRA, '', ownershipNotice(data.copyrightHolder)].forEach((line, i) => {
     const cell = guide.getCell(5 + i, 1);
     cell.value = line;
     cell.alignment = { wrapText: true, vertical: 'top' };
@@ -856,6 +857,12 @@ export async function buildFormatsWorkbook(data: ReportData, options: FormatsWor
     hidden.getCell(1, i + 1).value = key;
     lists[key].forEach((item, r) => (hidden.getCell(r + 2, i + 1).value = item));
   });
+
+  // El aviso de propiedad acompaña a cada hoja al imprimirla o pasarla a PDF
+  const aviso = copyrightShort(data.copyrightHolder);
+  for (const sheet of workbook.worksheets) {
+    sheet.headerFooter = { ...sheet.headerFooter, oddFooter: `&L&9${aviso}&R&9Página &P de &N` };
+  }
 
   const buffer = await workbook.xlsx.writeBuffer();
   return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });

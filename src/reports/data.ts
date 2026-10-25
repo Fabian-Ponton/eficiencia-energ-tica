@@ -38,6 +38,8 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
   // Serie principal: la más reciente de toda la instalación; si ninguna lo es, la más reciente
   const activeSeries = alive(series).sort((a, b) => b.createdAt - a.createdAt);
   const main = activeSeries.find((s) => s.wholeFacility) ?? activeSeries[0];
+  // Ajustes del equipo: el perfil del auditor y el titular de los derechos
+  const settings = await getSettings(db);
 
   return {
     project,
@@ -57,7 +59,8 @@ export async function loadReportData(db: PontiaDb, projectId: string, generatedA
     // Un PGEE por proyecto: si hubiera más de uno, el primero que se creó (el mismo que edita la pantalla)
     pgee: alive(pgee).sort((a, b) => a.createdAt - b.createdAt)[0],
     // El perfil del auditor vive solo en este equipo: sale en el informe y nunca en el respaldo ni en la nube
-    auditor: (await getSettings(db)).auditor,
+    auditor: settings.auditor,
+    copyrightHolder: settings.copyrightHolder,
     series: activeSeries,
     mainSeries: main ? { series: main, readings: await loadSeriesReadings(db, main) } : undefined,
     photos: alive(photos).sort((a, b) => a.takenAt.localeCompare(b.takenAt)),

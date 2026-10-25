@@ -32,7 +32,7 @@ function inputsTable(step: ManualStep, number: number, title: string) {
   ];
 }
 
-export function buildManualDocument(generatedAt = new Date()): Document {
+export function buildManualDocument(generatedAt = new Date(), holder?: string): Document {
   const today = toLocalDate(generatedAt);
   const body: FileChild[] = [
     ...coverPage({
@@ -45,7 +45,7 @@ export function buildManualDocument(generatedAt = new Date()): Document {
         ['Alcance', 'Instalación, uso de las 14 pantallas y datos de entrada'],
         ['Referencia', 'ISO 50002 · ISO 50001 · ISO 50006 · IPMVP'],
       ],
-      footer: 'Este manual se genera desde la propia app, en Ajustes → Manual de uso.',
+      holder,
     }),
     pageBreak(),
     new TableOfContents('Contenido', { hyperlink: true, headingStyleRange: '1-2' }),
@@ -110,7 +110,7 @@ export function buildManualDocument(generatedAt = new Date()): Document {
           page: { size: { width: PAGE.width, height: PAGE.height }, margin: { top: PAGE.margin, bottom: PAGE.margin, left: PAGE.margin, right: PAGE.margin } },
         },
         headers: { default: pageHeader('Auditoría energética', 'Manual de uso'), first: blankHeader() },
-        footers: { default: pageFooter(), first: blankFooter() },
+        footers: { default: pageFooter(holder), first: blankFooter() },
         children: body,
       },
     ],
@@ -118,6 +118,6 @@ export function buildManualDocument(generatedAt = new Date()): Document {
 }
 
 /** Manual de uso listo para descargar. No depende de ningún proyecto. */
-export async function generateManual(generatedAt = new Date()): Promise<GeneratedFile> {
-  return { blob: await Packer.toBlob(buildManualDocument(generatedAt)), fileName: `PONTIA_Manual-de-uso_${toLocalDate(generatedAt)}.docx` };
+export async function generateManual(generatedAt = new Date(), holder?: string): Promise<GeneratedFile> {
+  return { blob: await Packer.toBlob(buildManualDocument(generatedAt, holder)), fileName: `PONTIA_Manual-de-uso_${toLocalDate(generatedAt)}.docx` };
 }
