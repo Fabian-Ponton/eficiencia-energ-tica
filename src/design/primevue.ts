@@ -2,45 +2,45 @@ import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
 import type { PrimeVueConfiguration } from 'primevue/config';
 
-/** Tema de PrimeVue con la paleta PONTIA: verde para acciones, grises azulados para superficies. */
+/** Tema de PrimeVue con la paleta PONTIA «documento blanco»: azul marino para acciones, papel para superficies. */
 const PontiaPreset = definePreset(Aura, {
   primitive: {
-    borderRadius: { none: '0', xs: '2px', sm: '6px', md: '8px', lg: '10px', xl: '12px' },
+    borderRadius: { none: '0', xs: '2px', sm: '3px', md: '3px', lg: '4px', xl: '6px' },
   },
   semantic: {
     primary: {
-      50: '#eaf6ee',
-      100: '#d9eee1',
-      200: '#b3dcc3',
-      300: '#7fc39c',
-      400: '#4aa872',
-      500: '#187f44',
-      600: '#146c3a',
-      700: '#115a30',
-      800: '#0e4826',
-      900: '#0b3a1f',
-      950: '#062413',
+      50: '#eef1f6',
+      100: '#dde3ee',
+      200: '#bcc7dc',
+      300: '#8da0c1',
+      400: '#4f6d9c',
+      500: '#15305c',
+      600: '#122851',
+      700: '#0f2446',
+      800: '#0c1d38',
+      900: '#09172c',
+      950: '#060f1d',
     },
     colorScheme: {
       light: {
         primary: { color: '{primary.500}', contrastColor: '#ffffff', hoverColor: '{primary.600}', activeColor: '{primary.700}' },
         surface: {
           0: '#ffffff',
-          50: '#f5f7fa',
-          100: '#eef1f5',
-          200: '#dbe1ea',
-          300: '#c9d3df',
-          400: '#9aa7b8',
-          500: '#7a879b',
-          600: '#5c6a80',
-          700: '#4c5a70',
-          800: '#2c3a52',
-          900: '#17233d',
-          950: '#0f1b33',
+          50: '#f6f7f9',
+          100: '#eceef1',
+          200: '#e4e6ea',
+          300: '#d4d8df',
+          400: '#aeb4bf',
+          500: '#98a0ae',
+          600: '#767d8c',
+          700: '#3f4654',
+          800: '#252b36',
+          900: '#171c25',
+          950: '#10151f',
         },
       },
       dark: {
-        primary: { color: '{primary.400}', contrastColor: '#06140b', hoverColor: '{primary.300}', activeColor: '{primary.200}' },
+        primary: { color: '{primary.300}', contrastColor: '#0b1422', hoverColor: '{primary.200}', activeColor: '{primary.100}' },
         surface: {
           0: '#ffffff',
           50: '#eef2f8',
@@ -54,6 +54,29 @@ const PontiaPreset = definePreset(Aura, {
           800: '#1f2c44',
           900: '#131d31',
           950: '#0c1424',
+        },
+      },
+    },
+  },
+  components: {
+    // Los botones sin relleno llevaban el gris claro de las superficies y quedaban por debajo del contraste AA
+    button: {
+      colorScheme: {
+        light: {
+          outlined: {
+            secondary: { color: '{surface.700}', borderColor: '{surface.300}', hoverBackground: '{surface.50}', activeBackground: '{surface.100}' },
+          },
+          text: {
+            secondary: { color: '{surface.700}', hoverBackground: '{surface.50}', activeBackground: '{surface.100}' },
+          },
+        },
+        dark: {
+          outlined: {
+            secondary: { color: '{surface.200}', borderColor: '{surface.600}', hoverBackground: '{surface.800}', activeBackground: '{surface.700}' },
+          },
+          text: {
+            secondary: { color: '{surface.200}', hoverBackground: '{surface.800}', activeBackground: '{surface.700}' },
+          },
         },
       },
     },

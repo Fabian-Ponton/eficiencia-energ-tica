@@ -380,10 +380,9 @@ const storagePercent = computed(() =>
 }
 .cabecera {
   padding: calc(14px + env(safe-area-inset-top)) 16px 18px;
-  background-color: var(--navy);
-  background-image: var(--blueprint);
-  background-size: 22px 22px;
-  color: var(--on-navy);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
 }
 .cabecera .contenido {
   display: flex;
@@ -408,16 +407,27 @@ const storagePercent = computed(() =>
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--on-navy-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-2);
   cursor: pointer;
 }
 .titulo {
   display: flex;
+  position: relative;
   flex-direction: column;
   gap: 4px;
+  padding-bottom: 12px;
+}
+.titulo::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 48px;
+  height: 2px;
+  background: var(--accent);
 }
 h1 {
   margin: 0;
@@ -426,7 +436,7 @@ h1 {
   line-height: 1.2;
 }
 .subtitulo {
-  color: var(--on-navy-3);
+  color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.08em;
 }
@@ -436,10 +446,10 @@ h1 {
   gap: 10px;
   height: 44px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--on-navy-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--muted);
 }
 .buscador input {
   flex: 1;
@@ -447,12 +457,12 @@ h1 {
   border: 0;
   outline: none;
   background: transparent;
-  color: var(--on-navy);
+  color: var(--ink);
   font: inherit;
   font-size: 14px;
 }
 .buscador input::placeholder {
-  color: var(--on-navy-3);
+  color: var(--muted);
 }
 .cuerpo {
   display: flex;

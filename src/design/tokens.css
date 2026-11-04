@@ -1,58 +1,64 @@
-/* Sistema de diseño PONTIA · dirección A «Técnico preciso». Los colores de datos viven en src/domain/catalogs.ts. */
+/* Sistema de diseño PONTIA · dirección B «Documento blanco»: papel, líneas finas y tinta. */
 :root {
   color-scheme: light;
 
-  --navy: #10234b;
-  --navy-hover: #1a3163;
-  --page: #eef1f5;
+  /* Tinta profunda: franjas, botones y el pie de los documentos. Conserva el nombre --navy por compatibilidad. */
+  --navy: #10151f;
+  --navy-hover: #1d2533;
+  --page: #fbfbfc;
   --surface: #ffffff;
-  --surface-2: #f5f7fa;
-  --border: #dbe1ea;
-  --divider: #e3e8ef;
-  --field-border: #c9d3df;
+  --surface-2: #f6f7f9;
+  --border: #e4e6ea;
+  --divider: #eceef1;
+  --field-border: #d4d8df;
 
-  --ink: #0f1b33;
-  --ink-2: #4c5a70;
-  --muted: #5c6a80;
-  --axis: #7a879b;
+  --ink: #10151f;
+  --ink-2: #3f4654;
+  --muted: #767d8c;
+  --axis: #98a0ae;
 
-  --accent: #22a056;
-  --accent-strong: #187f44;
-  --accent-tint: #d9eee1;
-  --accent-wash: #e3f2e8;
-  --accent-ink: #13733b;
-  --info-wash: #e8eef8;
+  /* Acción: azul marino. El verde queda para los estados buenos y para la marca. */
+  --accent: #15305c;
+  --accent-strong: #0f2446;
+  --accent-tint: #e3e8f1;
+  --accent-wash: #eef1f6;
+  --accent-ink: #15305c;
+  --info-wash: #eef1f6;
+
+  /* Colores del logotipo; cambiar --marca aquí es volver al verde de siempre (#22a056). */
+  --marca: #10151f;
+  --marca-trazo: #ffffff;
 
   --on-navy: #ffffff;
-  --on-navy-2: #d7deea;
-  --on-navy-3: #9fb0cc;
+  --on-navy-2: #d4d8e0;
+  --on-navy-3: #9aa2b2;
 
   /* Estados: siempre con ícono y texto, nunca solo color */
-  --good: #0ca30c;
-  --warning: #fab219;
-  --warning-ink: #c98500;
-  --serious: #ec835a;
-  --critical: #d03b3b;
-  --good-wash: #e3f2e8;
-  --warning-wash: #fff4d6;
-  --serious-wash: #fdeee7;
-  --critical-wash: #fbe7e7;
+  --good: #1c6b45;
+  --warning: #b07d00;
+  --warning-ink: #8a6200;
+  --serious: #c2663c;
+  --critical: #a8261c;
+  --good-wash: #eaf2ee;
+  --warning-wash: #fdf4e3;
+  --serious-wash: #fbeee8;
+  --critical-wash: #fbebe9;
   /* Texto sobre los fondos de estado, con contraste AA */
-  --good-text: #13733b;
-  --warning-text: #7f5400;
-  --serious-text: #9c4219;
-  --critical-text: #b02a2a;
+  --good-text: #155638;
+  --warning-text: #7a5600;
+  --serious-text: #96401d;
+  --critical-text: #96221a;
 
-  --radius-sm: 6px;
-  --radius: 8px;
-  --radius-card: 10px;
-  --shadow-fab: 0 8px 18px rgba(16, 35, 75, 0.28);
-  --shadow-float: 0 12px 32px rgba(16, 35, 75, 0.18);
+  --radius-sm: 3px;
+  --radius: 3px;
+  --radius-card: 0px;
+  --shadow-fab: 0 6px 16px rgba(16, 21, 31, 0.22);
+  --shadow-float: 0 10px 28px rgba(16, 21, 31, 0.14);
 
   --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  --blueprint: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  /* Sin rejilla: las franjas del documento blanco son planas */
+  --blueprint: none;
 
   --sidebar-width: 248px;
   --bottom-nav-height: 68px;
@@ -62,32 +68,39 @@
 :root.app-dark {
   color-scheme: dark;
 
-  --navy: #0b1833;
-  --navy-hover: #15264a;
-  --page: #0c1424;
-  --surface: #131d31;
-  --surface-2: #19253d;
-  --border: #26344f;
-  --divider: #22304a;
-  --field-border: #34455f;
+  --navy: #0d1119;
+  --navy-hover: #171d28;
+  --page: #0e1218;
+  --surface: #161b24;
+  --surface-2: #1c222d;
+  --border: #2a313d;
+  --divider: #252c37;
+  --field-border: #39424f;
 
-  --ink: #eef2f8;
-  --ink-2: #c1cbdb;
-  --muted: #9aa7bc;
-  --axis: #8793a8;
+  --ink: #eef0f4;
+  --ink-2: #c3c8d2;
+  --muted: #98a0ae;
+  --axis: #8a93a1;
 
-  --accent-tint: #1d3b2b;
-  --accent-wash: #17332a;
-  --accent-ink: #6fd49a;
-  --info-wash: #1b2b4a;
+  --accent: #7ba3dd;
+  --accent-strong: #9bbaea;
+  --accent-tint: #1b2a42;
+  --accent-wash: #18222f;
+  --accent-ink: #9bbaea;
+  --info-wash: #18222f;
 
-  --good-wash: #17332a;
-  --warning-wash: #3a3016;
-  --warning-ink: #fab219;
-  --serious-wash: #3d2419;
-  --critical-wash: #3d1c1f;
-  --good-text: #6fd49a;
-  --warning-text: #fab219;
-  --serious-text: #f3a784;
-  --critical-text: #f29090;
+  --marca: #ffffff;
+  --marca-trazo: #10151f;
+
+  --good: #5cb98a;
+  --warning: #e0b154;
+  --good-wash: #16281f;
+  --warning-wash: #2e2614;
+  --warning-ink: #e0b154;
+  --serious-wash: #2f1d15;
+  --critical-wash: #301715;
+  --good-text: #7fd0a4;
+  --warning-text: #e0b154;
+  --serious-text: #ef9f79;
+  --critical-text: #f08e85;
 }

@@ -216,9 +216,9 @@ async function downloadBackup() {
         <div class="etapas">
           <div class="linea" />
           <div class="linea avance" :style="{ width: `${(currentIndex / (STAGES.length - 1)) * 75}%` }" />
-          <RouterLink v-for="stage in stages" :key="stage.id" :to="stageTarget(stage.id)" class="etapa">
-            <span class="nodo" :class="{ lleno: stage.complete || stage.current, borde: stage.reached && !stage.complete && !stage.current }">
-              <component :is="stage.icon" :size="20" />
+          <RouterLink v-for="(stage, i) in stages" :key="stage.id" :to="stageTarget(stage.id)" class="etapa">
+            <span class="nodo mono" :class="{ lleno: stage.complete || stage.current, borde: stage.reached && !stage.complete && !stage.current }">
+              {{ String(i + 1).padStart(2, '0') }}
             </span>
             <span class="etapa-nombre" :class="{ tenue: !stage.reached }">{{ stage.shortLabel }}</span>
             <span class="pista"><span class="relleno" :style="{ width: `${stage.percent}%` }" /></span>
@@ -353,14 +353,13 @@ async function downloadBackup() {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 4px 16px 22px;
-  background-color: var(--navy);
-  background-image: var(--blueprint);
-  background-size: 22px 22px;
-  color: var(--on-navy);
+  padding: 4px 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
 }
 .hero-eyebrow {
-  color: var(--on-navy-3);
+  color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.08em;
 }
@@ -371,7 +370,7 @@ h1 {
   line-height: 1.25;
 }
 .hero-lugar {
-  color: #b9c5d9;
+  color: var(--muted);
   font-size: 13px;
 }
 .hero-cifra {
@@ -392,7 +391,7 @@ h1 {
   letter-spacing: -0.01em;
 }
 .unidad {
-  color: #cfd8e6;
+  color: var(--muted);
   font-size: 18px;
   font-weight: 500;
 }
@@ -400,7 +399,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #dfe6f1;
+  color: var(--ink-2);
   font-size: 13px;
 }
 .baja {
@@ -493,13 +492,16 @@ h1 {
 .nodo {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   box-sizing: border-box;
-  border: 1.5px solid var(--field-border);
-  border-radius: 10px;
+  border: 1px solid var(--field-border);
+  border-radius: 50%;
   background: var(--surface);
-  color: var(--axis);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 .nodo.lleno {
   border-color: var(--navy);

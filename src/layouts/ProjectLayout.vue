@@ -134,7 +134,7 @@ async function takeQuickPhoto(event: Event) {
         <IconWifiOff v-else :size="16" class="red-icono fuera" />
         <span>{{ online ? (cloudLabel ?? 'En línea · guardado en el equipo') : 'Sin conexión · todo se guarda aquí' }}</span>
       </div>
-      <BrandFooter compacto sobre-oscuro class="marca-lateral" />
+      <BrandFooter compacto class="marca-lateral" />
     </aside>
 
     <div class="principal">
@@ -216,10 +216,9 @@ async function takeQuickPhoto(event: Event) {
   gap: 6px;
   min-height: 60px;
   padding: calc(6px + env(safe-area-inset-top)) 12px 6px 4px;
-  background-color: var(--navy);
-  background-image: var(--blueprint);
-  background-size: 22px 22px;
-  color: var(--on-navy);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
 }
 .volver {
   display: grid;
@@ -227,7 +226,7 @@ async function takeQuickPhoto(event: Event) {
   place-items: center;
   width: 44px;
   height: 44px;
-  color: var(--on-navy);
+  color: var(--ink-2);
 }
 .marca-movil {
   display: flex;
@@ -246,7 +245,7 @@ async function takeQuickPhoto(event: Event) {
 }
 .titulo-eyebrow {
   overflow: hidden;
-  color: var(--on-navy-3);
+  color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-overflow: ellipsis;
@@ -265,10 +264,10 @@ async function takeQuickPhoto(event: Event) {
   align-items: center;
   gap: 5px;
   padding: 5px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--on-navy-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--muted);
   font-size: 12px;
 }
 .red-movil svg {
@@ -423,10 +422,9 @@ async function takeQuickPhoto(event: Event) {
     /* El scroll lo lleva el menú: así el estado de la red y la marca quedan siempre a la vista abajo */
     overflow: hidden;
     padding: 18px 14px 16px;
-    background-color: var(--navy);
-    background-image: var(--blueprint);
-    background-size: 22px 22px;
-    color: var(--on-navy);
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
   }
   .barra-movil,
   .inferior,
@@ -443,7 +441,7 @@ async function takeQuickPhoto(event: Event) {
   align-items: center;
   gap: 10px;
   padding: 0 6px;
-  color: var(--on-navy);
+  color: var(--ink);
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -454,14 +452,14 @@ async function takeQuickPhoto(event: Event) {
   flex-direction: column;
   gap: 2px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--on-navy);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
   text-decoration: none;
 }
 .selector-eyebrow {
-  color: var(--on-navy-3);
+  color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.1em;
 }
@@ -480,7 +478,7 @@ async function takeQuickPhoto(event: Event) {
 }
 .selector-flecha {
   flex-shrink: 0;
-  color: var(--on-navy-3);
+  color: var(--muted);
 }
 .menu {
   display: flex;
@@ -498,7 +496,7 @@ async function takeQuickPhoto(event: Event) {
 }
 .grupo-titulo {
   padding: 0 10px 4px;
-  color: #8a9bb8;
+  color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.1em;
 }
@@ -508,22 +506,22 @@ async function takeQuickPhoto(event: Event) {
   gap: 10px;
   height: 34px;
   padding: 0 10px;
-  border-radius: 8px;
-  color: var(--on-navy-2);
+  border-left: 2px solid transparent;
+  color: var(--ink-2);
   font-size: 13px;
   text-decoration: none;
-  transition: background-color 150ms var(--ease);
+  transition: color 150ms var(--ease);
 }
 .item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
 }
 .item-icono {
   flex-shrink: 0;
-  color: var(--on-navy-3);
+  color: var(--muted);
 }
 .item.activo {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border-left-color: var(--accent);
+  color: var(--ink);
   font-weight: 600;
 }
 .item.activo .item-icono {
@@ -535,9 +533,8 @@ async function takeQuickPhoto(event: Event) {
   gap: 8px;
   margin-top: auto;
   padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--on-navy-2);
+  border-top: 1px solid var(--divider);
+  color: var(--muted);
   font-size: 12px;
 }
 .red-icono {
