@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   checkPassphrase,
+  derivePassphrase,
   grantAccess,
   PASSPHRASE_HASH,
   PASSPHRASE_ROUNDS,
@@ -59,12 +60,28 @@ describe('aviso de propiedad', () => {
 });
 
 describe('clave de la pantalla de entrada', () => {
-  it('acepta la clave vigente y rechaza cualquier otra', async () => {
+  it('reconoce la clave correcta y rechaza las parecidas', async () => {
+    // El mecanismo se prueba con un par propio: así cambiar la clave publicada no rompe esta prueba,
+    // y la clave vigente no queda escrita en el código de las pruebas.
+    const sal = '00112233445566778899aabbccddeeff';
+    const esperado = await derivePassphrase('clave de prueba', sal, 1_000);
+    expect(esperado).toMatch(/^[0-9a-f]{64}$/);
+    expect(await derivePassphrase('clave de prueba', sal, 1_000)).toBe(esperado);
+    expect(await derivePassphrase('Clave de prueba', sal, 1_000)).not.toBe(esperado);
+    expect(await derivePassphrase('clave de prueba ', sal, 1_000)).not.toBe(esperado);
+    expect(await derivePassphrase('clave de prueba', sal, 2_000)).not.toBe(esperado);
+  });
+
+  it('con la configuración vigente, rechaza las claves que no son', async () => {
     expect(REQUIRE_PASSPHRASE).toBe(true);
-    expect(await checkPassphrase('PONTIA-2026')).toBe(true);
-    expect(await checkPassphrase('pontia-2026')).toBe(false);
     expect(await checkPassphrase('')).toBe(false);
-    expect(await checkPassphrase('PONTIA-2026 ')).toBe(false);
+    expect(await checkPassphrase('una clave cualquiera')).toBe(false);
+  });
+
+  it('la clave de ejemplo ya no sirve: hay que cambiarla antes de publicar', async () => {
+    // Si esta prueba falla, la aplicación está a punto de publicarse con la clave que trae el repositorio
+    // escrita en su propia documentación. Cambiarla con: npm run clave -- "la clave nueva"
+    expect(await checkPassphrase('PONTIA-2026')).toBe(false);
   });
 
   it('la clave no está escrita en el código: solo queda su resultado con sal y muchas vueltas', () => {

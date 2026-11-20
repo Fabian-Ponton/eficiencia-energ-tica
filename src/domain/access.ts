@@ -10,18 +10,19 @@
  * Aunque alguien lea este archivo, probar claves le sale caro.
  *
  * CÓMO CAMBIAR LA CLAVE
- *   1. npm run clave -- "la clave nueva"
- *   2. pegar aquí la sal y el resultado que imprime el comando
+ *   1. npm run clave -- "la clave nueva"   (escribe aquí mismo la sal y el resultado)
+ *   2. npx vitest run tests/domain/ownership.test.ts   (comprueba que quedó bien)
  *   3. volver a publicar
- * La clave de ejemplo es «PONTIA-2026» y hay que cambiarla antes de publicar.
+ * La clave en sí no se guarda en ninguna parte: hay que anotarla en un gestor de contraseñas.
+ * El repositorio trae una clave de ejemplo; una prueba del paso 2 falla mientras siga vigente.
  */
 
 /** Pedir la clave además del aviso. En `false` solo se muestra el aviso de propiedad. */
 export const REQUIRE_PASSPHRASE = true;
 
 /** Sal y resultado de la clave vigente (ver «cómo cambiar la clave»). */
-export const PASSPHRASE_SALT = 'b9cca3dc9b703e2857e4ba182b39ddad';
-export const PASSPHRASE_HASH = '255877605cf35040f746e6296ca157bfb1f314632798352decbe422625f18c61';
+export const PASSPHRASE_SALT = 'a8feed4659fb24f94543b4e0b6b10db1';
+export const PASSPHRASE_HASH = '8e809594df66f362571e6d16a024414c0586346544958d28eae5145e05ec7e98';
 export const PASSPHRASE_ROUNDS = 200_000;
 
 /**
@@ -52,14 +53,25 @@ function sameDigest(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Pasa una clave por PBKDF2-SHA256 con la sal y las vueltas indicadas y devuelve el resultado en hexadecimal.
+ * Devuelve `null` si el navegador no tiene `crypto.subtle`. Se expone aparte para poder probar el mecanismo
+ * sin que las pruebas tengan que conocer la clave vigente.
+ */
+export async function derivePassphrase(passphrase: string, salt: string, rounds: number): Promise<string | null> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) return null;
+  const key = await subtle.importKey('raw', new TextEncoder().encode(passphrase.normalize('NFKC')), 'PBKDF2', false, ['deriveBits']);
+  const derived = await subtle.deriveBits({ name: 'PBKDF2', salt: bytes(salt), iterations: rounds, hash: 'SHA-256' }, key, 256);
+  return hex(derived);
+}
+
 /** `true` si la clave escrita coincide con la vigente. */
 export async function checkPassphrase(passphrase: string): Promise<boolean> {
-  const subtle = globalThis.crypto?.subtle;
+  const derived = await derivePassphrase(passphrase, PASSPHRASE_SALT, PASSPHRASE_ROUNDS);
   // Sin crypto.subtle (página abierta como archivo local, navegador antiguo) no se puede comprobar: ver `accessState`.
-  if (!subtle) return true;
-  const key = await subtle.importKey('raw', new TextEncoder().encode(passphrase.normalize('NFKC')), 'PBKDF2', false, ['deriveBits']);
-  const derived = await subtle.deriveBits({ name: 'PBKDF2', salt: bytes(PASSPHRASE_SALT), iterations: PASSPHRASE_ROUNDS, hash: 'SHA-256' }, key, 256);
-  return sameDigest(hex(derived), PASSPHRASE_HASH);
+  if (derived === null) return true;
+  return sameDigest(derived, PASSPHRASE_HASH);
 }
 
 /** La clave solo se puede comprobar en un contexto seguro (https o localhost). */
