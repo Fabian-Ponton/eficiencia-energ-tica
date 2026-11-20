@@ -32,6 +32,15 @@ if (clave === 'PONTIA-2026') {
   console.error('Esa es la clave de ejemplo que trae el repositorio y está escrita en su documentación. Elige otra.');
   process.exit(1);
 }
+if (/["'‘’“”]/.test(clave)) {
+  console.error('La clave recibida trae comillas dentro. Suele pasar cuando la consola no las interpretó como');
+  console.error('delimitador. No se cambió nada. Escríbela sin espacios y sin comillas, por ejemplo:');
+  console.error('   node scripts/clave.mjs miclavesegura2027');
+  process.exit(1);
+}
+
+// Para poder comprobar que llegó lo que se escribió, sin revelar la clave.
+console.log(`\nClave recibida: ${clave.length} caracteres` + (clave.includes(' ') ? `, con ${clave.split(' ').length - 1} espacio(s)` : ', sin espacios'));
 
 const salt = randomBytes(16).toString('hex');
 const hash = pbkdf2Sync(clave.normalize('NFKC'), Buffer.from(salt, 'hex'), ROUNDS, 32, 'sha256').toString('hex');

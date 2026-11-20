@@ -21,8 +21,8 @@
 export const REQUIRE_PASSPHRASE = true;
 
 /** Sal y resultado de la clave vigente (ver «cómo cambiar la clave»). */
-export const PASSPHRASE_SALT = 'a8feed4659fb24f94543b4e0b6b10db1';
-export const PASSPHRASE_HASH = '8e809594df66f362571e6d16a024414c0586346544958d28eae5145e05ec7e98';
+export const PASSPHRASE_SALT = 'c052486eef2ed599f5d715876fe4a2c5';
+export const PASSPHRASE_HASH = 'e06613a91ed19c817415fd5e368dc6cc0f08c1af15e25abde14800d7b569469b';
 export const PASSPHRASE_ROUNDS = 200_000;
 
 /**
